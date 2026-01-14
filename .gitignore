@@ -17,17 +17,17 @@ pnpm-debug.log*
 ############################
 # BACKEND (Node / Express)
 ############################
-server/node_modules/
-server/logs/
-server/*.log
+backend/node_modules/
+backend/logs/
+backend/*.log
 
 ############################
 # FRONTEND (React / Vite / CRA)
 ############################
-client/node_modules/
-client/build/
-client/dist/
-client/.cache/
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.cache/
 
 ############################
 # NEXT.JS (if used)
