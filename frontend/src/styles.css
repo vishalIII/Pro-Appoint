@@ -1,0 +1,21 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+nav {
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+nav a {
+  margin-right: 16px;
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+}
+
+main {
+  padding: 24px;
+}
