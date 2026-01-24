@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-
     email: {
       type: String,
       required: true,
@@ -23,10 +22,27 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["USER","ServiceProvider", "ADMIN"],
-      default: "USER"
+      enum: ["Customer", "ServiceProvider", "Admin"],
+      default: "Customer"
     },
-     isVerified: {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+
+      required: function () {
+        return this.role === "provider";
+      },
+
+      validate: {
+        validator: function (value) {
+          if (this.role === "provider") return !!value; // must exist
+          return !value; // admin & customer must NOT have tenantId
+        },
+        message: "Only service providers can belong to a tenant",
+      },
+    },
+
+    isVerified: {
       type: Boolean,
       default: false
     },
@@ -34,6 +50,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     }
+
   },
   { timestamps: true }
 );
