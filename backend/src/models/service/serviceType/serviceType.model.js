@@ -4,14 +4,14 @@ const serviceTypeSchema = new mongoose.Schema(
   {
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Tenant",
+      ref: "tenant",
       required: true,
       index: true,
     },
 
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Service",
+      ref: "service",
       required: true,
       index: true,
     },

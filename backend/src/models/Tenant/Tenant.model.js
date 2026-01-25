@@ -10,7 +10,7 @@ const TenantSchema = new mongoose.Schema(
 
     industry: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Industry",
+      ref: "industry",
       required: true,
     },
 
@@ -18,6 +18,8 @@ const TenantSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    
+    images: [String],
 
     contactEmail: String,
     contactPhone: String,

@@ -1,3 +1,4 @@
+const mongoose = require("mongoose")
 const industrySchema = new mongoose.Schema(
   {
     name: {
@@ -15,4 +16,4 @@ const industrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Industry", industrySchema);
+module.exports = mongoose.model("industry", industrySchema);
