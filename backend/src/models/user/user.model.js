@@ -27,15 +27,15 @@ const userSchema = new mongoose.Schema(
     },
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Tenant",
+      ref: "tenant",
 
       required: function () {
-        return this.role === "provider";
+        return this.role === "ServiceProvider";
       },
 
       validate: {
         validator: function (value) {
-          if (this.role === "provider") return !!value; // must exist
+          if (this.role === "ServiceProvider") return !!value; // must exist
           return !value; // admin & customer must NOT have tenantId
         },
         message: "Only service providers can belong to a tenant",
