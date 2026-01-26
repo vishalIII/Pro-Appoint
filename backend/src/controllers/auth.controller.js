@@ -8,7 +8,7 @@ exports.register = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({ message: "Email already registered",existingUser });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -31,6 +31,8 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Login Controller -------------------------------------------------------------
 
 exports.login = async (req, res) => {
   try {
