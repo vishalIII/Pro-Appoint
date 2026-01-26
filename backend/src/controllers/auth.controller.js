@@ -1,5 +1,5 @@
-const User = require("../models/user");
-const bcrypt = require("bcryptjs");
+const User = require("../models/user/user.model");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res) => {
@@ -18,9 +18,9 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || "customer",
+      role: role || "Customer",
       tenantId: null,
-      isVerified: role === "customer", // providers will verify later
+      isVerified: role === "Customer", // providers will verify later
     });
 
     res.status(201).json({

@@ -1,11 +1,16 @@
 const express = require("express");
-
 const app = express();
+
+const authRoutes = require("./routes/auth.routes");
+
+/* -------- Routes -------- */
+app.use("/api/auth", authRoutes);
 
 /* -------- Middleware -------- */
 app.use(express.json());
 
 /* -------- app.get routes -------- */
+
 
 app.get("/", (req, res) => {
   res.send("Home API working");
