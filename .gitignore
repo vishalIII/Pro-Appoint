@@ -20,7 +20,7 @@ pnpm-debug.log*
 backend/node_modules/
 backend/logs/
 backend/*.log
-
+backend/dummyData.txt
 ############################
 # FRONTEND (React / Vite / CRA)
 ############################

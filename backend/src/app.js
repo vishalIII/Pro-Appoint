@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
-const user = require("./models/user/user.model")
-
+const User = require("./models/user/user.model.js")
+const Tenant = require("./models/tenant/tenant.model.js")
 const authRoutes = require("./routes/auth.routes");
 
 /* -------- Routes -------- */

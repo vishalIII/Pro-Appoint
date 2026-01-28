@@ -1,4 +1,4 @@
-const User = require("../models/user/user.model");
+const User = require("../models/user/user.model.js");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -37,7 +37,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    console.log(Object.keys(require("mongoose").models));
     // 1. Find user
     const user = await User.findOne({ email })
       .select("+password")
