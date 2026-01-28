@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema(
         message: "Only service providers can belong to a tenant",
       },
     },
-
+    
     isVerified: {
       type: Boolean,
       default: false
