@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema(
       },
 
       validate: {
-        validator: function (value) {
+        validator: function (value) {    //value is tenantId , validator(this.tenantId) , value === this.tenantId
           if (this.role === "ServiceProvider") return !!value; // must exist
           return !value; // admin & customer must NOT have tenantId
         },
