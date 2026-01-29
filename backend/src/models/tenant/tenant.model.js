@@ -8,6 +8,12 @@ const TenantSchema = new mongoose.Schema(
       trim: true,
     },
 
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
+    },
+
     industry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
@@ -18,11 +24,18 @@ const TenantSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    
+
     images: [String],
 
-    contactEmail: String,
-    contactPhone: String,
+    contactEmail: {
+      type: String,
+      required: true,
+    },
+    contactPhone: {
+      type: String,
+      required: true,
+      match: [/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format']
+    },
 
     address: {
       street: String,
@@ -32,9 +45,10 @@ const TenantSchema = new mongoose.Schema(
       landMark: String,
     },
 
-    isApproved: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "blocked"],
+      default: "pending",
     },
 
     documents: {
@@ -43,12 +57,28 @@ const TenantSchema = new mongoose.Schema(
       other: [{ type: String }],
     },
 
-    rating: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 5,
+    //rejection or blocked reason-------
+    statusMeta: {
+      reason: {
+        type: String,
+        required: function () {
+          return ["rejected", "blocked"].includes(this.status);
+        },
+      },
+      by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: function () {
+          return ["rejected", "blocked"].includes(this.status);
+        },
+      },
+      at: {
+        type: Date,
+        default: Date.now,
+      },
     },
+
+
   },
   { timestamps: true }
 );

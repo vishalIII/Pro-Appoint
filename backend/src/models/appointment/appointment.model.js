@@ -134,5 +134,4 @@ appointmentSchema.index({
   endTimeUTC: 1,
 });
 
-
 module.exports = mongoose.model("appointment",appointmentSchema);
