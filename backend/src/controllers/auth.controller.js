@@ -40,8 +40,8 @@ exports.login = async (req, res) => {
     console.log(Object.keys(require("mongoose").models));
     // 1. Find user
     const user = await User.findOne({ email })
-      .select("+password")
-      .populate("tenantId");
+      .select("+password")    // '+' sign is for including password which is excluded by default '-' sign is for excluding
+      .populate("tenantId");    
 
     if (!user || !user.isActive) {
       return res.status(401).json({ message: "Invalid credentials" });

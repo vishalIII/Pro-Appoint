@@ -57,7 +57,7 @@ const appointmentSchema = new mongoose.Schema({
 
     meeting: {
       platform: {
-        type: String, // zoom | google_meet | teams | custom
+        type: String, // zoom | google_meet | teams | custom whatever platform link
       },
       link: {
         type: String,

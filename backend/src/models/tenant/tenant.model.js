@@ -13,7 +13,7 @@ const TenantSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
-
+                                            
     industry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
@@ -57,9 +57,9 @@ const TenantSchema = new mongoose.Schema(
       other: [{ type: String }],
     },
 
-    //rejection or blocked reason-------
+    //rejection or blocked reason-------> auditability + clarity.
     statusMeta: {
-      reason: {
+      reason: { 
         type: String,
         required: function () {
           return ["rejected", "blocked"].includes(this.status);

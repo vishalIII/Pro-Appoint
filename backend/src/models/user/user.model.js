@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Customer", "ServiceProvider", "Admin"],
       default: "Customer"
     },
+    
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "tenant",
