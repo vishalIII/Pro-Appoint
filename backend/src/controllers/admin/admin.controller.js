@@ -22,16 +22,23 @@ exports.approveTenant = async (req, res) => {
       return res.status(404).json({ message: "tenant not found" });
     }
 
+    if (tenant.status === "approved") {
+      return res.status(400).json({ message: "Tenant already approved" });
+    }
+
     //updating tenant
     tenant.status = "approved";
     tenant.statusMeta = undefined;
+
     await tenant.save();
 
     //updating user to tenant
     const user = await User.findById(tenant.ownerId);
-    user.role = "ServiceProvider";
-    user.tenantId = tenant._id;
-    await user.save();
+    if (user) {
+      user.role = "ServiceProvider";
+      user.tenantId = tenant._id;
+      await user.save();
+    }
 
     return res.status(200).json({
       message: "Tenant approved successfully",
@@ -47,14 +54,32 @@ exports.rejectTenant = async (req, res) => {
   try {
     const { tenantId } = req.params;
     const tenant = await Tenant.findById(tenantId);
+    //  const { reason } = req.body;
 
     if (!tenant) {
       return res.status(404).json({ message: "tenant not found" });
     }
 
+    if (tenant.status === "rejected") {
+      return res.status(400).json({ message: "Tenant already rejected" });
+    }
+
+    // if (!reason || reason.trim() === "") {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Rejection reason is required" });
+    // }
+
     //updating tenant
     tenant.status = "rejected";
-    tenant.rejectionReason = reason || "Rejected by admin";
+
+    tenant.statusMeta = undefined
+    // tenant.statusMeta = {
+    //   reason:"rejected by admin",
+    //   by: req.user._id, 
+    //   at: new Date(),
+    // };
+
     await tenant.save();
 
     return res.status(200).json({
@@ -63,6 +88,6 @@ exports.rejectTenant = async (req, res) => {
     
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error in rejectTenant " });
   }
 };

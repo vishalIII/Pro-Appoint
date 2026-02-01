@@ -13,7 +13,7 @@ const TenantSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
-                                            
+
     industry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
@@ -34,7 +34,7 @@ const TenantSchema = new mongoose.Schema(
     contactPhone: {
       type: String,
       required: true,
-      match: [/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format']
+      match: [/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"],
     },
 
     address: {
@@ -57,9 +57,9 @@ const TenantSchema = new mongoose.Schema(
       other: [{ type: String }],
     },
 
-    //rejection or blocked reason-------> auditability + clarity.
+    // rejection or blocked reason-------> auditability + clarity.
     statusMeta: {
-      reason: { 
+      reason: {
         type: String,
         required: function () {
           return ["rejected", "blocked"].includes(this.status);
@@ -77,10 +77,20 @@ const TenantSchema = new mongoose.Schema(
         default: Date.now,
       },
     },
+    // statusMeta: {
+    //   type: {
+    //     reason: String,
+    //     by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    //     at: { type: Date, default: Date.now },
+    //   },
+    //   required: function () {
+    //     return ["rejected", "blocked"].includes(this.status);
+    //   },
+    // },
 
 
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("tenant", TenantSchema);
