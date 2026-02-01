@@ -10,7 +10,7 @@ const tenantRoutes=require("./routes/tenant/tenantApplication.routes.js")
 /* -------- Middleware -------- */
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
-
+const adminAuthMiddlware=require("./middlewares/admin/adminAuth.middleware.js")
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login

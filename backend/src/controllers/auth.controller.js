@@ -61,7 +61,7 @@ exports.login = async (req, res) => {
         tenantId: user.tenantId?._id || null,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "1h" }
     );
 
     res.status(200).json({

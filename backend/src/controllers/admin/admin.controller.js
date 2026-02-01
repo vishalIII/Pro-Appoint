@@ -4,12 +4,12 @@ const User = require("../../models/user/user.model");
 //get all tenanta applications --------------------------------------------
 exports.getAllTenantApplications = async (req, res) => {
   try {
-    const tenants = Tenant.find().populate("ownerId", "name email role");
+    const tenants = await Tenant.find().populate("ownerId", "name email role");
     return res.status(200).json(tenants);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "server Error" });
-  }
+  } 
 };
 
 //approve tenant -----------------------------------------------------------

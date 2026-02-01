@@ -1,6 +1,6 @@
-const Tenant = require("../models/tenant/tenant.model");
+const Tenant = require("../../models/tenant/tenant.model");
 
-exports.requireApprovedTenant = async (req, res, next) => {
+module.exports = async (req, res, next) => {
   if (!req.user.tenantId) {
     return res.status(403).json({ message: "Create your store first" });
   }

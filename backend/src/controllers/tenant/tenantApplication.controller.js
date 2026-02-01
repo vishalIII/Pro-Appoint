@@ -1,4 +1,3 @@
-const { findOne } = require("../../models/appointment/appointment.model");
 const Tenant = require("../../models/tenant/tenant.model")
 const User = require("../../models/user/user.model")
 
@@ -42,7 +41,7 @@ exports.applyProvider = async (req, res) => {
 // Get service provider application status ------------------------------------------------------------
 exports.getApplicationStatus = async(req,res)=>{
   try {
-      const tenant = await findOne({ownerId:req.user.userId})
+      const tenant = await Tenant.findOne({ownerId:req.user.userId})
       if(!tenant){
         return res.status(404).json({message:"No service provider application is found"})
       }
