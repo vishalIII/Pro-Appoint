@@ -3,10 +3,9 @@ const router = express.Router();
 const { getAllTenantApplications } = require("../../controllers/admin/admin.controller");
 
 router.get("/", (req, res) => {
-  res.send("TenantApplication API working");
+  res.send("Admin API working");
 });
 
-router.post("/service-provider-application", applyProvider);
-router.get("/service-provider-application-status", getApplicationStatus);
+router.get("/service-provider-applications", getAllTenantApplications);
 
 module.exports = router;
