@@ -59,36 +59,15 @@ const TenantSchema = new mongoose.Schema(
 
     // rejection or blocked reason-------> auditability + clarity.
     statusMeta: {
-      reason: {
-        type: String,
-        required: function () {
-          return ["rejected", "blocked"].includes(this.status);
-        },
+      type: {
+        reason: String,
+        by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        at: { type: Date, default: Date.now },
       },
-      by: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: function () {
-          return ["rejected", "blocked"].includes(this.status);
-        },
-      },
-      at: {
-        type: Date,
-        default: Date.now,
+      required: function () {
+        return ["rejected", "blocked"].includes(this.status);
       },
     },
-    // statusMeta: {
-    //   type: {
-    //     reason: String,
-    //     by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    //     at: { type: Date, default: Date.now },
-    //   },
-    //   required: function () {
-    //     return ["rejected", "blocked"].includes(this.status);
-    //   },
-    // },
-
-
   },
   { timestamps: true },
 );

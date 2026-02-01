@@ -9,7 +9,7 @@ exports.getAllTenantApplications = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "server Error" });
-  } 
+  }
 };
 
 //approve tenant -----------------------------------------------------------
@@ -54,7 +54,7 @@ exports.rejectTenant = async (req, res) => {
   try {
     const { tenantId } = req.params;
     const tenant = await Tenant.findById(tenantId);
-    //  const { reason } = req.body;
+    const { reason } = req.body;
 
     if (!tenant) {
       return res.status(404).json({ message: "tenant not found" });
@@ -64,28 +64,24 @@ exports.rejectTenant = async (req, res) => {
       return res.status(400).json({ message: "Tenant already rejected" });
     }
 
-    // if (!reason || reason.trim() === "") {
-    //   return res
-    //     .status(400)
-    //     .json({ message: "Rejection reason is required" });
-    // }
-
     //updating tenant
-    tenant.status = "rejected";
-
-    tenant.statusMeta = undefined
-    // tenant.statusMeta = {
-    //   reason:"rejected by admin",
-    //   by: req.user._id, 
-    //   at: new Date(),
-    // };
-
-    await tenant.save();
+    await Tenant.findByIdAndUpdate(
+      tenantId,
+      {
+        status: "rejected",
+        statusMeta: {
+          reason: reason || "rejected by admin",
+          by: req.user._id,
+          at: new Date(),
+        },
+      },
+      { runValidators: true },
+      //without this option, MongoDB will accept almost anything , any body, even if it breaks your schema.
+    );
 
     return res.status(200).json({
       message: "Tenant rejected successfully",
     });
-    
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error in rejectTenant " });
