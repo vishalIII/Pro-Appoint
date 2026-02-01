@@ -6,7 +6,7 @@ exports.requireApprovedTenant = async (req, res, next) => {
   }
 
   const tenant = await Tenant.findById(req.user.tenantId);
-  if (!tenant || !tenant.isApproved) {
+  if (!tenant || tenant.status!=="approved") {
     return res
       .status(403)
       .json({ message: "Tenant not approved yet" });
