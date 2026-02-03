@@ -1,5 +1,19 @@
 const Tenant = require("../../models/tenant/tenant.model")
 const User = require("../../models/user/user.model")
+const Industry = require("../../models/service/industry/industry.model");
+
+
+
+//get active industries
+exports.getActiveIndustries = async (req, res) => {
+  try {
+    const industries = await Industry.find({ isActive: true });
+    res.json(industries);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 // Post - apply for service provider
 exports.applyProvider = async (req, res) => {
@@ -22,6 +36,19 @@ exports.applyProvider = async (req, res) => {
     if (existingTenant) {
       return res.status(400).json({ message: "Service provider application already exists" })
     }
+
+    //checking valid industry
+    const { industry } = req.body;
+    const industryExists = await Industry.findOne({
+      _id: industry,
+      isActive: true,
+    });
+    if (!industryExists) {
+      return res.status(400).json({
+        message: "Selected industry is not available",
+      });
+    }
+
 
     //now creating tenant but since tenant is getting created first time we will keep status pending
     const tenant = Tenant.create({ ownerId: userId, ...req.body })

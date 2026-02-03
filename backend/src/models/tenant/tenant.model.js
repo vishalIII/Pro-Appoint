@@ -18,6 +18,16 @@ const TenantSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
       required: true,
+      validate: {
+        validator: async function (value) {
+          const industry = await mongoose.model("industry").findOne({
+            _id: value,
+            isActive: true,
+          });
+          return !!industry;
+        },
+        message: "Industry is not active",
+      },
     },
 
     description: {
