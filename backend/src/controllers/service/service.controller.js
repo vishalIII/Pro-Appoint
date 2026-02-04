@@ -82,7 +82,7 @@ exports.getMyServices = async (req, res) => {
 //Patch ---------------------------------------UPDATE SERVICE
 exports.updateService = async (req, res) => {
   try {
-    const { serviceId } = req.params;
+    const { id } = req.params;
     const { name, weeklyAvailability, category, images, isActive } = req.body;
 
     if (name !== undefined && name.trim().length === 0) {
@@ -120,7 +120,7 @@ exports.updateService = async (req, res) => {
 
     const service = await Service.findOneAndUpdate(
       {
-        _id: serviceId,
+        _id: id,
         tenantId: req.user.tenantId
       },
       { $set: updateData },
