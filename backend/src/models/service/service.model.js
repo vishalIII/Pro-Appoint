@@ -2,7 +2,6 @@ const mongoose = require("mongoose")
 const {
   weeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
-const {closureSchema} = require("../service/schemas/closure.Schema")
 
 const serviceSchema = new mongoose.Schema(
   {
@@ -23,9 +22,9 @@ const serviceSchema = new mongoose.Schema(
       required: true,
     },
 
-    closures: {
-      type: [closureSchema],
-      default: [],
+    isActive: {
+      type: Boolean,
+      default: true
     },
 
     category: String,

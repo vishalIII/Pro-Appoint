@@ -7,19 +7,21 @@ const Tenant = require("./models/tenant/tenant.model.js")
 const authRoutes = require("./routes/auth/auth.routes.js");
 const tenantRoutes=require("./routes/tenant/tenantApplication.routes.js")
 const adminRoutes = require("./routes/admin/index.js")
+const serviceRoutes = require("./routes/service/service.routes.js")
 /* -------- Middleware -------- */
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
-const adminAuthMiddlware=require("./middlewares/admin/adminAuth.middleware.js")
+const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
+const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes); 
+app.use("/api/tenant",authMiddleware,tenantRoutes);  
 
-app.use("/api/admin",authMiddleware,adminAuthMiddlware,adminRoutes)
+app.use("/api/admin",authMiddleware,adminAuthMiddleware,adminRoutes)
 
-
+app.use("/api/service",authMiddleware,serviceRoutes)
 
 
 //-------------------------------------------------------------------

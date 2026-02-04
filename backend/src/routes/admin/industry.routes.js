@@ -6,14 +6,14 @@ router.get("/", (req, res) => {
   res.send("industry API working");
 });
 
-router.post("/create", createIndustry);
+router.post("/", createIndustry);
 
-router.get("/get-all", getAllIndustries);
+router.get("/", getAllIndustries);
 
-router.patch("/update/:id", updateIndustry);
+router.patch("/:id", updateIndustry);
 
 router.patch("/toggle-status/:id", toggleIndustryStatus);
 
-router.delete("/delete/:id", deleteIndustry);
+router.delete("/:id", deleteIndustry);
 
 module.exports = router;
