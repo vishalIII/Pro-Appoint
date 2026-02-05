@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const {
+  weeklyAvailabilitySchema,
+} = require("../service/schemas/availability.schema");
 
 const TenantSchema = new mongoose.Schema(
   {
@@ -28,6 +31,11 @@ const TenantSchema = new mongoose.Schema(
         },
         message: "Industry is not active",
       },
+    },
+
+    weeklyAvailability: {
+      type: [weeklyAvailabilitySchema],
+      required: true,
     },
 
     description: {
@@ -60,6 +68,23 @@ const TenantSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected", "blocked"],
       default: "pending",
     },
+    
+    closedPeriods: [
+      {
+        startDate: {
+          type: Date,
+          required: true,
+        },
+        endDate: {
+          type: Date,
+          required: true,
+        },
+        reason: {
+          type: String,
+          default: "Shop is closed",
+        },
+      },
+    ],
 
     documents: {
       gst: { type: String },

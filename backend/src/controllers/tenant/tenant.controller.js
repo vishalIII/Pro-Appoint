@@ -25,7 +25,33 @@ exports.updateOwnTenant = async (req, res) => {
       "contactEmail",
       "contactPhone",
       "address",
+      "weeklyAvailability"
     ];
+
+    //--------------------------------------Specifically validating for weeklyAvailability
+    const {weeklyAvailability}=req.body;
+    if (weeklyAvailability !== undefined) {
+      if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length === 0) {
+        return res.status(400).json({ message: "Weekly availability cannot be empty" });
+      }
+
+      const validDays = [
+        "monday","tuesday","wednesday",
+        "thursday","friday","saturday","sunday"
+      ];
+
+      const days = weeklyAvailability.map(d => d.day);
+      if (new Set(days).size !== 7) {
+        return res.status(400).json({ message: "All 7 days availability required" });
+      }
+
+      for (let day of days) {
+        if (!validDays.includes(day)) {
+          return res.status(400).json({ message: `Invalid day: ${day}` });
+        }
+      }
+    }
+    // -----------------------------------------------------------------
 
     const updates = {}; //only valid and provided updates we will update
     allowedUpdates.forEach((field) => {

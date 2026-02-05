@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 const {
   weeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
@@ -22,23 +22,35 @@ const serviceSchema = new mongoose.Schema(
       required: true,
     },
 
-    isActive: {
-      type: Boolean,
-      default: true
-    },
+    closedPeriods: [
+      {
+        startDate: {
+          type: Date,
+          required: true,
+        },
+        endDate: {
+          type: Date,
+          required: true,
+        },
+        reason: {
+          type: String,
+          default: "Shop is closed",
+        },
+      },
+    ],
 
     category: String,
-    // e.g. Hair, Skin, Consultation, Repair    
+    // e.g. Hair, Skin, Consultation, Repair
 
     images: [String],
+    price: Number,
 
     isActive: {
       type: Boolean,
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
-
 
 module.exports = mongoose.model("service", serviceSchema);

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { createIndustry,getAllIndustries,updateIndustry,toggleIndustryStatus,deleteIndustry} = require("../../controllers/admin/industry.controller");
 
-router.get("/", (req, res) => {
+router.get("/check", (req, res) => {
   res.send("industry API working");
 });
 
