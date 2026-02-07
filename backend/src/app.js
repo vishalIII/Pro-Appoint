@@ -11,11 +11,12 @@ const adminRoutes = require("./routes/admin/index.js")
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddlware=require("./middlewares/admin/adminAuth.middleware.js")
+const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes); 
+app.use("/api/tenant",authMiddleware,tenantAuthMiddleware,tenantRoutes); 
 
 app.use("/api/admin",authMiddleware,adminAuthMiddlware,adminRoutes)
 
