@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password} = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -18,9 +18,7 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || "Customer",
-      tenantId: null,
-      isVerified: role === "Customer", // providers will verify later
+      tenantId: null // providers will verify later
     });
 
     res.status(201).json({
@@ -37,7 +35,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log(Object.keys(require("mongoose").models));
+    // console.log(Object.keys(require("mongoose").models));
     // 1. Find user
     const user = await User.findOne({ email })
       .select("+password")    // '+' sign is for including password which is excluded by default '-' sign is for excluding
@@ -53,7 +51,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 3. Generate JWT
+    //3.Check tenant verification for service providers
+    if(user.role==='ServiceProvider' && !user.tenantId){
+      return res.status(403).json({ message: "Your account is pending verification by admin" });
+    }
+
+    // 4. Generate JWT
     const token = jwt.sign(
       {
         userId: user._id,

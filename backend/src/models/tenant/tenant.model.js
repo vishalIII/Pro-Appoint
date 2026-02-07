@@ -71,7 +71,7 @@ const TenantSchema = new mongoose.Schema(
     statusMeta: {
       type: {
         reason: String,
-        by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
         at: { type: Date, default: Date.now },
       },
       required: function () {

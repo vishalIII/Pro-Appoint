@@ -57,7 +57,8 @@ const appointmentSchema = new mongoose.Schema({
 
     meeting: {
       platform: {
-        type: String, // zoom | google_meet | teams | custom whatever platform link
+        type: String,
+        enum: ["zoom", "google_meet", "teams", "in_person"],
       },
       link: {
         type: String,
@@ -79,7 +80,7 @@ const appointmentSchema = new mongoose.Schema({
     cancellation: {
       cancelledBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "user",
       },
       cancelledAt: Date,
       reason: String,
