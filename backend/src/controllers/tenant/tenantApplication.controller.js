@@ -1,7 +1,7 @@
 const Tenant = require("../../models/tenant/tenant.model")
 const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
-
+const tenantApplyService = require("../../services/tenant/tenantApply.service")
 
 
 //get active industries
@@ -18,50 +18,17 @@ exports.getActiveIndustries = async (req, res) => {
 // Post - apply for service provider
 exports.applyProvider = async (req, res) => {
   try {
-    const userId = req.user.userId;
-
-    //fetching user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" })
-    }
-
-    //if already user is provider
-    if (user.role === "ServiceProvider") {
-      return res.status(400).json({ message: "Already a service provider" });
-    }
-
-    //if service provider is already exist | we can say already applied
-    const existingTenant = await Tenant.findOne({ ownerId: userId })
-    if (existingTenant) {
-      return res.status(400).json({ message: "Service provider application already exists" })
-    }
-
-    //checking valid industry
-    const { industry } = req.body;
-    const industryExists = await Industry.findOne({
-      _id: industry,
-      isActive: true,
-    });
-    if (!industryExists) {
-      return res.status(400).json({
-        message: "Selected industry is not available",
-      });
-    }
-
-
-    //now creating tenant but since tenant is getting created first time we will keep status pending
-    const tenant = Tenant.create({ ownerId: userId, ...req.body })
-
+    
+    const tenant=await tenantApplyService.tenantApply(req,res)
     return res.status(201).json({
       message: "Service provider application submitted successfully",
-      tenantId: tenant._id,
-      status: tenant.status,
+      tenantId: tenant._id
     })
+    
 
   } catch (error) {
       console.log(error)
-      return res.status(500).json({message:"Server Error"})
+      return res.status(500).json({message:error.message})
   }
 };
 

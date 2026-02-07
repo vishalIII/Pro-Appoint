@@ -1,85 +1,45 @@
 const mongoose = require("mongoose");
 
-const TenantSchema = new mongoose.Schema(
+const tenantSchema = new mongoose.Schema(
   {
-    ServiceName: {
+    name: {
       type: String,
       required: true,
-      trim: true,
-    },
-
-    ownerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
-      required: true,
+      trim: true
     },
 
     industry: {
+      type: String,
+      required: true
+    },
+
+    // User who owns this tenant
+    ownerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "industry",
-      required: true,
-      validate: {
-        validator: async function (value) {
-          const industry = await mongoose.model("industry").findOne({
-            _id: value,
-            isActive: true,
-          });
-          return !!industry;
-        },
-        message: "Industry is not active",
+      ref: "user",
+      required: true
+    },
+
+    subscription: {
+      plan: {
+        type: String,
+        enum: ["FREE", "BASIC", "PRO"],
+        default: "FREE"
       },
+
+      // Default expiry = 30 days from creation
+      expiryDate: {
+        type: Date,
+        default: () => Date.now() + 30 * 24 * 60 * 60 * 1000
+      }
     },
 
-    description: {
-      type: String,
-      trim: true,
-    },
-
-    images: [String],
-
-    contactEmail: {
-      type: String,
-      required: true,
-    },
-    contactPhone: {
-      type: String,
-      required: true,
-      match: [/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"],
-    },
-
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      pincode: String,
-      landMark: String,
-    },
-
-    status: {
-      type: String,
-      enum: ["pending", "approved", "rejected", "blocked"],
-      default: "pending",
-    },
-
-    documents: {
-      gst: { type: String },
-      license: { type: String },
-      other: [{ type: String }],
-    },
-
-    // rejection or blocked reason-------> auditability + clarity.
-    statusMeta: {
-      type: {
-        reason: String,
-        by: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
-        at: { type: Date, default: Date.now },
-      },
-      required: function () {
-        return ["rejected", "blocked"].includes(this.status);
-      },
-    },
+    isActive: {
+      type: Boolean,
+      default: true
+    }
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-module.exports = mongoose.model("tenant", TenantSchema);
+module.exports = mongoose.model("Tenant", tenantSchema);

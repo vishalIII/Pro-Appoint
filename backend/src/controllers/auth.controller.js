@@ -1,7 +1,7 @@
 const User = require("../models/user/user.model.js");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
+const authService = require("../services/auth/auth.service.js");
 exports.register = async (req, res) => {
   try {
     const { name, email, password} = req.body;
@@ -35,37 +35,8 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // console.log(Object.keys(require("mongoose").models));
-    // 1. Find user
-    const user = await User.findOne({ email })
-      .select("+password")    // '+' sign is for including password which is excluded by default '-' sign is for excluding
-      .populate("tenantId");    
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // 2. Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    //3.Check tenant verification for service providers
-    if(user.role==='ServiceProvider' && !user.tenantId){
-      return res.status(403).json({ message: "Your account is pending verification by admin" });
-    }
-
-    // 4. Generate JWT
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        tenantId: user.tenantId?._id || null,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    const {user, token} = await authService.loginUser(email, password);
 
     res.status(200).json({
       message: "Login successful",
@@ -75,10 +46,11 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        tenantId: user.tenantId?._id || null,
-        isVerified: user.isVerified,
+        tenantId: user.tenantId?._id || null
       },
     });
+
+    
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

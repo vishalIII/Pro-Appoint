@@ -16,7 +16,7 @@ const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.j
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantAuthMiddleware,tenantRoutes); 
+app.use("/api/tenant",authMiddleware,tenantRoutes); 
 
 app.use("/api/admin",authMiddleware,adminAuthMiddlware,adminRoutes)
 
