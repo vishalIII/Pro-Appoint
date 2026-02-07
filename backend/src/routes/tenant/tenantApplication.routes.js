@@ -8,6 +8,6 @@ router.get("/", (req, res) => {
 
 router.get("/service-provider-application", getActiveIndustries);
 router.post("/service-provider-application", applyProvider);
-router.get("/service-provider-application-status", getApplicationStatus);
+
 
 module.exports = router;

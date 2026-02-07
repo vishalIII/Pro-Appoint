@@ -1,10 +1,10 @@
 const Tenant = require("../../models/tenant/tenant.model");
 const User = require("../../models/user/user.model");
-
+const adminApprovalService = require("../../services/admin/adminApproval")
 //get all tenanta applications --------------------------------------------
 exports.getAllTenantApplications = async (req, res) => {
   try {
-    const tenants = await Tenant.find().populate("ownerId", "name email role");
+    const tenants = await adminApprovalService.getTenantApplications(req,res);
     return res.status(200).json(tenants);
   } catch (error) {
     console.error(error);

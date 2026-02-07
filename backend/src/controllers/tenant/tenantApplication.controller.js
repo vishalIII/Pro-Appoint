@@ -7,7 +7,7 @@ const tenantApplyService = require("../../services/tenant/tenantApply.service")
 //get active industries
 exports.getActiveIndustries = async (req, res) => {
   try {
-    const industries = await Industry.find({ isActive: true });
+    const industries = await tenantApplyService.getActiveIndustries(req,res);
     res.json(industries);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -32,22 +32,3 @@ exports.applyProvider = async (req, res) => {
   }
 };
 
-// Get service provider application status ------------------------------------------------------------
-exports.getApplicationStatus = async(req,res)=>{
-  try {
-      const tenant = await Tenant.findOne({ownerId:req.user.userId})
-      if(!tenant){
-        return res.status(404).json({message:"No service provider application is found"})
-      }
-
-      return res.status(200).json({
-        status:tenant.status,
-        reason:tenant.statusMeta?.reason || null,
-        updatedAt:tenant.statusMeta?.at || null,
-      })
-
-  } catch (error) {
-    console.error(error)
-    return res.status(500).json({message:"Server Error"})
-  }
-};

@@ -1,6 +1,15 @@
 const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
 const Tenant = require("../../models/tenant/tenant.model")
+exports.getActiveIndustries = async (req, res) => {
+    try{
+        const industries = await Industry.find({ isActive: true });
+        return industries;
+    }catch(err){
+        res.status(500).json({message:err.message})
+    }
+}
+
 exports.tenantApply = async (req, res) => {
     try{
         const userId = req.user.userId;
