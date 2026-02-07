@@ -23,7 +23,7 @@ exports.createIndustry = async (req, res) => {
  */
 exports.getAllIndustries = async (req, res) => {
   try {
-    const industries = await Industry.find().sort({ createdAt: 1 });
+    const industries = await industryService.getAllIndustries(req,res)
 
     res.status(200).json({ industries });
   } catch (error) {
@@ -37,22 +37,11 @@ exports.getAllIndustries = async (req, res) => {
  */
 exports.updateIndustry = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, isActive } = req.body;
-
-    const industry = await Industry.findById(id);
-    if (!industry) {
-      return res.status(404).json({ message: "Industry not found" });
-    }
-
-    if (name) industry.name = name;
-    if (typeof isActive === "boolean") industry.isActive = isActive;
-
-    await industry.save();
+    const industry = await industryService.updateIndustry(req,res)
 
     res.status(200).json({
       message: "Industry updated successfully",
-      industry,
+      industry
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -65,15 +54,7 @@ exports.updateIndustry = async (req, res) => {
  */
 exports.toggleIndustryStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const industry = await Industry.findById(id);
-    if (!industry) {
-      return res.status(404).json({ message: "Industry not found" });
-    }
-
-    industry.isActive = !industry.isActive;
-    await industry.save();
+    const industry = await industryService.toggleIndustryStatus(req,res)
 
     res.status(200).json({
       message: `Industry ${industry.isActive ? "activated" : "deactivated"}`,
@@ -90,12 +71,7 @@ exports.toggleIndustryStatus = async (req, res) => {
  */
 exports.deleteIndustry = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const industry = await Industry.findByIdAndDelete(id);
-    if (!industry) {
-      return res.status(404).json({ message: "Industry not found" });
-    }
+   const industry = await industryService.deleteIndustry(req,res)
 
     res.status(200).json({ message: "Industry deleted successfully" });
   } catch (error) {
