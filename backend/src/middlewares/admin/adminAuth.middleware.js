@@ -1,5 +1,5 @@
-module.exports = async (req,res,next)=>{
-    if (!req.user) {
+module.exports = async (req, res, next) => {
+  if (!req.user) {
     return res.status(401).json({
       message: "Unauthorized: user not authenticated",
     });

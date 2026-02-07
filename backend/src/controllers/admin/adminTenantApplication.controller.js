@@ -4,7 +4,7 @@ const adminApprovalService = require("../../services/admin/adminApproval.service
 //get all tenanta applications --------------------------------------------
 exports.getAllTenantApplications = async (req, res) => {
   try {
-    const tenants = await adminApprovalService.getTenantApplications(req,res);
+    const tenants = await adminApprovalService.getTenantApplications(req, res);
     return res.status(200).json(tenants);
   } catch (error) {
     console.error(error);

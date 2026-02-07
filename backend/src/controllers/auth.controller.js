@@ -4,11 +4,11 @@ const jwt = require("jsonwebtoken");
 const authService = require("../services/auth/auth.service.js");
 exports.register = async (req, res) => {
   try {
-    const { name, email, password} = req.body;
+    const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered",existingUser });
+      return res.status(400).json({ message: "Email already registered", existingUser });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -36,7 +36,7 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const {user, token} = await authService.loginUser(email, password);
+    const { user, token } = await authService.loginUser(email, password);
 
     res.status(200).json({
       message: "Login successful",
@@ -50,7 +50,7 @@ exports.login = async (req, res) => {
       },
     });
 
-    
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

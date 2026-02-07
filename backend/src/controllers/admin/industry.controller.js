@@ -6,7 +6,7 @@ const industryService = require("../../services/admin/industry.service");
  */
 exports.createIndustry = async (req, res) => {
   try {
-    const industry=await industryService.createIndustry(req,res)
+    const industry = await industryService.createIndustry(req, res)
 
     res.status(201).json({
       message: "Industry created successfully",
@@ -23,7 +23,7 @@ exports.createIndustry = async (req, res) => {
  */
 exports.getAllIndustries = async (req, res) => {
   try {
-    const industries = await industryService.getAllIndustries(req,res)
+    const industries = await industryService.getAllIndustries(req, res)
 
     res.status(200).json({ industries });
   } catch (error) {
@@ -37,7 +37,7 @@ exports.getAllIndustries = async (req, res) => {
  */
 exports.updateIndustry = async (req, res) => {
   try {
-    const industry = await industryService.updateIndustry(req,res)
+    const industry = await industryService.updateIndustry(req, res)
 
     res.status(200).json({
       message: "Industry updated successfully",
@@ -54,7 +54,7 @@ exports.updateIndustry = async (req, res) => {
  */
 exports.toggleIndustryStatus = async (req, res) => {
   try {
-    const industry = await industryService.toggleIndustryStatus(req,res)
+    const industry = await industryService.toggleIndustryStatus(req, res)
 
     res.status(200).json({
       message: `Industry ${industry.isActive ? "activated" : "deactivated"}`,
@@ -71,7 +71,7 @@ exports.toggleIndustryStatus = async (req, res) => {
  */
 exports.deleteIndustry = async (req, res) => {
   try {
-   const industry = await industryService.deleteIndustry(req,res)
+    const industry = await industryService.deleteIndustry(req, res)
 
     res.status(200).json({ message: "Industry deleted successfully" });
   } catch (error) {

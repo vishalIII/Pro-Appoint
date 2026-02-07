@@ -2,20 +2,20 @@ const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
 const Tenant = require("../../models/tenant/tenant.model")
 exports.getActiveIndustries = async (req, res) => {
-    try{
-        const industries = await Industry.find({ isActive: true });
-        return industries;
-    }catch(err){
-        res.status(500).json({message:err.message})
-    }
+  try {
+    const industries = await Industry.find({ isActive: true });
+    return industries;
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
 }
 
 exports.tenantApply = async (req, res) => {
-    try{
-        const userId = req.user.userId;
+  try {
+    const userId = req.user.userId;
 
-        //fetching user
-        const user = await User.findById(userId);
+    //fetching user
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" })
     }
@@ -36,14 +36,14 @@ exports.tenantApply = async (req, res) => {
     }
 
 
-    
-    const tenant =await Tenant.create({ name:user.name,industry,ownerId: userId})
+
+    const tenant = await Tenant.create({ name: user.name, industry, ownerId: userId })
     user.role = "ServiceProvider";
     user.tenantId = tenant._id;
     await user.save();
     return tenant;
 
-    }catch(err){
-        res.status(500).json({message:err.message,"g":err})
-    }
+  } catch (err) {
+    res.status(500).json({ message: err.message, "g": err })
+  }
 }
