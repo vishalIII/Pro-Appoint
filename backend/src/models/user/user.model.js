@@ -25,30 +25,13 @@ const userSchema = new mongoose.Schema(
       enum: ["Customer", "ServiceProvider", "Admin"],
       default: "Customer"
     },
-
+    
     plan: {
       type: String,
       enum: ["free", "pro", "enterprise"],
       default: "free",
     },
-    
-    tenantId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "tenant",
-
-      required: function () {
-        return this.role === "ServiceProvider";
-      },
-
-      validate: {
-        validator: function (value) {  //value is bydefault , value is tenantId , validator(this.tenantId) , value === this.tenantId
-          if (this.role === "ServiceProvider") return !!value; // must exist
-          return !value; // admin & customer must NOT have tenantId
-        },
-        message: "Only service providers can belong to a tenant",
-      },
-    },
-    
+     
     isVerified: {
       type: Boolean,
       default: false
