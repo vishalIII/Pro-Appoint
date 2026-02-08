@@ -28,14 +28,6 @@ exports.applyProvider = async (req, res) => {
       return res.status(400).json({ message: "Already a service provider" });
     }
 
-    //service provider can only create n number of shops
-    const shopCount = await Tenant.countDocuments({ ownerId: userId });
-    if (shopCount >= 1) {
-      return res.status(400).json({
-        message: "You can create a maximum of 1 shops only",
-      });
-    }
-
     const { industry, weeklyAvailability } = req.body;
     //checking valid industry
 
@@ -88,7 +80,7 @@ exports.applyProvider = async (req, res) => {
     //-----------------------------------------------
 
     //now creating tenant but since tenant is getting created first time we will keep status pending
-    const tenant = Tenant.create({ ownerId: userId, ...req.body });
+    const tenant =await Tenant.create({ ownerId: userId, ...req.body });
 
     return res.status(201).json({
       message: "Service provider application submitted successfully",
@@ -96,6 +88,11 @@ exports.applyProvider = async (req, res) => {
       status: tenant.status,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "You already have a pending application",
+      });
+    }
     console.log(error);
     return res.status(500).json({ message: "Server Error" });
   }

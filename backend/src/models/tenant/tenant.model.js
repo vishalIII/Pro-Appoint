@@ -17,6 +17,12 @@ const TenantSchema = new mongoose.Schema(
       required: true,
     },
 
+    plan: {
+  type: String,
+  enum: ["free", "pro", "enterprise"],
+  default: "free",
+},
+
     industry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
@@ -106,5 +112,14 @@ const TenantSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+TenantSchema.index(
+  { ownerId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "pending" },   //For documents with status = "pending" → ownerId must be unique
+  }
+);
+
 
 module.exports = mongoose.model("tenant", TenantSchema);
