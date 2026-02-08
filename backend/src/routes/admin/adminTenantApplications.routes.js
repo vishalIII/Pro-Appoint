@@ -4,8 +4,8 @@ const { getAllTenantApplications,approveTenant,rejectTenant } = require("../../c
 
 router.get("/", getAllTenantApplications);
 
-router.patch("/service-provider-applications/:tenantId/approve", approveTenant);
+router.patch("/:tenantId/approve", approveTenant);
 
-router.patch("/service-provider-applications/:tenantId/reject", rejectTenant);
+router.patch("/:tenantId/reject", rejectTenant);
 
 module.exports = router;
