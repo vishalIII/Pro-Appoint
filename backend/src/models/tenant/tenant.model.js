@@ -18,10 +18,10 @@ const TenantSchema = new mongoose.Schema(
     },
 
     plan: {
-  type: String,
-  enum: ["free", "pro", "enterprise"],
-  default: "free",
-},
+      type: String,
+      enum: ["free", "pro", "enterprise"],
+      default: "free",
+    },
 
     industry: {
       type: mongoose.Schema.Types.ObjectId,
@@ -74,7 +74,7 @@ const TenantSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected", "blocked"],
       default: "pending",
     },
-    
+
     closedPeriods: [
       {
         startDate: {
@@ -117,9 +117,8 @@ TenantSchema.index(
   { ownerId: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: "pending" },   //For documents with status = "pending" → ownerId must be unique
-  }
+    partialFilterExpression: { status: "pending" }, //For documents with status = "pending" → ownerId must be unique
+  },
 );
-
 
 module.exports = mongoose.model("tenant", TenantSchema);

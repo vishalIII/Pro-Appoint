@@ -80,7 +80,11 @@ exports.applyProvider = async (req, res) => {
     //-----------------------------------------------
 
     //now creating tenant but since tenant is getting created first time we will keep status pending
-    const tenant =await Tenant.create({ ownerId: userId, ...req.body });
+    // const tenant =await Tenant.create({ ownerId: userId, ...req.body });
+    const tenant = await Tenant.create({
+      ...req.body,
+      ownerId: userId, //always wins // ...req.body was giving bug and was assigning new value to ownerId
+    });
 
     return res.status(201).json({
       message: "Service provider application submitted successfully",
@@ -103,19 +107,56 @@ const mongoose = require("mongoose");
 
 exports.getApplicationStatus = async (req, res) => {
   try {
-    const tenant = await Tenant.findOne({
-      ownerId: new mongoose.Types.ObjectId(req.user.userId),
-    });
+    const ownerId = new mongoose.Types.ObjectId(req.user.userId);
+
+    console.log(
+      "JWT userId:",
+      req.user.userId,
+      "isValidObjectId:",
+      mongoose.isValidObjectId(req.user.userId),
+    );
+
+    // Pending first
+    let tenant = await Tenant.findOne({
+      ownerId,
+      status: "pending",
+    }).sort({ createdAt: -1 });
+
+    // Approved
+    if (!tenant) {
+      tenant = await Tenant.findOne({
+        ownerId,
+        status: "approved",
+      }).sort({ createdAt: -1 });
+    }
+
+    //Rejected
+    if (!tenant) {
+      tenant = await Tenant.findOne({
+        ownerId,
+        status: "rejected",
+      }).sort({ createdAt: -1 });
+    }
+
+    // Blocked
+    if (!tenant) {
+      tenant = await Tenant.findOne({
+        ownerId,
+        status: "blocked",
+      }).sort({ createdAt: -1 });
+    }
 
     if (!tenant) {
       return res.status(404).json({
-        message: "Service provider application not found",
+        message: "No application found",
       });
     }
 
+    // Debug AFTER fetch
     return res.status(200).json({
       status: tenant.status,
       reason: tenant.statusMeta?.reason || null,
+      appliedAt: tenant.createdAt,
       updatedAt: tenant.updatedAt,
     });
   } catch (error) {
@@ -123,5 +164,3 @@ exports.getApplicationStatus = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
-
