@@ -2,7 +2,7 @@ const Tenant = require("../../models/tenant/tenant.model");
 const User = require("../../models/user/user.model");
 const Industry = require("../../models/service/industry/industry.model");
 
-//get active industries
+//get active industries ====================================================================================
 exports.getActiveIndustries = async (req, res) => {
   try {
     const industries = await Industry.find({ isActive: true });
@@ -12,21 +12,50 @@ exports.getActiveIndustries = async (req, res) => {
   }
 };
 
-// Post - apply for service provider
+// Post - apply for service provider ===========================================================================
 exports.applyProvider = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const PLAN_TENANT_LIMIT = {
+      free: 1,
+      pro: 2,
+      enterprise: 3,
+    };
 
+    const userId = req.user.userId;
     //fetching user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    //if already user is provider
-    if (user.role === "ServiceProvider") {
-      return res.status(400).json({ message: "Already a service provider" });
+    //-------------------------------------------------------CONSTRAINT
+    //it will make sure approved tenats limit is according to plan
+
+    // 1. Get user's plan
+    const userPlan = user.plan || "free";
+
+    // 2. Get allowed tenant limit for this plan
+    const maxTenantsAllowed = PLAN_TENANT_LIMIT[userPlan];
+
+    if (!maxTenantsAllowed) {
+      return res.status(400).json({
+        message: "Invalid user plan",
+      });
     }
+
+    // 3. Count existing tenants (pending + approved)
+    const existingTenantCount = await Tenant.countDocuments({
+      ownerId: userId,
+      status: { $in: ["approved"] },
+    });
+
+    // 4. Check limit
+    if (existingTenantCount >= maxTenantsAllowed) {
+      return res.status(403).json({
+        message: `Your ${userPlan} plan allows only ${maxTenantsAllowed} tenant(s). Please upgrade your plan.`,
+      });
+    }
+    //------------------------------------------------------------------
 
     const { industry, weeklyAvailability } = req.body;
     //checking valid industry
@@ -102,7 +131,7 @@ exports.applyProvider = async (req, res) => {
   }
 };
 
-// Get service provider application status ------------------------------------------------------------
+// Get service provider application status ===========================================================================
 const mongoose = require("mongoose");
 
 exports.getApplicationStatus = async (req, res) => {
@@ -165,7 +194,7 @@ exports.getApplicationStatus = async (req, res) => {
   }
 };
 
-//-----------------------------------------------------Get all applications
+// Get all applications =============================================================================
 exports.getApplicationHistory = async (req, res) => {
   const ownerId = req.user.userId;
 

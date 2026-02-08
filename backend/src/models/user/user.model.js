@@ -25,6 +25,12 @@ const userSchema = new mongoose.Schema(
       enum: ["Customer", "ServiceProvider", "Admin"],
       default: "Customer"
     },
+
+    plan: {
+      type: String,
+      enum: ["free", "pro", "enterprise"],
+      default: "free",
+    },
     
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,

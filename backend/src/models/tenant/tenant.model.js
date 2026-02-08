@@ -17,12 +17,6 @@ const TenantSchema = new mongoose.Schema(
       required: true,
     },
 
-    plan: {
-      type: String,
-      enum: ["free", "pro", "enterprise"],
-      default: "free",
-    },
-
     industry: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "industry",
@@ -74,7 +68,7 @@ const TenantSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected", "blocked"],
       default: "pending",
     },
-
+    
     closedPeriods: [
       {
         startDate: {
