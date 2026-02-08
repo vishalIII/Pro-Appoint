@@ -164,3 +164,14 @@ exports.getApplicationStatus = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+//-----------------------------------------------------Get all applications
+exports.getApplicationHistory = async (req, res) => {
+  const ownerId = req.user.userId;
+
+  const applications = await Tenant.find({ ownerId })
+    .sort({ createdAt: -1 })
+    .select("status statusMeta createdAt updatedAt");
+
+  res.json(applications);
+};
