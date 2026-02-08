@@ -4,12 +4,5 @@ module.exports = (req, res, next) => {
       message: "Only service providers can perform this action"
     });
   }
-
-  if (!req.user.tenantId) {
-    return res.status(403).json({
-      message: "Tenant account not linked"
-    });
-  }
-
   next();
 };
