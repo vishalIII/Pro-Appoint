@@ -7,7 +7,7 @@ const tenantApplyService = require("../../services/tenant/tenantApply.service")
 //get active industries
 exports.getActiveIndustries = async (req, res) => {
   try {
-    const industries = await tenantApplyService.getActiveIndustries(req, res);
+    const industries = await tenantApplyService.getActiveIndustries();
     res.json(industries);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -18,8 +18,9 @@ exports.getActiveIndustries = async (req, res) => {
 // Post - apply for service provider
 exports.applyProvider = async (req, res) => {
   try {
-
-    const tenant = await tenantApplyService.tenantApply(req, res)
+    const userId = req.user.userId;
+    const { industry } = req.body;
+    const tenant = await tenantApplyService.tenantApply(userId, industry)
     return res.status(201).json({
       message: "Service provider application submitted successfully",
       tenantId: tenant._id

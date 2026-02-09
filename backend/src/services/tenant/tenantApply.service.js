@@ -1,38 +1,37 @@
 const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
 const Tenant = require("../../models/tenant/tenant.model")
-exports.getActiveIndustries = async (req, res) => {
+exports.getActiveIndustries = async () => {
   try {
     const industries = await Industry.find({ isActive: true });
     return industries;
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    throw err;
   }
 }
 
-exports.tenantApply = async (req, res) => {
+exports.tenantApply = async (userId,industry) => {
   try {
-    const userId = req.user.userId;
+    
 
     //fetching user
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" })
+      throw new Error("User not found");
     }
+    
 
     //if already user is provider
     if (user.role === "ServiceProvider") {
-      return res.status(400).json({ message: "Already a service provider" });
+      throw new Error("Already a service provider");
     }
     //checking valid industry
-    const { industry } = req.body;
+    
     const industryExists = await Industry.findOne({
       name: industry
     });
     if (!industryExists) {
-      return res.status(400).json({
-        message: "Selected industry is not available",
-      });
+      throw new Error("Invalid industry");
     }
 
 
