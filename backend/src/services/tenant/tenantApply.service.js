@@ -8,7 +8,7 @@ exports.getActiveIndustries = async () => {
     const industries = await Industry.find({ isActive: true });
     return industries;
   } catch (err) {
-    throw err;
+    throw new AppError(err.message || "Failed to fetch active industries", err.statusCode || 500);
   }
 }
 

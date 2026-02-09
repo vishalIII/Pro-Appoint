@@ -10,7 +10,7 @@ exports.getActiveIndustries = async (req, res) => {
     const industries = await tenantApplyService.getActiveIndustries();
     res.json(industries);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
