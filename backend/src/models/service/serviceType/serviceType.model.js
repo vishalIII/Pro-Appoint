@@ -2,9 +2,9 @@ const mongoose = require("mongoose");
 
 const serviceTypeSchema = new mongoose.Schema(
   {
-    tenantId: {
+    shopId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "tenant",
+      ref: "shop",
       required: true,
       index: true,
     },

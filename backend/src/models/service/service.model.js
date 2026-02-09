@@ -5,9 +5,9 @@ const {
 
 const serviceSchema = new mongoose.Schema(
   {
-    tenantId: {
+    shopId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "tenant",
+      ref: "shop",
       required: true,
       index: true,
     },

@@ -5,7 +5,7 @@ const Tenant = require("./models/tenant/tenant.model.js")
 
 /* -------- Routes -------- */
 const authRoutes = require("./routes/auth/auth.routes.js");
-const tenantRoutes=require("./routes/tenant/tenantApplication.routes.js")
+const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
 const serviceRoutes = require("./routes/service/service.routes.js")
 /* -------- Middleware -------- */
@@ -19,7 +19,7 @@ app.use("/api/auth", authRoutes); //Register and login
 
 app.use("/api/tenant",authMiddleware,tenantRoutes);  
 
-app.use("/api/admin",authMiddleware,adminAuthMiddleware,adminRoutes)
+app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/service",authMiddleware,serviceRoutes)
 
