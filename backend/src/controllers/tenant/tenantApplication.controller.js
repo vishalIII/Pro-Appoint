@@ -16,7 +16,7 @@ exports.getActiveIndustries = async (req, res) => {
 
 
 // Post - apply for service provider
-exports.applyProvider = async (req, res) => {
+exports.applyProvider = async (req, res,next) => {
   try {
     const userId = req.user.userId;
     const { industry } = req.body;
@@ -28,8 +28,7 @@ exports.applyProvider = async (req, res) => {
 
 
   } catch (error) {
-    console.log(error)
-    return res.status(500).json({ message: error.message })
+    next(error);
   }
 };
 

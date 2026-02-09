@@ -1,6 +1,8 @@
 const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
 const Tenant = require("../../models/tenant/tenant.model")
+const aapError = require("../../utils/appError");
+const AppError = require("../../utils/appError");
 exports.getActiveIndustries = async () => {
   try {
     const industries = await Industry.find({ isActive: true });
@@ -17,13 +19,13 @@ exports.tenantApply = async (userId,industry) => {
     //fetching user
     const user = await User.findById(userId);
     if (!user) {
-      throw new Error("User not found");
+      throw new AppError("User not found", 404);
     }
     
 
     //if already user is provider
     if (user.role === "ServiceProvider") {
-      throw new Error("Already a service provider");
+      throw new AppError("User is already a service provider", 400);
     }
     //checking valid industry
     
@@ -31,7 +33,7 @@ exports.tenantApply = async (userId,industry) => {
       name: industry
     });
     if (!industryExists) {
-      throw new Error("Invalid industry");
+      throw new AppError("Invalid industry", 400);
     }
 
 
@@ -43,6 +45,6 @@ exports.tenantApply = async (userId,industry) => {
     return tenant;
 
   } catch (err) {
-    res.status(500).json({ message: err.message, "g": err })
+    throw new AppError(err.message || "Failed to apply for service provider", err.statusCode || 500);
   }
 }
