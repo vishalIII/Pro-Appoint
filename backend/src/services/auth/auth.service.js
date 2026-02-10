@@ -1,14 +1,12 @@
 const User = require('../../models/user/user.model.js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const AppError = require('../../utils/appError.js');
 exports.createUser = async (name, email, password) => {
   try {
     const existing = await User.findOne({ email });
     if (existing) {
-      const err = new Error('Email already registered');
-      err.status = 400;
-      throw err;
+      throw new AppError('Email already registered', 400, { existingUser: existing });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -22,8 +20,8 @@ exports.createUser = async (name, email, password) => {
     });
 
     return user;
-  } catch (err) {
-    throw err;
+  } catch (error) {
+    throw new AppError(error.message, error.status || 500);
   }
 }
 exports.loginUser = async (email, password) => {
@@ -33,16 +31,12 @@ exports.loginUser = async (email, password) => {
 
 
     if (!user || !user.isActive) {
-      const err = new Error('Invalid credentials');
-      err.status = 401;
-      throw err;
+      throw new AppError('Invalid credentials', 401);
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      const err = new Error('Invalid credentials');
-      err.status = 401;
-      throw err;
+      throw new AppError('Invalid credentials', 401);
     }
 
     const token = jwt.sign(
@@ -58,7 +52,7 @@ exports.loginUser = async (email, password) => {
     user.password = undefined;
     return { user, token };
 
-  } catch (err) {
-    throw err;
+  } catch (error) {
+    throw new AppError(error.message, error.status || 500);
   }
 }
