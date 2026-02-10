@@ -1,9 +1,10 @@
 const Tenant = require("../../models/tenant/tenant.model");
+const AppError = require("../../utils/appError");
 exports.getTenantApplications = async (req, res) => {
     try {
         const tenants = await Tenant.find().populate("ownerId", "name email role");
         return tenants;
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        throw new AppError(error.message || "Failed to fetch tenant applications", error.statusCode || 500);
     }
 }
