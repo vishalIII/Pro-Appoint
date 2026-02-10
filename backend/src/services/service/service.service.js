@@ -11,11 +11,16 @@ const validateWeeklyAvailability = (weeklyAvailability) => {
 
   //Ensuring is all 7 days present
   const validDays = [
-    "monday","tuesday","wednesday",
-    "thursday","friday","saturday","sunday"
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
   ];
 
-  const providedDays = weeklyAvailability.map(d => d.day);
+  const providedDays = weeklyAvailability.map((d) => d.day);
   const uniqueDays = new Set(providedDays);
 
   if (uniqueDays.size !== 7) {
@@ -34,7 +39,6 @@ const validateWeeklyAvailability = (weeklyAvailability) => {
   }
 };
 
-
 //post ---------------------------------------CREATE SERVICE
 exports.createService = async ({
   tenantId,
@@ -43,7 +47,6 @@ exports.createService = async ({
   category,
   images,
 }) => {
-
   // name validation
   if (!name || name.trim().length === 0) {
     const error = new Error("name is required");
@@ -63,15 +66,12 @@ exports.createService = async ({
   });
 };
 
-
 //Get ---------------------------------------GET SERVICES
 exports.getMyServices = async (tenantId) => {
-  const services = await Service.find({ tenantId })
-    .sort({ createdAt: -1 }); // newest first (optional)
+  const services = await Service.find({ tenantId }).sort({ createdAt: -1 }); // newest first (optional)
 
   return services;
 };
-
 
 //Patch ---------------------------------------UPDATE SERVICE
 exports.updateService = async ({
@@ -83,7 +83,6 @@ exports.updateService = async ({
   images,
   isActive,
 }) => {
-
   if (name !== undefined && name.trim().length === 0) {
     const error = new Error("name cannot be empty");
     error.statusCode = 400;
@@ -98,11 +97,16 @@ exports.updateService = async ({
     }
 
     const validDays = [
-      "monday","tuesday","wednesday",
-      "thursday","friday","saturday","sunday"
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
     ];
 
-    const days = weeklyAvailability.map(d => d.day);
+    const days = weeklyAvailability.map((d) => d.day);
     if (new Set(days).size !== 7) {
       const error = new Error("All 7 days availability required");
       error.statusCode = 400;
@@ -120,7 +124,8 @@ exports.updateService = async ({
 
   const updateData = {};
   if (name !== undefined) updateData.name = name;
-  if (weeklyAvailability !== undefined) updateData.weeklyAvailability = weeklyAvailability;
+  if (weeklyAvailability !== undefined)
+    updateData.weeklyAvailability = weeklyAvailability;
   if (category !== undefined) updateData.category = category;
   if (images !== undefined) updateData.images = images;
   if (isActive !== undefined) updateData.isActive = isActive;
@@ -128,7 +133,7 @@ exports.updateService = async ({
   const service = await Service.findOneAndUpdate(
     { _id: serviceId, tenantId },
     { $set: updateData },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   if (!service) {
