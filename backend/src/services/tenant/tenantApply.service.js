@@ -1,7 +1,6 @@
 const User = require("../../models/user/user.model")
 const Industry = require("../../models/service/industry/industry.model");
 const Tenant = require("../../models/tenant/tenant.model")
-const aapError = require("../../utils/appError");
 const AppError = require("../../utils/appError");
 exports.getActiveIndustries = async () => {
   try {

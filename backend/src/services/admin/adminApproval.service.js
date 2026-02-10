@@ -1,4 +1,4 @@
-const Tenant = require("../../models/Tenant");
+const Tenant = require("../../models/tenant/tenant.model");
 exports.getTenantApplications = async (req, res) => {
     try {
         const tenants = await Tenant.find().populate("ownerId", "name email role");
