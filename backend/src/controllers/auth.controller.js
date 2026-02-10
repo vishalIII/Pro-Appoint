@@ -1,82 +1,46 @@
-const User = require("../models/user/user.model.js");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const authService = require("../services/auth/auth.service");
 
+// =======================================================
+// Register
+// =======================================================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const result = await authService.register(req.body);
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered",existingUser });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: role || "Customer",
-      tenantId: null,
-      isVerified: role === "Customer", // providers will verify later
-    });
-
-    res.status(201).json({
+    return res.status(201).json({
       message: "Registration successful",
-      userId: user._id,
+      userId: result.userId,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("register error:", error);
+
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// Login Controller -------------------------------------------------------------
-
+// =======================================================
+// Login
+// =======================================================
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    console.log(Object.keys(require("mongoose").models));
-    // 1. Find user
-    const user = await User.findOne({ email })
-      .select("+password")    // '+' sign is for including password which is excluded by default '-' sign is for excluding
-      .populate("tenantId");    
+    const result = await authService.login(req.body);
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // 2. Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    // 3. Generate JWT
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        tenantId: user.tenantId?._id || null,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId?._id || null,
-        isVerified: user.isVerified,
-      },
+      token: result.token,
+      user: result.user,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("login error:", error);
+
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: "Server error" });
   }
-};                                               
+};
