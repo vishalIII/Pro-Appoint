@@ -1,6 +1,3 @@
-const User = require("../../models/user/user.model");
-const Tenant = require("../../models/tenant/tenant.model");
-
 exports.createTenant = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -19,20 +16,31 @@ exports.createTenant = async (req, res) => {
       });
     }
 
-    // 3. Create tenant
+    // 3. Trial setup (30 days)
+    const trialDays = 30;
+    const trialStart = new Date();
+    const trialEnd = new Date(
+      trialStart.getTime() + trialDays * 24 * 60 * 60 * 1000
+    );
+
+    // 4. Create tenant
     const tenant = await Tenant.create({
       ownerId: userId,
-      plan: user.plan || "free",
+      plan: "free",
+      planStatus: "trial",
+      trialStart,
+      trialEnd,
     });
 
-    // 4. Link tenant to user
+    // 5. Link tenant to user
     user.tenantId = tenant._id;
-    user.role = "ServiceProvider"; // optional but recommended
+    user.role = "ServiceProvider";
     await user.save();
 
     return res.status(201).json({
-      message: "Tenant created successfully",
+      message: "Tenant created with 1-month free trial",
       tenantId: tenant._id,
+      trialEndsOn: trialEnd,
     });
 
   } catch (error) {

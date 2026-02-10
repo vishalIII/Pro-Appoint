@@ -2,28 +2,52 @@ const mongoose = require("mongoose");
 
 const tenantSchema = new mongoose.Schema(
   {
-    
-    // User who owns this tenant
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true
+      required: true,
     },
 
-    //need to think more about subscription plan
     plan: {
       type: String,
       enum: ["free", "pro", "enterprise"],
       default: "free",
     },
-    
+
+    planStatus: {
+      type: String,
+      enum: ["trial", "active", "expired", "cancelled"],
+      default: "trial",
+    },
+
+    trialStart: {
+      type: Date,
+      default: Date.now,
+    },
+
+    trialEnd: {
+      type: Date,
+    },
+
+    planActivatedAt: {
+      type: Date,
+    },
+
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
   { timestamps: true }
 );
+
+// When payment succeeds
+// tenant.plan = "pro"; // or enterprise
+// tenant.planStatus = "active";
+// tenant.planActivatedAt = new Date();
+// tenant.trialEnd = null;
+// await tenant.save();
+
 
 tenantSchema.index({ ownerId: 1 }, { unique: true });
 
