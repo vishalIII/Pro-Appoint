@@ -9,6 +9,11 @@ const PLAN_SHOP_LIMIT = {
   enterprise: 3,
 };
 
+// get active industries ====================================================================================
+exports.getActiveIndustries = async () => {
+  return await Industry.find({ isActive: true });
+};
+
 // =======================================================
 // Apply for shop
 // =======================================================
@@ -27,8 +32,10 @@ exports.applyShop = async (userId, data) => {
   // 3. Tenant
   const tenant = await Tenant.findOne({ ownerId: userId });
   if (!tenant) {
-    throw new Error("Tenant not found");
-  }
+      return res.status(404).json({
+        message: "Tenant not found",
+      });
+    }
 
   // 4. Plan constraint
   const tenantPlan = tenant.plan || "free";

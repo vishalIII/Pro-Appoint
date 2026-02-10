@@ -3,13 +3,14 @@ const shopService = require("../../services/shop/shopApplication.service");
 // =======================================================
 // Get active industries
 // =======================================================
+// get active industries ====================================================================================
 exports.getActiveIndustries = async (req, res) => {
   try {
     const industries = await shopService.getActiveIndustries();
     return res.status(200).json(industries);
   } catch (error) {
     console.error("getActiveIndustries error:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
