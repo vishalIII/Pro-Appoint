@@ -7,8 +7,7 @@ exports.getAllTenantApplications = async (req, res) => {
     const tenants = await adminApprovalService.getTenantApplications();
     return res.status(200).json(tenants);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "server Error" });
+   next(error);
   }
 };
 

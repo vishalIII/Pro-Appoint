@@ -6,14 +6,15 @@ const industryService = require("../../services/admin/industry.service");
  */
 exports.createIndustry = async (req, res) => {
   try {
-    const industry = await industryService.createIndustry(req, res)
+    const { name } = req.body;
+    const industry = await industryService.createIndustry(name);
 
     res.status(201).json({
       message: "Industry created successfully",
       industry,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -23,11 +24,11 @@ exports.createIndustry = async (req, res) => {
  */
 exports.getAllIndustries = async (req, res) => {
   try {
-    const industries = await industryService.getAllIndustries(req, res)
+    const industries = await industryService.getAllIndustries()
 
     res.status(200).json({ industries });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -37,14 +38,16 @@ exports.getAllIndustries = async (req, res) => {
  */
 exports.updateIndustry = async (req, res) => {
   try {
-    const industry = await industryService.updateIndustry(req, res)
+    const { id } = req.params;
+    const { name, isActive } = req.body;
+    const industry = await industryService.updateIndustry(id, name, isActive);
 
     res.status(200).json({
       message: "Industry updated successfully",
       industry
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -54,14 +57,15 @@ exports.updateIndustry = async (req, res) => {
  */
 exports.toggleIndustryStatus = async (req, res) => {
   try {
-    const industry = await industryService.toggleIndustryStatus(req, res)
+    const { id } = req.params;
+    const industry = await industryService.toggleIndustryStatus(id)
 
     res.status(200).json({
       message: `Industry ${industry.isActive ? "activated" : "deactivated"}`,
       industry,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -71,10 +75,11 @@ exports.toggleIndustryStatus = async (req, res) => {
  */
 exports.deleteIndustry = async (req, res) => {
   try {
-    const industry = await industryService.deleteIndustry(req, res)
+    const { id } = req.params;
+    const industry = await industryService.deleteIndustry(id)
 
     res.status(200).json({ message: "Industry deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };

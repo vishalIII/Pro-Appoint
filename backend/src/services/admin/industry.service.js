@@ -1,39 +1,39 @@
 const Industry = require("../../models/service/industry/industry.model");
-exports.createIndustry = async (req, res) => {
+const AppError = require("../../utils/appError");
+exports.createIndustry = async (name) => {
     try {
-        const { name } = req.body;
+        
 
         if (!name) {
-            return res.status(400).json({ message: "Industry name is required" });
+            throw new AppError("Industry name is required", 400);
         }
 
         const existing = await Industry.findOne({ name: name.toLowerCase() });
         if (existing) {
-            return res.status(409).json({ message: "Industry already exists" });
+            throw new AppError("Industry with this name already exists", 400);
         }
 
         const industry = await Industry.create({ name });
         return industry;
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        throw new AppError(error.message, error.statusCode || 500);
     }
 }
-exports.getAllIndustries = async (req, res) => {
+exports.getAllIndustries = async () => {
     try {
         const industries = await Industry.find().sort({ createdAt: 1 });
         return industries;
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        throw new AppError(error.message, error.statusCode || 500);
     }
 }
-exports.updateIndustry = async (req, res) => {
+exports.updateIndustry = async (id, name, isActive) => {
     try {
-        const { id } = req.params;
-        const { name, isActive } = req.body;
+        
 
         const industry = await Industry.findById(id);
         if (!industry) {
-            return res.status(404).json({ message: "Industry not found" });
+            throw new AppError("Industry not found", 404);
         }
 
         if (name) industry.name = name;
@@ -42,35 +42,35 @@ exports.updateIndustry = async (req, res) => {
         await industry.save();
         return industry;
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        throw new AppError(error.message, error.statusCode || 500);
     }
 }
-exports.toggleIndustryStatus = async (req, res) => {
+exports.toggleIndustryStatus = async () => {
     try {
-        const { id } = req.params;
+        
 
         const industry = await Industry.findById(id);
         if (!industry) {
-            return res.status(404).json({ message: "Industry not found" });
+            throw new AppError("Industry not found", 404);
         }
 
         industry.isActive = !industry.isActive;
         await industry.save();
         return industry;
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        throw new AppError(error.message, error.statusCode || 500);
     }
 }
-exports.deleteIndustry = async (req, res) => {
+exports.deleteIndustry = async (id) => {
     try {
-        const { id } = req.params;
+        
 
         const industry = await Industry.findByIdAndDelete(id);
         if (!industry) {
-            return res.status(404).json({ message: "Industry not found" });
+            throw new AppError("Industry not found", 404);
         }
         return industry;
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        throw new AppError(error.message, error.statusCode || 500);
     }
 }
