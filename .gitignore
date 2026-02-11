@@ -1,0 +1,73 @@
+############################
+# ENV FILES (IMPORTANT)
+############################
+.env
+.env.*
+!.env.example
+
+############################
+# NODE / NPM
+############################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+############################
+# BACKEND (Node / Express)
+############################
+backend/node_modules/
+backend/logs/
+backend/*.log
+backend/dummyData.txt
+############################
+# FRONTEND (React / Vite / CRA)
+############################
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.cache/
+
+############################
+# NEXT.JS (if used)
+############################
+client/.next/
+client/out/
+
+############################
+# TEST COVERAGE
+############################
+coverage/
+
+############################
+# OS FILES
+############################
+.DS_Store
+Thumbs.db
+
+############################
+# IDE / EDITOR
+############################
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+
+############################
+# DOCKER
+############################
+docker-data/
+*.pid
+
+############################
+# LOG FILES
+############################
+logs/
+*.log
+
+############################
+# MISC
+############################
+.tmp/
+.cache/
