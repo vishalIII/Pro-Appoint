@@ -1,21 +1,22 @@
 const shopService = require("../../services/shop/shop.service");
 
-// get own shop ------------------------------------------------------------
-exports.getOwnShop = async (req, res) => {
+// =======================================================
+// Get Own Shop
+// =======================================================
+exports.getOwnShop = async (req, res, next) => {
   try {
     const shop = await shopService.getOwnShop(req.user.shopId);
 
     return res.status(200).json(shop);
   } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message || "Server error",
-    });
+    next(error);
   }
 };
 
-// update own shop ---------------------------------------------------------
-exports.updateOwnShop = async (req, res) => {
+// =======================================================
+// Update Own Shop
+// =======================================================
+exports.updateOwnShop = async (req, res, next) => {
   try {
     const shop = await shopService.updateOwnShop({
       shopId: req.user.shopId,
@@ -27,9 +28,6 @@ exports.updateOwnShop = async (req, res) => {
       shop,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message || "Server error",
-    });
+    next(error);
   }
 };

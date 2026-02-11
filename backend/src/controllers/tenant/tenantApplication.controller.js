@@ -1,9 +1,10 @@
 const tenantService = require("../../services/tenant/tenantApplication.service");
+const AppError = require("../../utils/appError");
 
 // =======================================================
 // Create tenant (apply as service provider)
 // =======================================================
-exports.createTenant = async (req, res) => {
+exports.createTenant = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
@@ -15,13 +16,11 @@ exports.createTenant = async (req, res) => {
       trialEndsOn: result.trialEnd,
     });
   } catch (error) {
-    console.error("createTenant error:", error);
-
-    // Known validation / business errors
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+    next(
+      new AppError(
+        error.message || "Failed to create tenant",
+        error.statusCode || error.status || 500
+      )
+    );
   }
 };

@@ -1,7 +1,9 @@
 const serviceService = require("../../services/service/service.service");
 
-//post ---------------------------------------CREATE SERVICE
-exports.createService = async (req, res) => {
+// =======================================================
+// CREATE SERVICE
+// =======================================================
+exports.createService = async (req, res, next) => {
   try {
     const service = await serviceService.createService({
       tenantId: req.user.tenantId,
@@ -13,30 +15,32 @@ exports.createService = async (req, res) => {
 
     res.status(201).json(service);
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-
-//Get ---------------------------------------GET SERVICES
-exports.getMyServices = async (req, res) => {
+// =======================================================
+// GET SERVICES
+// =======================================================
+exports.getMyServices = async (req, res, next) => {
   try {
-    const services = await serviceService.getMyServices(req.user.tenantId);
+    const services = await serviceService.getMyServices(
+      req.user.tenantId
+    );
 
-    res.json({
+    res.status(200).json({
       count: services.length,
       services,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
-
-//Patch ---------------------------------------UPDATE SERVICE
-exports.updateService = async (req, res) => {
+// =======================================================
+// UPDATE SERVICE
+// =======================================================
+exports.updateService = async (req, res, next) => {
   try {
     const service = await serviceService.updateService({
       serviceId: req.params.id,
@@ -48,13 +52,11 @@ exports.updateService = async (req, res) => {
       isActive: req.body.isActive,
     });
 
-    res.json({
+    res.status(200).json({
       message: "Service updated successfully",
       service,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };

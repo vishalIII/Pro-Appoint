@@ -3,7 +3,7 @@ const authService = require("../services/auth/auth.service");
 // =======================================================
 // Register
 // =======================================================
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
   try {
     const result = await authService.register(req.body);
 
@@ -12,20 +12,14 @@ exports.register = async (req, res) => {
       userId: result.userId,
     });
   } catch (error) {
-    console.error("register error:", error);
-
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
 // =======================================================
 // Login
 // =======================================================
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
 
@@ -35,12 +29,6 @@ exports.login = async (req, res) => {
       user: result.user,
     });
   } catch (error) {
-    console.error("login error:", error);
-
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };

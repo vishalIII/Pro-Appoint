@@ -1,13 +1,15 @@
 const Tenant = require("../../models/tenant/tenant.model");
+const User = require("../../models/user/user.model");
 
 module.exports = async (req, res, next) => {
-  const tenantId = req.user.tenantId;
+  const userId = req.user.userId;
 
-  if (!tenantId) {
+  const user = await User.findById(userId);
+  if (!user || !user.tenantId) {
     return res.status(403).json({ message: "No tenant found" });
   }
 
-  const tenant = await Tenant.findById(tenantId);
+  const tenant = await Tenant.findById(user.tenantId);
   if (!tenant || !tenant.isActive) {
     return res.status(403).json({ message: "Tenant inactive" });
   }

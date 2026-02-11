@@ -1,74 +1,73 @@
 const shopService = require("../../services/shop/shopApplication.service");
 
 // =======================================================
-// Get active industries
+// Get Active Industries
 // =======================================================
-// get active industries ====================================================================================
-exports.getActiveIndustries = async (req, res) => {
+exports.getActiveIndustries = async (req, res, next) => {
   try {
     const industries = await shopService.getActiveIndustries();
-    return res.status(200).json(industries);
+
+    return res.status(200).json({
+      success: true,
+      data: industries,
+    });
   } catch (error) {
-    console.error("getActiveIndustries error:", error);
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
 // =======================================================
-// Apply for shop
+// Apply for Shop
 // =======================================================
-exports.applyShop = async (req, res) => {
+exports.applyShop = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
     const shop = await shopService.applyShop(userId, req.body);
 
     return res.status(201).json({
+      success: true,
       message: "Shop application submitted successfully",
       shopId: shop._id,
       status: shop.status,
     });
   } catch (error) {
-    console.error("applyShop error:", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "You already have a pending shop application",
-      });
-    }
-
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
 // =======================================================
-// Get shop application status
+// Get Shop Application Status
 // =======================================================
-exports.getApplicationStatus = async (req, res) => {
+exports.getApplicationStatus = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
     const status = await shopService.getShopApplicationStatus(userId);
 
-    return res.status(200).json(status);
+    return res.status(200).json({
+      success: true,
+      data: status,
+    });
   } catch (error) {
-    console.error("getApplicationStatus error:", error);
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
 // =======================================================
-// Get shop application history
+// Get Shop Application History
 // =======================================================
-exports.getApplicationHistory = async (req, res) => {
+exports.getApplicationHistory = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
     const history = await shopService.getShopApplicationHistory(userId);
 
-    return res.status(200).json(history);
+    return res.status(200).json({
+      success: true,
+      data: history,
+    });
   } catch (error) {
-    console.error("getApplicationHistory error:", error);
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };

@@ -1,6 +1,7 @@
 const industryService = require("../../services/admin/industry.service");
 
-exports.createIndustry = async (req, res) => {
+// Create Industry
+exports.createIndustry = async (req, res, next) => {
   try {
     const industry = await industryService.createIndustry(req.body.name);
 
@@ -9,22 +10,23 @@ exports.createIndustry = async (req, res) => {
       industry,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-exports.getAllIndustries = async (req, res) => {
+// Get All Industries
+exports.getAllIndustries = async (req, res, next) => {
   try {
     const industries = await industryService.getAllIndustries();
+
     res.status(200).json({ industries });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
-exports.updateIndustry = async (req, res) => {
+// Update Industry
+exports.updateIndustry = async (req, res, next) => {
   try {
     const industry = await industryService.updateIndustry(
       req.params.id,
@@ -36,15 +38,16 @@ exports.updateIndustry = async (req, res) => {
       industry,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-exports.toggleIndustryStatus = async (req, res) => {
+// Toggle Industry Status
+exports.toggleIndustryStatus = async (req, res, next) => {
   try {
-    const industry = await industryService.toggleIndustryStatus(req.params.id);
+    const industry = await industryService.toggleIndustryStatus(
+      req.params.id
+    );
 
     res.status(200).json({
       message: `Industry ${
@@ -53,19 +56,19 @@ exports.toggleIndustryStatus = async (req, res) => {
       industry,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
-exports.deleteIndustry = async (req, res) => {
+// Delete Industry
+exports.deleteIndustry = async (req, res, next) => {
   try {
     await industryService.deleteIndustry(req.params.id);
-    res.status(200).json({ message: "Industry deleted successfully" });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
+
+    res.status(200).json({
+      message: "Industry deleted successfully",
     });
+  } catch (error) {
+    next(error);
   }
 };

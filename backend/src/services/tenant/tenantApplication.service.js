@@ -1,5 +1,6 @@
 const User = require("../../models/user/user.model");
 const Tenant = require("../../models/tenant/tenant.model");
+const AppError = require("../../utils/appError");
 
 // =======================================================
 // Create tenant service
@@ -8,15 +9,12 @@ exports.createTenant = async (userId) => {
   // 1. Fetch user
   const user = await User.findById(userId);
   if (!user) {
-    throw { status: 404, message: "User not found" };
+    throw new AppError("User not found", 404);
   }
 
   // 2. Prevent duplicate tenant
   if (user.tenantId) {
-    throw {
-      status: 400,
-      message: "Tenant already exists for this user",
-    };
+    throw new AppError("Tenant already exists for this user", 400);
   }
 
   // 3. Trial setup (30 days)
