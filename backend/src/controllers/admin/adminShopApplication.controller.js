@@ -3,17 +3,29 @@ const adminShopApplicationService = require(
 );
 
 // Get all shop applications (admin)
-exports.getAllShopApplications = async (req, res) => {
+exports.getAllShopApplication = async (req, res) => {
   try {
-    const shops =
-      await adminShopApplicationService.getAllApplications();
-
+    const shops = await adminShopApplicationService.getAllShopApplication();
     return res.status(200).json(shops);
   } catch (error) {
-    console.error("getAllShopApplications error:", error);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ 
+      message: error.message   
+    });
   }
 };
+
+// Get all shop applications (admin)
+exports.getPendingShopApplication = async (req, res) => {
+  try {
+    const shops = await adminShopApplicationService.getPendingShopApplication();
+    return res.status(200).json(shops);
+  } catch (error) {
+    return res.status(500).json({ 
+      message: error.message   
+    });
+  }
+};
+
 
 // patch Approve shop 
 exports.approveShop = async (req, res) => {
@@ -21,7 +33,7 @@ exports.approveShop = async (req, res) => {
     const { shopId } = req.params;
 
     const shop =
-      await adminShopApplicationService.approveApplication(shopId);
+      await adminShopApplicationService.approveShop(shopId);
 
     return res.status(200).json({
       message: "Shop approved successfully",
@@ -41,7 +53,7 @@ exports.rejectShop = async (req, res) => {
     const { shopId } = req.params;
     const { reason } = req.body || {};
 
-    await adminShopApplicationService.rejectApplication({
+    await adminShopApplicationService.rejectShop({
       shopId,
       reason,
       adminUserId: req.user.userId,

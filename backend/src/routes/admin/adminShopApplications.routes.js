@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { getAllShopApplications,approveShop,rejectShop } = require("../../controllers/admin/adminShopApplication.controller");
+const { getAllShopApplication,getPendingShopApplication,approveShop,rejectShop } = require("../../controllers/admin/adminShopApplication.controller");
 
-router.get("/", getAllShopApplications);
+router.get("/", getAllShopApplication);
+
+router.get("/pending", getPendingShopApplication);
 
 router.patch("/:shopId/approve", approveShop);
 

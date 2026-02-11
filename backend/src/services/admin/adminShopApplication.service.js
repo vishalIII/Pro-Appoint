@@ -1,11 +1,32 @@
 const Shop = require("../../models/shop/shop.model");
 
-exports.getAllShopApplications = async () => {
-  return await Shop.find()
-    .populate("ownerId", "name email role")
-    .populate("tenantId", "plan isActive")
-    .sort({ createdAt: -1 });
+// Get all shop applications
+exports.getAllShopApplication = async () => {
+  try {
+    const shops = await Shop.find()
+      .populate("ownerId", "name email role")
+      .populate("tenantId", "plan isActive")
+      .sort({ createdAt: -1 });
+
+    return shops;
+  } catch (error) {
+    throw error;
+  }
 };
+
+exports.getPendingShopApplication = async () => {
+  try {
+    const shops = await Shop.find({status:"pending"})
+      .populate("ownerId", "name email role")
+      .populate("tenantId", "plan isActive")
+      .sort({ createdAt: -1 });
+
+    return shops;
+  } catch (error) {
+    throw error;
+  }
+};
+
 
 exports.approveShop = async (shopId) => {
   const shop = await Shop.findById(shopId);
