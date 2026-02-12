@@ -7,10 +7,7 @@ exports.getOwnShop = async (req, res) => {
 
     return res.status(200).json(shop);
   } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message || "Server error",
-    });
+    next(error);
   }
 };
 
@@ -27,9 +24,6 @@ exports.updateOwnShop = async (req, res) => {
       shop,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message || "Server error",
-    });
+    next(error);
   }
 };
