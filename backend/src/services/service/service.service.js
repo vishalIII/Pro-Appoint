@@ -1,12 +1,12 @@
 const Service = require("../../models/service/service.model");
+const AppError = require("../../utils/appError");
 
 // Shared validation util (internal)
 const validateWeeklyAvailability = (weeklyAvailability) => {
+  try{
   //Presence validation
   if (!weeklyAvailability || weeklyAvailability.length === 0) {
-    const error = new Error("Weekly availability is required");
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Weekly availability is required", 400);
   }
 
   //Ensuring is all 7 days present
@@ -24,19 +24,18 @@ const validateWeeklyAvailability = (weeklyAvailability) => {
   const uniqueDays = new Set(providedDays);
 
   if (uniqueDays.size !== 7) {
-    const error = new Error("All 7 days availability must be provided");
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("All 7 days availability required", 400);
   }
 
   //Validating day names
   for (let day of providedDays) {
     if (!validDays.includes(day)) {
-      const error = new Error(`Invalid day provided: ${day}`);
-      error.statusCode = 400;
-      throw error;
+      throw new AppError(`Invalid day: ${day}`, 400);
     }
   }
+}catch(error){
+throw new AppError(error.message || "Invalid weekly availability", error.statusCode || 500);
+}
 };
 
 //post ---------------------------------------CREATE SERVICE
@@ -47,11 +46,10 @@ exports.createService = async ({
   category,
   images,
 }) => {
+  try{
   // name validation
   if (!name || name.trim().length === 0) {
-    const error = new Error("name is required");
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Service name is required", 400);
   }
 
   validateWeeklyAvailability(weeklyAvailability);
@@ -64,13 +62,20 @@ exports.createService = async ({
     category,
     images,
   });
+}catch(error){
+throw new AppError(error.message || "Failed to create service", error.statusCode || 500);
+}
 };
 
 //Get ---------------------------------------GET SERVICES
 exports.getMyServices = async (tenantId) => {
+  try{
   const services = await Service.find({ tenantId }).sort({ createdAt: -1 }); // newest first (optional)
 
   return services;
+  }catch(error){
+    throw new AppError(error.message || "Failed to fetch services", error.statusCode || 500);
+  }
 };
 
 //Patch ---------------------------------------UPDATE SERVICE
@@ -83,6 +88,7 @@ exports.updateService = async ({
   images,
   isActive,
 }) => {
+  try{
   if (name !== undefined && name.trim().length === 0) {
     const error = new Error("name cannot be empty");
     error.statusCode = 400;
@@ -120,6 +126,7 @@ exports.updateService = async ({
         throw error;
       }
     }
+    
   }
 
   const updateData = {};
@@ -143,4 +150,7 @@ exports.updateService = async ({
   }
 
   return service;
+}catch(error){
+throw new AppError(error.message || "Failed to update service", error.statusCode || 500);
+}
 };
