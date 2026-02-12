@@ -1,6 +1,6 @@
 const Tenant = require("../../models/tenant/tenant.model");
 const AppError = require("../../utils/appError");
-exports.getTenantApplications = async (req, res) => {
+exports.getTenantApplications = async () => {
     try {
         const tenants = await Tenant.find().populate("ownerId", "name email role");
         return tenants;
