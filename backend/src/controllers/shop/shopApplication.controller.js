@@ -9,8 +9,7 @@ exports.getActiveIndustries = async (req, res) => {
     const industries = await shopService.getActiveIndustries();
     return res.status(200).json(industries);
   } catch (error) {
-    console.error("getActiveIndustries error:", error);
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
@@ -29,7 +28,7 @@ exports.applyShop = async (req, res) => {
       status: shop.status,
     });
   } catch (error) {
-    console.error("applyShop error:", error);
+    
 
     if (error.code === 11000) {
       return res.status(400).json({
@@ -37,7 +36,7 @@ exports.applyShop = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -52,8 +51,7 @@ exports.getApplicationStatus = async (req, res) => {
 
     return res.status(200).json(status);
   } catch (error) {
-    console.error("getApplicationStatus error:", error);
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -68,7 +66,6 @@ exports.getApplicationHistory = async (req, res) => {
 
     return res.status(200).json(history);
   } catch (error) {
-    console.error("getApplicationHistory error:", error);
-    return res.status(400).json({ message: error.message });
+    next(error);
   }
 };

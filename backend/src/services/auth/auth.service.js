@@ -1,18 +1,17 @@
 const User = require("../../models/user/user.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const AppError = require("../../utils/appError");
 
 // =======================================================
 // Register service
 // =======================================================
 exports.register = async ({ name, email, password, role }) => {
+  try{
   // 1. Check existing user
   const existingUser = await User.findOne({ email });
   if (existingUser) {
-    throw {
-      status: 400,
-      message: "Email already registered",
-    };
+   throw new AppError("Email already in use", 409);
   }
 
   // 2. Hash password
@@ -32,25 +31,29 @@ exports.register = async ({ name, email, password, role }) => {
   return {
     userId: user._id,
   };
+}catch(error){
+throw new AppError(error.message || "Failed to register user", error.statusCode || 500);
+}
 };
 
 // =======================================================
 // Login service
 // =======================================================
 exports.login = async ({ email, password }) => {
+  try{
   // 1. Find user
   const user = await User.findOne({ email })
     .select("+password")
     .populate("tenantId");
 
   if (!user || !user.isActive) {
-    throw { status: 401, message: "Invalid credentials" };
+    throw new AppError("Invalid credentials", 401);
   }
 
   // 2. Compare password
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw { status: 401, message: "Invalid credentials" };
+    throw new AppError("Invalid credentials", 401);
   }
 
   // 3. Generate JWT
@@ -75,4 +78,7 @@ exports.login = async ({ email, password }) => {
       isVerified: user.isVerified,
     },
   };
+}catch(error){
+throw new AppError(error.message || "Failed to login", error.statusCode || 500);
+}
 };

@@ -1,5 +1,5 @@
 const Shop = require("../../models/shop/shop.model");
-
+const AppError = require("../../utils/appError");
 // Get all shop applications
 exports.getAllShopApplication = async () => {
   try {
@@ -10,7 +10,7 @@ exports.getAllShopApplication = async () => {
 
     return shops;
   } catch (error) {
-    throw error;
+    throw new AppError(error.message || "Failed to fetch shop applications", error.statusCode || 500);
   }
 };
 
@@ -23,26 +23,21 @@ exports.getPendingShopApplication = async () => {
 
     return shops;
   } catch (error) {
-    throw error;
+    throw new AppError(error.message || "Failed to fetch pending shop applications", error.statusCode || 500);
   }
 };
 
 
 exports.approveShop = async (shopId) => {
+  try{
   const shop = await Shop.findById(shopId);
 
   if (!shop) {
-    const error = new Error("Shop not found");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Shop not found", 404);
   }
 
   if (shop.status !== "pending") {
-    const error = new Error(
-      `Shop is already reviewed and status is ${shop.status}`
-    );
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Shop is already reviewed", 400);
   }
 
   shop.status = "approved";
@@ -51,23 +46,21 @@ exports.approveShop = async (shopId) => {
   await shop.save();
 
   return shop;
+}catch(error){
+throw new AppError(error.message || "Failed to approve shop application", error.statusCode || 500);
+}
 };
 
 exports.rejectShop = async ({ shopId, reason, adminUserId }) => {
+  try{
   const shop = await Shop.findById(shopId);
 
   if (!shop) {
-    const error = new Error("Shop not found");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Shop not found", 404);
   }
 
   if (shop.status !== "pending") {
-    const error = new Error(
-      `Shop is already reviewed and status is ${shop.status}`
-    );
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Shop is already reviewed", 400);
   }
 
   await Shop.findByIdAndUpdate(
@@ -84,4 +77,7 @@ exports.rejectShop = async ({ shopId, reason, adminUserId }) => {
   );
 
   return shopId;
+}catch(error){
+  throw new AppError(error.message || "Failed to reject shop application", error.statusCode || 500);
+}
 };

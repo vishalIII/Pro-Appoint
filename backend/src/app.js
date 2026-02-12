@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const User = require("./models/user/user.model.js")
 const Tenant = require("./models/tenant/tenant.model.js")
-
+const errorHandler = require("./middlewares/errorHandler.middleware.js")
 /* -------- Routes -------- */
 const authRoutes = require("./routes/auth/auth.routes.js");
 const tenantRoutes=require("./routes/tenant/index.js")
@@ -41,9 +41,6 @@ app.get("/hello", (req, res) => {
   res.send("Hello from Node.js 🚀");
 });
 
-/* -------- 404 -------- */
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
-});
+app.use(errorHandler)
 
 module.exports = app;

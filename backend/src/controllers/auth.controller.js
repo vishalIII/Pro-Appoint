@@ -12,13 +12,7 @@ exports.register = async (req, res) => {
       userId: result.userId,
     });
   } catch (error) {
-    console.error("register error:", error);
-
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
@@ -34,13 +28,9 @@ exports.login = async (req, res) => {
       token: result.token,
       user: result.user,
     });
+
+
   } catch (error) {
-    console.error("login error:", error);
-
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };

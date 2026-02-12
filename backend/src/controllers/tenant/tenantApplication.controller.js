@@ -15,13 +15,6 @@ exports.createTenant = async (req, res) => {
       trialEndsOn: result.trialEnd,
     });
   } catch (error) {
-    console.error("createTenant error:", error);
-
-    // Known validation / business errors
-    if (error.status) {
-      return res.status(error.status).json({ message: error.message });
-    }
-
-    return res.status(500).json({ message: "Server error" });
+   next(error);
   }
 };

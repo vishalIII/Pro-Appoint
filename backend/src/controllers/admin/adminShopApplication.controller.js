@@ -8,9 +8,7 @@ exports.getAllShopApplication = async (req, res) => {
     const shops = await adminShopApplicationService.getAllShopApplication();
     return res.status(200).json(shops);
   } catch (error) {
-    return res.status(500).json({ 
-      message: error.message   
-    });
+    next(error);
   }
 };
 
@@ -20,9 +18,7 @@ exports.getPendingShopApplication = async (req, res) => {
     const shops = await adminShopApplicationService.getPendingShopApplication();
     return res.status(200).json(shops);
   } catch (error) {
-    return res.status(500).json({ 
-      message: error.message   
-    });
+    next(error);
   }
 };
 
@@ -40,10 +36,7 @@ exports.approveShop = async (req, res) => {
       shopId: shop._id,
     });
   } catch (error) {
-    console.error("approveShop error:", error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
@@ -64,9 +57,6 @@ exports.rejectShop = async (req, res) => {
       shopId,
     });
   } catch (error) {
-    console.error("rejectShop error:", error);
-    return res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };

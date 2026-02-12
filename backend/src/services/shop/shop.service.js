@@ -1,20 +1,23 @@
 const Shop = require("../../models/shop/shop.model");
-
+const AppError = require("../../utils/appError");
 // get own shop ------------------------------------------------------------
 exports.getOwnShop = async (shopId) => {
+  try{
   const shop = await Shop.findById(shopId);
 
   if (!shop) {
-    const error = new Error("Shop not found");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Shop not found", 404);
   }
 
   return shop;
+}catch(error){
+  throw new AppError(error.message || "Failed to fetch shop details", error.statusCode || 500);
+}
 };
 
 // update own shop ---------------------------------------------------------
 exports.updateOwnShop = async ({ shopId, updatePayload }) => {
+  try{
   const allowedUpdates = [
     "description",
     "images",
@@ -29,9 +32,7 @@ exports.updateOwnShop = async ({ shopId, updatePayload }) => {
 
   if (weeklyAvailability !== undefined) {
     if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length === 0) {
-      const error = new Error("Weekly availability cannot be empty");
-      error.statusCode = 400;
-      throw error;
+      throw new AppError("Weekly availability cannot be empty", 400);
     }
 
     const validDays = [
@@ -47,16 +48,12 @@ exports.updateOwnShop = async ({ shopId, updatePayload }) => {
     const days = weeklyAvailability.map((d) => d.day);
 
     if (new Set(days).size !== 7) {
-      const error = new Error("All 7 days availability required");
-      error.statusCode = 400;
-      throw error;
+      throw new AppError("All 7 days availability required", 400);
     }
 
     for (let day of days) {
       if (!validDays.includes(day)) {
-        const error = new Error(`Invalid day: ${day}`);
-        error.statusCode = 400;
-        throw error;
+        throw new AppError(`Invalid day: ${day}`, 400);
       }
     }
   }
@@ -76,10 +73,11 @@ exports.updateOwnShop = async ({ shopId, updatePayload }) => {
   );
 
   if (!shop) {
-    const error = new Error("Shop not found");
-    error.statusCode = 404;
-    throw error;
+   throw new AppError("Shop not found", 404);
   }
 
   return shop;
+}catch(error){
+  throw new AppError(error.message || "Failed to update shop details", error.statusCode || 500);
+}
 };

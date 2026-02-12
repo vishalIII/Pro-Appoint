@@ -9,42 +9,39 @@ exports.createIndustry = async (req, res) => {
       industry,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 exports.getAllIndustries = async (req, res) => {
   try {
-    const industries = await industryService.getAllIndustries();
+    const industries = await industryService.getAllIndustries()
+
     res.status(200).json({ industries });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
 exports.updateIndustry = async (req, res) => {
   try {
-    const industry = await industryService.updateIndustry(
-      req.params.id,
-      req.body
-    );
+    const { id } = req.params;
+    const { name, isActive } = req.body;
+    const industry = await industryService.updateIndustry(id, name, isActive);
 
     res.status(200).json({
       message: "Industry updated successfully",
-      industry,
+      industry
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 exports.toggleIndustryStatus = async (req, res) => {
   try {
-    const industry = await industryService.toggleIndustryStatus(req.params.id);
+    const { id } = req.params;
+    const industry = await industryService.toggleIndustryStatus(id)
 
     res.status(200).json({
       message: `Industry ${
@@ -53,19 +50,17 @@ exports.toggleIndustryStatus = async (req, res) => {
       industry,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 exports.deleteIndustry = async (req, res) => {
   try {
-    await industryService.deleteIndustry(req.params.id);
+    const { id } = req.params;
+    const industry = await industryService.deleteIndustry(id)
+
     res.status(200).json({ message: "Industry deleted successfully" });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
