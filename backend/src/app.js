@@ -11,11 +11,7 @@ const serviceRoutes = require("./routes/service/service.routes.js")
 /* -------- Middleware -------- */
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
-<<<<<<< HEAD
-const adminAuthMiddlware=require("./middlewares/admin/adminAuth.middleware.js")
-=======
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
->>>>>>> b6ca8348e9276c1a321316beb50610bf63320967
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
 /* -------- app.get routes -------- */
 
