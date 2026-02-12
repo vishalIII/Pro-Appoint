@@ -2,7 +2,7 @@ const Shop = require("../../models/shop/shop.model");
 const User = require("../../models/user/user.model");
 const Tenant = require("../../models/tenant/tenant.model");
 const Industry = require("../../models/service/industry/industry.model");
-
+const AppError = require("../../utils/appError");
 const PLAN_SHOP_LIMIT = {
   free: 1,
   pro: 2,
@@ -11,30 +11,33 @@ const PLAN_SHOP_LIMIT = {
 
 // get active industries ====================================================================================
 exports.getActiveIndustries = async () => {
+  try{
   return await Industry.find({ isActive: true });
+  }catch(error){
+throw new AppError(error.message || "Failed to fetch industries", error.statusCode || 500);
+  }
 };
 
 // =======================================================
 // Apply for shop
 // =======================================================
 exports.applyShop = async (userId, data) => {
+  try{
   // 1. User
   const user = await User.findById(userId);
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
   }
 
   // 2. Role check
   if (user.role !== "ServiceProvider") {
-    throw new Error("Only service providers can apply for a shop");
+    throw new AppError("Only service providers can apply for shops", 403);
   }
 
   // 3. Tenant
   const tenant = await Tenant.findOne({ ownerId: userId });
   if (!tenant) {
-      return res.status(404).json({
-        message: "Tenant not found",
-      });
+    throw new AppError("Tenant not found for user", 404);
     }
 
   // 4. Plan constraint
@@ -42,7 +45,7 @@ exports.applyShop = async (userId, data) => {
   const maxShopsAllowed = PLAN_SHOP_LIMIT[tenantPlan];
 
   if (!maxShopsAllowed) {
-    throw new Error("Invalid tenant plan");
+    throw new AppError("Invalid tenant plan. Cannot determine shop limit.", 400);
   }
 
   const approvedShopCount = await Shop.countDocuments({
@@ -51,9 +54,7 @@ exports.applyShop = async (userId, data) => {
   });
 
   if (approvedShopCount >= maxShopsAllowed) {
-    throw new Error(
-      `Your ${tenantPlan} plan allows only ${maxShopsAllowed} shop(s)`
-    );
+    throw new AppError(`Your current plan (${tenantPlan}) allows a maximum of ${maxShopsAllowed} approved shop(s). Please contact support to upgrade your plan.`, 403);
   }
 
   const {
@@ -69,9 +70,9 @@ exports.applyShop = async (userId, data) => {
   } = data;
 
   // 5. Validations
-  if (!shopName) throw new Error("shopName is required");
+  if (!shopName) throw new AppError("Shop Name is required", 400);
   if (!contactEmail || !contactPhone) {
-    throw new Error("contactEmail and contactPhone are required");
+    throw new AppError("Contact Email and Contact Phone are required", 400);
   }
 
   const industryExists = await Industry.findOne({
@@ -79,11 +80,11 @@ exports.applyShop = async (userId, data) => {
     isActive: true,
   });
   if (!industryExists) {
-    throw new Error("Selected industry is not available");
+    throw new AppError("Selected industry is not available", 400);
   }
 
   if (!weeklyAvailability || weeklyAvailability.length !== 7) {
-    throw new Error("All 7 days availability must be provided");
+    throw new AppError("All 7 days availability must be provided", 400);
   }
 
   const validDays = [
@@ -98,12 +99,12 @@ exports.applyShop = async (userId, data) => {
 
   const providedDays = weeklyAvailability.map(d => d.day);
   if (new Set(providedDays).size !== 7) {
-    throw new Error("Duplicate or missing days in weekly availability");
+    throw new AppError("Duplicate or missing days in weekly availability", 400);
   }
 
   for (let day of providedDays) {
     if (!validDays.includes(day)) {
-      throw new Error(`Invalid day provided: ${day}`);
+      throw new AppError(`Invalid day provided: ${day}`, 400);
     }
   }
 
@@ -124,21 +125,25 @@ exports.applyShop = async (userId, data) => {
   });
 
   return shop;
+}catch(error){
+throw new AppError(error.message || "Failed to apply for shop", error.statusCode || 500);
+}
 };
 
 // =======================================================
 // Get latest shop application status
 // =======================================================
 exports.getShopApplicationStatus = async (userId) => {
+  try{
   const user = await User.findById(userId);
-  if (!user) throw new Error("User not found");
+  if (!user) throw new AppError("User not found", 404);
 
   if (user.role !== "ServiceProvider") {
-    throw new Error("Only service providers can check application status");
+    throw new AppError("Only service providers can check application status", 403);
   }
 
   const tenant = await Tenant.findOne({ ownerId: userId });
-  if (!tenant) throw new Error("Tenant not found");
+  if (!tenant) throw new AppError("Tenant not found", 404);
 
   const shop =
     (await Shop.findOne({ tenantId: tenant._id, status: "pending" }).sort({ createdAt: -1 })) ||
@@ -147,7 +152,7 @@ exports.getShopApplicationStatus = async (userId) => {
     (await Shop.findOne({ tenantId: tenant._id, status: "blocked" }).sort({ createdAt: -1 }));
 
   if (!shop) {
-    throw new Error("No shop application found");
+    throw new AppError("No shop application found", 404);
   }
 
   return {
@@ -158,21 +163,25 @@ exports.getShopApplicationStatus = async (userId) => {
     appliedAt: shop.createdAt,
     updatedAt: shop.updatedAt,
   };
+}catch(error){
+  throw new AppError(error.message || "Failed to fetch shop application status", error.statusCode || 500);
+}
 };
 
 // =======================================================
 // Get shop application history
 // =======================================================
 exports.getShopApplicationHistory = async (userId) => {
+  try{
   const user = await User.findById(userId);
-  if (!user) throw new Error("User not found");
+  if (!user) throw new AppError("User not found", 404);
 
   if (user.role !== "ServiceProvider") {
-    throw new Error("Only service providers can view application history");
+    throw new AppError("Only service providers can view application history", 403);
   }
 
   const tenant = await Tenant.findOne({ ownerId: userId });
-  if (!tenant) throw new Error("Tenant not found");
+  if (!tenant) throw new AppError("Tenant not found", 404);
 
   const applications = await Shop.find({ tenantId: tenant._id })
     .sort({ createdAt: -1 });
@@ -182,4 +191,5 @@ exports.getShopApplicationHistory = async (userId) => {
     total: applications.length,
     applications,
   };
+}catch(error){throw new AppError(error.message || "Failed to fetch shop application history", error.statusCode || 500); }
 };
