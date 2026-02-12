@@ -90,16 +90,12 @@ exports.updateService = async ({
 }) => {
   try{
   if (name !== undefined && name.trim().length === 0) {
-    const error = new Error("name cannot be empty");
-    error.statusCode = 400;
-    throw error;
+    throw new AppError("Service name cannot be empty", 400);
   }
 
   if (weeklyAvailability !== undefined) {
     if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length === 0) {
-      const error = new Error("Weekly availability cannot be empty");
-      error.statusCode = 400;
-      throw error;
+      throw new AppError("Weekly availability cannot be empty", 400);
     }
 
     const validDays = [
@@ -114,16 +110,12 @@ exports.updateService = async ({
 
     const days = weeklyAvailability.map((d) => d.day);
     if (new Set(days).size !== 7) {
-      const error = new Error("All 7 days availability required");
-      error.statusCode = 400;
-      throw error;
+     throw new AppError("All 7 days availability required", 400);
     }
 
     for (let day of days) {
       if (!validDays.includes(day)) {
-        const error = new Error(`Invalid day: ${day}`);
-        error.statusCode = 400;
-        throw error;
+        throw new AppError(`Invalid day: ${day}`, 400);
       }
     }
     
@@ -144,9 +136,7 @@ exports.updateService = async ({
   );
 
   if (!service) {
-    const error = new Error("Service not found");
-    error.statusCode = 404;
-    throw error;
+    throw new AppError("Service not found", 404);
   }
 
   return service;
