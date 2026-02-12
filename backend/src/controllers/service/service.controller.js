@@ -13,9 +13,7 @@ exports.createService = async (req, res) => {
 
     res.status(201).json(service);
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
 
@@ -30,7 +28,7 @@ exports.getMyServices = async (req, res) => {
       services,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
@@ -53,8 +51,6 @@ exports.updateService = async (req, res) => {
       service,
     });
   } catch (error) {
-    res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    next(error);
   }
 };
