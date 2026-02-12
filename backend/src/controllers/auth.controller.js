@@ -1,42 +1,36 @@
-const User = require("../models/user/user.model.js");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const authService = require("../services/auth/auth.service.js");
+const authService = require("../services/auth/auth.service");
+
+// =======================================================
+// Register
+// =======================================================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-    const user=await authService.createUser(name,email,password);
-    res.status(201).json({
+    const result = await authService.register(req.body);
+
+    return res.status(201).json({
       message: "Registration successful",
-      userId: user._id,
+      userId: result.userId,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// Login Controller -------------------------------------------------------------
-
+// =======================================================
+// Login
+// =======================================================
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const result = await authService.login(req.body);
 
-    const { user, token } = await authService.loginUser(email, password);
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId?._id || null
-      },
+      token: result.token,
+      user: result.user,
     });
 
 
   } catch (error) {
     next(error);
   }
-};                                               
+};

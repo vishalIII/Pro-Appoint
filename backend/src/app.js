@@ -5,22 +5,27 @@ const Tenant = require("./models/tenant/tenant.model.js")
 const errorHandler = require("./middlewares/errorHandler.middleware.js")
 /* -------- Routes -------- */
 const authRoutes = require("./routes/auth/auth.routes.js");
-const tenantRoutes=require("./routes/tenant/tenantApplication.routes.js")
+const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
+const serviceRoutes = require("./routes/service/service.routes.js")
 /* -------- Middleware -------- */
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
+<<<<<<< HEAD
 const adminAuthMiddlware=require("./middlewares/admin/adminAuth.middleware.js")
+=======
+const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
+>>>>>>> b6ca8348e9276c1a321316beb50610bf63320967
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes); 
+app.use("/api/tenant",authMiddleware,tenantRoutes);  
 
-app.use("/api/admin",authMiddleware,adminAuthMiddlware,adminRoutes)
+app.use("/api/admin",authMiddleware,adminRoutes)
 
-
+app.use("/api/service",authMiddleware,serviceRoutes)
 
 
 //-------------------------------------------------------------------

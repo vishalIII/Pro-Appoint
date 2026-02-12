@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Customer", "ServiceProvider", "Admin"],
       default: "Customer"
     },
-    
+
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "tenant",
@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+
     isActive: {
       type: Boolean,
       default: true

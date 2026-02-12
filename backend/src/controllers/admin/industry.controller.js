@@ -1,13 +1,8 @@
-const Industry = require("../../models/service/industry/industry.model");
 const industryService = require("../../services/admin/industry.service");
-/**
- * Create Industry
- * POST /api/admin/industries
- */
+
 exports.createIndustry = async (req, res) => {
   try {
-    const { name } = req.body;
-    const industry = await industryService.createIndustry(name);
+    const industry = await industryService.createIndustry(req.body.name);
 
     res.status(201).json({
       message: "Industry created successfully",
@@ -18,10 +13,6 @@ exports.createIndustry = async (req, res) => {
   }
 };
 
-/**
- * Get All Industries
- * GET /api/admin/industries
- */
 exports.getAllIndustries = async (req, res) => {
   try {
     const industries = await industryService.getAllIndustries()
@@ -32,10 +23,6 @@ exports.getAllIndustries = async (req, res) => {
   }
 };
 
-/**
- * Update Industry
- * PATCH /api/admin/industries/:id
- */
 exports.updateIndustry = async (req, res) => {
   try {
     const { id } = req.params;
@@ -51,17 +38,15 @@ exports.updateIndustry = async (req, res) => {
   }
 };
 
-/**
- * Toggle Industry Status (Active / Inactive)
- * PATCH /api/admin/industries/:id/toggle
- */
 exports.toggleIndustryStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const industry = await industryService.toggleIndustryStatus(id)
 
     res.status(200).json({
-      message: `Industry ${industry.isActive ? "activated" : "deactivated"}`,
+      message: `Industry ${
+        industry.isActive ? "activated" : "deactivated"
+      }`,
       industry,
     });
   } catch (error) {
@@ -69,10 +54,6 @@ exports.toggleIndustryStatus = async (req, res) => {
   }
 };
 
-/**
- * Delete Industry (hard delete – optional)
- * DELETE /api/admin/industries/:id
- */
 exports.deleteIndustry = async (req, res) => {
   try {
     const { id } = req.params;

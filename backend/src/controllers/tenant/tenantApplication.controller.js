@@ -1,34 +1,20 @@
-const Tenant = require("../../models/tenant/tenant.model")
-const User = require("../../models/user/user.model")
-const Industry = require("../../models/service/industry/industry.model");
-const tenantApplyService = require("../../services/tenant/tenantApply.service")
+const tenantService = require("../../services/tenant/tenantApplication.service");
 
-
-//get active industries
-exports.getActiveIndustries = async (req, res) => {
-  try {
-    const industries = await tenantApplyService.getActiveIndustries();
-    res.json(industries);
-  } catch (error) {
-    next(error);
-  }
-};
-
-
-// Post - apply for service provider
-exports.applyProvider = async (req, res,next) => {
+// =======================================================
+// Create tenant (apply as service provider)
+// =======================================================
+exports.createTenant = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { industry } = req.body;
-    const tenant = await tenantApplyService.tenantApply(userId, industry)
+
+    const result = await tenantService.createTenant(userId);
+
     return res.status(201).json({
-      message: "Service provider application submitted successfully",
-      tenantId: tenant._id
-    })
-
-
+      message: "Tenant created with 1-month free trial",
+      tenantId: result.tenantId,
+      trialEndsOn: result.trialEnd,
+    });
   } catch (error) {
-    next(error);
+   next(error);
   }
 };
-

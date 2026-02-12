@@ -2,44 +2,53 @@ const mongoose = require("mongoose");
 
 const tenantSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    industry: {
-      type: String,
-      required: true
-    },
-
-    // User who owns this tenant
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true
+      required: true,
     },
 
-    subscription: {
-      plan: {
-        type: String,
-        enum: ["FREE", "BASIC", "PRO"],
-        default: "FREE"
-      },
+    plan: {
+      type: String,
+      enum: ["free", "pro", "enterprise"],
+      default: "free",
+    },
 
-      // Default expiry = 30 days from creation
-      expiryDate: {
-        type: Date,
-        default: () => Date.now() + 30 * 24 * 60 * 60 * 1000
-      }
+    planStatus: {
+      type: String,
+      enum: ["trial", "active", "expired", "cancelled"],
+      default: "trial",
+    },
+
+    trialStart: {
+      type: Date,
+      default: Date.now,
+    },
+
+    trialEnd: {
+      type: Date,
+    },
+
+    planActivatedAt: {
+      type: Date,
     },
 
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Tenant", tenantSchema);
+// When payment succeeds
+// tenant.plan = "pro"; // or enterprise
+// tenant.planStatus = "active";
+// tenant.planActivatedAt = new Date();
+// tenant.trialEnd = null;
+// await tenant.save();
+
+
+tenantSchema.index({ ownerId: 1 }, { unique: true });
+
+module.exports = mongoose.model("tenant", tenantSchema);

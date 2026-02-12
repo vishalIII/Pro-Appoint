@@ -1,14 +1,13 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 const {
   weeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
-const {closureSchema} = require("../service/schemas/closure.Schema")
 
 const serviceSchema = new mongoose.Schema(
   {
-    tenantId: {
+    shopId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "tenant",
+      ref: "shop",
       required: true,
       index: true,
     },
@@ -23,23 +22,35 @@ const serviceSchema = new mongoose.Schema(
       required: true,
     },
 
-    closures: {
-      type: [closureSchema],
-      default: [],
-    },
+    closedPeriods: [
+      {
+        startDate: {
+          type: Date,
+          required: true,
+        },
+        endDate: {
+          type: Date,
+          required: true,
+        },
+        reason: {
+          type: String,
+          default: "Shop is closed",
+        },
+      },
+    ],
 
     category: String,
-    // e.g. Hair, Skin, Consultation, Repair    
+    // e.g. Hair, Skin, Consultation, Repair
 
     images: [String],
+    price: Number,
 
     isActive: {
       type: Boolean,
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
-
 
 module.exports = mongoose.model("service", serviceSchema);
