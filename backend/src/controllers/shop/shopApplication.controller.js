@@ -16,7 +16,7 @@ exports.getActiveIndustries = async (req, res) => {
 // =======================================================
 // Apply for shop
 // =======================================================
-exports.applyShop = async (req, res) => {
+exports.applyShop = async (req, res,next) => {
   try {
     const userId = req.user.userId;
 
@@ -28,11 +28,10 @@ exports.applyShop = async (req, res) => {
       status: shop.status,
     });
   } catch (error) {
-    
-
-    if (error.code === 11000) {
+     if (error.name === "CastError") {
       return res.status(400).json({
-        message: "You already have a pending shop application",
+        success: false,
+        message: "Selected industry is not available",
       });
     }
 
