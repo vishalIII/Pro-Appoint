@@ -7,37 +7,45 @@ const {
   updateService,
   deleteService,
 } = require("../../controllers/service/service.controller");
+const validateShopOwnershipMiddleware = require("../../middlewares/service/validateShopOwnership.middleware");
 
 router.get("/check", (req, res) => {
   res.send("Service API working");
 });
 
-/* --------------------------------------------------
-   SERVICE ROUTES (SHOP SCOPED)
--------------------------------------------------- */
-
 // Create Service
-router.post("/shops/:shopId/services", createService);
+router.post(
+  "/shops/:shopId/services",
+  validateShopOwnershipMiddleware,
+  createService,
+);
 
 // Get All Services of a Shop
-router.get("/shops/:shopId/services", getMyServices);
+router.get(
+  "/shops/:shopId/services",
+  validateShopOwnershipMiddleware,
+  getMyServices,
+);
 
 // Get Single Service
 router.get(
   "/shops/:shopId/services/:serviceId",
-  getServiceById
+  validateShopOwnershipMiddleware,
+  getServiceById,
 );
 
 // Update Service
 router.patch(
   "/shops/:shopId/services/:serviceId",
-  updateService
+  validateShopOwnershipMiddleware,
+  updateService,
 );
 
-// Delete Service 
+// Delete Service
 router.delete(
   "/shops/:shopId/services/:serviceId",
-  deleteService
+  validateShopOwnershipMiddleware,
+  deleteService,
 );
 
 module.exports = router;
