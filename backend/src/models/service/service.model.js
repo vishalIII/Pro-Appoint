@@ -17,6 +17,21 @@ const serviceSchema = new mongoose.Schema(
       required: true,
     },
 
+    description: {
+      type: String,
+      trim: true,
+    },
+
+    capacity: {
+      type: Number,
+      default: 1, 
+    },
+
+    discountPercentage: {
+      type: Number,
+      default: 0,
+    },
+
     weeklyAvailability: {
       type: [weeklyAvailabilitySchema],
       required: true,
@@ -48,6 +63,7 @@ const serviceSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   { timestamps: true },
