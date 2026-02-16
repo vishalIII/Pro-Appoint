@@ -13,6 +13,7 @@ app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
+
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login
