@@ -17,11 +17,11 @@ const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.j
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes);  
+app.use("/api/tenant",authMiddleware,tenantRoutes);  //it contains applying as tenant and applying for shop as well
 
 app.use("/api/admin",authMiddleware,adminRoutes)
 
-app.use("/api/service",authMiddleware,serviceRoutes)
+app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
 
 //-------------------------------------------------------------------
