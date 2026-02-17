@@ -4,7 +4,7 @@ const Tenant = require("../../models/tenant/tenant.model");
 const Industry = require("../../models/service/industry/industry.model");
 const AppError = require("../../utils/appError");
 const PLAN_SHOP_LIMIT = {
-  free: 1,
+  basic: 1,
   pro: 2,
   enterprise: 3,
 };
@@ -41,7 +41,7 @@ exports.applyShop = async (userId, data) => {
     }
 
   // 4. Plan constraint
-  const tenantPlan = tenant.plan || "free";
+  const tenantPlan = tenant.plan;
   const maxShopsAllowed = PLAN_SHOP_LIMIT[tenantPlan];
 
   if (!maxShopsAllowed) {
