@@ -21,17 +21,17 @@ exports.createTenant = async (userId, plan) => {
 
   // 3. Trial setup (30 days)
   
-  const trialStart = new Date();
-  const trialEnd = new Date(trialStart);
-  trialEnd.setFullYear(trialEnd.getFullYear() + 1);
+  const subscriptionStart = new Date();
+  const subscriptionEnd = new Date(subscriptionStart);
+  subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
 
   // 4. Create tenant
   const tenant = await Tenant.create({
     ownerId: userId,
     plan,
     planStatus: "active",
-    trialStart,
-    trialEnd,
+    subscriptionStart,
+    subscriptionEnd,
   });
 
   // 5. Link tenant to user + role update
@@ -41,7 +41,7 @@ exports.createTenant = async (userId, plan) => {
 
   return {
     tenantId: tenant._id,
-    trialEnd,
+    subscriptionEnd,
   };
 }catch(error){throw new AppError(error.message || "Failed to create tenant", error.statusCode || 500); }
 };
