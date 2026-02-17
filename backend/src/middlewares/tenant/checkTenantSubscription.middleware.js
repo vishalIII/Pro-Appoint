@@ -14,15 +14,13 @@ module.exports = async (req, res, next) => {
 
   // Trial expired
   if (
-    tenant.plan === "free" &&
-    tenant.planStatus === "trial" &&
-    new Date() > tenant.trialEnd
+    new Date() > tenant.subscriptionEnd 
   ) {
     tenant.planStatus = "expired";
     await tenant.save();
 
     return res.status(403).json({
-      message: "Free trial expired. Please upgrade your plan.",
+      message: "Plan expired. Please upgrade your plan.",
     });
   }
 

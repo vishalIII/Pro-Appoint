@@ -6,7 +6,7 @@ const AppError = require("../../utils/appError");
 const mongoose = require("mongoose");
 
 const PLAN_SHOP_LIMIT = {
-  free: 1,
+  basic: 1,
   pro: 2,
   enterprise: 3,
 };
