@@ -10,29 +10,25 @@ const tenantSchema = new mongoose.Schema(
 
     plan: {
       type: String,
-      enum: ["free", "pro", "enterprise"],
-      default: "free",
+      enum: ["basic", "pro", "enterprise"],
+      default: "basic",
     },
 
     planStatus: {
       type: String,
-      enum: ["trial", "active", "expired", "cancelled"],
-      default: "trial",
+      enum: ["active", "expired"],
+      default: "expired",
     },
 
-    trialStart: {
+    subscriptionStart: {
       type: Date,
       default: Date.now,
     },
 
-    trialEnd: {
+    subscriptionEnd: {
       type: Date,
     },
-
-    planActivatedAt: {
-      type: Date,
-    },
-
+    
     isActive: {
       type: Boolean,
       default: true,
