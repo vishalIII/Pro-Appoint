@@ -6,8 +6,8 @@ const tenantService = require("../../services/tenant/tenantApplication.service")
 exports.createTenant = async (req, res) => {
   try {
     const userId = req.user.userId;
-
-    const result = await tenantService.createTenant(userId);
+    const plan=req.body.plan;
+    const result = await tenantService.createTenant(userId,plan);
 
     return res.status(201).json({
       message: "Tenant created with 1-month free trial",
