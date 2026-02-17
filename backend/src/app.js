@@ -13,15 +13,16 @@ app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
+
 /* -------- app.get routes -------- */
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes);  
+app.use("/api/tenant",authMiddleware,tenantRoutes);  //it contains applying as tenant and applying for shop as well
 
 app.use("/api/admin",authMiddleware,adminRoutes)
 
-app.use("/api/service",authMiddleware,serviceRoutes)
+app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
 
 //-------------------------------------------------------------------

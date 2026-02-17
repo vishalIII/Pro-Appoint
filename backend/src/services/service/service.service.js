@@ -1,15 +1,31 @@
 const Service = require("../../models/service/service.model");
+const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
 
-// Shared validation util (internal)
-const validateWeeklyAvailability = (weeklyAvailability) => {
-  try{
-  //Presence validation
-  if (!weeklyAvailability || weeklyAvailability.length === 0) {
-    throw new AppError("Weekly availability is required", 400);
+/* --------------------------------------------------
+   Helper: Validate Shop Ownership
+-------------------------------------------------- */
+const validateShopOwnership = async (shopId, tenantId) => {
+  const shop = await Shop.findOne({
+    _id: shopId,
+    tenantId: tenantId,
+  });
+
+  if (!shop) {
+    throw new AppError("Unauthorized access to this shop", 403);
   }
 
-  //Ensuring is all 7 days present
+  return shop;
+};
+
+/* --------------------------------------------------
+   Weekly Availability Validation
+-------------------------------------------------- */
+const validateWeeklyAvailability = (weeklyAvailability) => {
+  if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length !== 7) {
+    throw new AppError("All 7 days availability required", 400);
+  }
+
   const validDays = [
     "monday",
     "tuesday",
@@ -20,127 +36,247 @@ const validateWeeklyAvailability = (weeklyAvailability) => {
     "sunday",
   ];
 
-  const providedDays = weeklyAvailability.map((d) => d.day);
+  const providedDays = weeklyAvailability.map((d) =>
+    d.day?.toLowerCase()
+  );
+
   const uniqueDays = new Set(providedDays);
 
   if (uniqueDays.size !== 7) {
-    throw new AppError("All 7 days availability required", 400);
+    throw new AppError("Duplicate or missing days", 400);
   }
 
-  //Validating day names
-  for (let day of providedDays) {
-    if (!validDays.includes(day)) {
-      throw new AppError(`Invalid day: ${day}`, 400);
+  for (let dayData of weeklyAvailability) {
+    if (!validDays.includes(dayData.day)) {
+      throw new AppError(`Invalid day: ${dayData.day}`, 400);
+    }
+
+    if (dayData.isOpen) {
+      if (!Array.isArray(dayData.slots) || dayData.slots.length === 0) {
+        throw new AppError(
+          `Open day must contain time slots: ${dayData.day}`,
+          400
+        );
+      }
+
+      for (let slot of dayData.slots) {
+        if (!slot.start || !slot.end) {
+          throw new AppError(
+            `Invalid time slot in ${dayData.day}`,
+            400
+          );
+        }
+
+        if (slot.start >= slot.end) {
+          throw new AppError(
+            `Start time must be before end time in ${dayData.day}`,
+            400
+          );
+        }
+      }
     }
   }
-}catch(error){
-throw new AppError(error.message || "Invalid weekly availability", error.statusCode || 500);
-}
 };
 
-//post ---------------------------------------CREATE SERVICE
+/* --------------------------------------------------
+   CREATE SERVICE
+-------------------------------------------------- */
 exports.createService = async ({
   tenantId,
+  shopId,
   name,
+  description,
   weeklyAvailability,
   category,
   images,
+  capacity,
+  discountPercentage,
+  price,
 }) => {
-  try{
-  // name validation
-  if (!name || name.trim().length === 0) {
-    throw new AppError("Service name is required", 400);
+  try {
+    if (!tenantId) throw new AppError("Tenant ID is required", 400);
+    if (!shopId) throw new AppError("Shop ID is required", 400);
+
+    await validateShopOwnership(shopId, tenantId);
+
+    if (!name || name.trim().length === 0) {
+      throw new AppError("Service name is required", 400);
+    }
+
+    if (price === undefined || price < 0) {
+      throw new AppError("Valid price is required", 400);
+    }
+
+    validateWeeklyAvailability(weeklyAvailability);
+
+    return await Service.create({
+      shopId,
+      name,
+      description,
+      weeklyAvailability,
+      category,
+      images,
+      capacity,
+      discountPercentage,
+      price,
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to create service", 500);
   }
-
-  validateWeeklyAvailability(weeklyAvailability);
-
-  // After all validation Creating service
-  return await Service.create({
-    tenantId,
-    name,
-    weeklyAvailability,
-    category,
-    images,
-  });
-}catch(error){
-throw new AppError(error.message || "Failed to create service", error.statusCode || 500);
-}
 };
 
-//Get ---------------------------------------GET SERVICES
-exports.getMyServices = async (tenantId) => {
-  try{
-  const services = await Service.find({ tenantId }).sort({ createdAt: -1 }); // newest first (optional)
+/* --------------------------------------------------
+   GET SERVICES
+-------------------------------------------------- */
+exports.getMyServices = async ({ tenantId, shopId }) => {
+  try {
+    await validateShopOwnership(shopId, tenantId);
 
-  return services;
-  }catch(error){
-    throw new AppError(error.message || "Failed to fetch services", error.statusCode || 500);
+    return await Service.find({
+      shopId,
+      isActive: true,
+    }).sort({ createdAt: -1 });
+  } catch (error) {
+    throw new AppError(error.message || "Failed to fetch services", 500);
   }
 };
 
-//Patch ---------------------------------------UPDATE SERVICE
+/* --------------------------------------------------
+   GET SERVICE BY ID
+-------------------------------------------------- */
+exports.getServiceById = async ({ tenantId, shopId, serviceId }) => {
+  try {
+    if (!serviceId) {
+      throw new AppError("Service ID is required", 400);
+    }
+
+    await validateShopOwnership(shopId, tenantId);
+
+    const service = await Service.findOne({
+      _id: serviceId,
+      shopId,
+      isActive: true,
+    });
+
+    if (!service) {
+      throw new AppError("Service not found", 404);
+    }
+
+    return service;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to fetch service", 500);
+  }
+};
+
+/* --------------------------------------------------
+   UPDATE SERVICE
+-------------------------------------------------- */
 exports.updateService = async ({
-  serviceId,
   tenantId,
+  shopId,
+  serviceId,
   name,
+  description,
   weeklyAvailability,
   category,
   images,
   isActive,
+  capacity,
+  discountPercentage,
+  price,
 }) => {
-  try{
-  if (name !== undefined && name.trim().length === 0) {
-    throw new AppError("Service name cannot be empty", 400);
-  }
+  try {
+    await validateShopOwnership(shopId, tenantId);
 
-  if (weeklyAvailability !== undefined) {
-    if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length === 0) {
-      throw new AppError("Weekly availability cannot be empty", 400);
-    }
+    const updateData = {};
 
-    const validDays = [
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-      "sunday",
-    ];
-
-    const days = weeklyAvailability.map((d) => d.day);
-    if (new Set(days).size !== 7) {
-     throw new AppError("All 7 days availability required", 400);
-    }
-
-    for (let day of days) {
-      if (!validDays.includes(day)) {
-        throw new AppError(`Invalid day: ${day}`, 400);
+    if (name !== undefined) {
+      if (name.trim().length === 0) {
+        throw new AppError("Service name cannot be empty", 400);
       }
+      updateData.name = name;
     }
-    
+
+    if (description !== undefined)
+      updateData.description = description;
+
+    if (weeklyAvailability !== undefined) {
+      validateWeeklyAvailability(weeklyAvailability);
+      updateData.weeklyAvailability = weeklyAvailability;
+    }
+
+    if (category !== undefined)
+      updateData.category = category;
+
+    if (images !== undefined)
+      updateData.images = images;
+
+    if (isActive !== undefined)
+      updateData.isActive = isActive;
+
+    if (capacity !== undefined) {
+      if (capacity < 1)
+        throw new AppError("Capacity must be at least 1", 400);
+      updateData.capacity = capacity;
+    }
+
+    if (discountPercentage !== undefined) {
+      if (discountPercentage < 0 || discountPercentage > 100)
+        throw new AppError("Discount must be 0–100%", 400);
+      updateData.discountPercentage = discountPercentage;
+    }
+
+    if (price !== undefined) {
+      if (price < 0)
+        throw new AppError("Price cannot be negative", 400);
+      updateData.price = price;
+    }
+
+    const service = await Service.findOneAndUpdate(
+      { _id: serviceId, shopId },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!service) {
+      throw new AppError("Service not found", 404);
+    }
+
+    return service;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to update service", 500);
   }
+};
 
-  const updateData = {};
-  if (name !== undefined) updateData.name = name;
-  if (weeklyAvailability !== undefined)
-    updateData.weeklyAvailability = weeklyAvailability;
-  if (category !== undefined) updateData.category = category;
-  if (images !== undefined) updateData.images = images;
-  if (isActive !== undefined) updateData.isActive = isActive;
+/* --------------------------------------------------
+   DELETE SERVICE (Soft Delete)
+-------------------------------------------------- */
+exports.deleteService = async ({ tenantId, shopId, serviceId }) => {
+  try {
+    await validateShopOwnership(shopId, tenantId);
 
-  const service = await Service.findOneAndUpdate(
-    { _id: serviceId, tenantId },
-    { $set: updateData },
-    { new: true, runValidators: true },
-  );
+    const service = await Service.findOneAndUpdate(
+      {
+        _id: serviceId,
+        shopId,
+        isActive: true,
+      },
+      {
+        $set: { isActive: false },
+      },
+      { new: true }
+    );
 
-  if (!service) {
-    throw new AppError("Service not found", 404);
+    if (!service) {
+      throw new AppError("Service not found or already deleted", 404);
+    }
+
+    return service;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to delete service", 500);
   }
-
-  return service;
-}catch(error){
-throw new AppError(error.message || "Failed to update service", error.statusCode || 500);
-}
 };

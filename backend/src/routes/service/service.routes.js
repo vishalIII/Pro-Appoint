@@ -1,15 +1,51 @@
 const express = require("express");
 const router = express.Router();
-const {createService,getMyServices,updateService} = require("../../controllers/service/service.controller")
+const {
+  createService,
+  getMyServices,
+  getServiceById,
+  updateService,
+  deleteService,
+} = require("../../controllers/service/service.controller");
+const validateShopOwnershipMiddleware = require("../../middlewares/service/validateShopOwnership.middleware");
 
 router.get("/check", (req, res) => {
-  res.send("service API working");
+  res.send("Service API working");
 });
 
-router.post("/", createService);
+// Create Service
+router.post(
+  "/shops/:shopId/services",
+  validateShopOwnershipMiddleware,
+  createService,
+);
 
-router.get("/", getMyServices);
+// Get All Services of a Shop
+router.get(
+  "/shops/:shopId/services",
+  validateShopOwnershipMiddleware,
+  getMyServices,
+);
 
-router.patch("/:id", updateService);
+// Get Single Service
+router.get(
+  "/shops/:shopId/services/:serviceId",
+  validateShopOwnershipMiddleware,
+  getServiceById,
+);
+
+// Update Service
+router.patch(
+  "/shops/:shopId/services/:serviceId",
+  validateShopOwnershipMiddleware,
+  updateService,
+);
+
+// Delete Service
+router.delete(
+  "/shops/:shopId/services/:serviceId",
+  validateShopOwnershipMiddleware,
+  deleteService,
+);
 
 module.exports = router;
