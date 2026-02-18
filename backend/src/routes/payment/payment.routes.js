@@ -1,8 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
-router.get("/",(req,res)=>{
-    res.send("Payment Home API working");
-})
-
+const paymentsController = require("../../controllers/razorpayPayments/payments.controller.js")
+router.post("/create-order", paymentsController.createOrder)
+router.post("/verify-payment", paymentsController.verifyPayment)
 module.exports = router;
