@@ -12,7 +12,7 @@ exports.createOrder = async (amount) => {
         });
         return order;
     } catch (error) {
-        throw new AppError("Order creation failed", 500);
+        throw new AppError(error?.error?.description || error.message || "Order creation failed", 500);
     }
 }
 exports.verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_signature) => {
