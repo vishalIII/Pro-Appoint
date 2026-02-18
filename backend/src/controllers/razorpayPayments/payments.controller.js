@@ -1,43 +1,32 @@
 const razorpay = require("../../config/razorpay/razorpay.js");
 const crypto = require("crypto");
-
-exports.createOrder = async (req, res) => {
+const paymentService = require("../../services/payments/payment.service");
+exports.createOrder = async (req, res, next) => {
   try {
     const { amount } = req.body;
-
-    if (!amount) {
-      return res.status(400).json({ message: "Amount required" });
-    }
-
-    const order = await razorpay.orders.create({
-      amount: amount * 100,
-      currency: "INR",
-      receipt: "receipt_" + Date.now()
-    });
-
+    const order = await paymentService.createOrder(amount);
     return res.json(order);
   } catch (err) {
-    res.status(500).json({ message: "Order creation failed" });
+    next(err);
   }
 };
 
-exports.verifyPayment = (req, res) => {
-  const {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature
-  } = req.body;
+exports.verifyPayment = async (req, res, next) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    } = req.body;
 
-  const sign = razorpay_order_id + "|" + razorpay_payment_id;
+    const value = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
 
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(sign)
-    .digest("hex");
+    if (value) {
+      return res.json({ success: true });
+    }
 
-  if (expectedSignature === razorpay_signature) {
-    return res.json({ success: true });
+    return res.status(400).json({ success: false });
+  } catch (err) {
+    next(err);
   }
-
-  return res.status(400).json({ success: false });
 };
