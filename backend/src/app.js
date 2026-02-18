@@ -8,6 +8,7 @@ const authRoutes = require("./routes/auth/auth.routes.js");
 const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
 const serviceRoutes = require("./routes/service/service.routes.js")
+const paymentRoutes = require("./routes/payment/payment.routes.js")
 /* -------- Middleware -------- */
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
@@ -24,6 +25,7 @@ app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
+app.use("/api/payment",authMiddleware,paymentRoutes);
 
 //-------------------------------------------------------------------
 app.get("/", (req, res) => {
