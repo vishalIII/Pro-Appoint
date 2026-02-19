@@ -19,8 +19,8 @@ exports.verifyPayment = async (req, res, next) => {
       razorpay_signature,
       amount
     } = req.body;
-
-    const value = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature, amount);
+     const userData = req.user;
+    const value = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature, amount, userData);
 
     if (value) {
       return res.json({ success: true });

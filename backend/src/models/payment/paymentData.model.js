@@ -6,7 +6,7 @@ const paymentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true
+      default: null
     },
 
     // OPTIONAL: only for tenant-related payments

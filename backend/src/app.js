@@ -30,7 +30,7 @@ app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
-app.use("/api/payment",authMiddleware,paymentRoutes);
+app.use("/api/payment",paymentRoutes);
 
 //-------------------------------------------------------------------
 app.get("/", (req, res) => {

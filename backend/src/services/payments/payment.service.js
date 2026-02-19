@@ -19,9 +19,9 @@ exports.createOrder = async (amount) => {
         throw new AppError(error?.error?.description || error.message || "Order creation failed", 500);
     }
 }
-exports.verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_signature, amount) => {
+exports.verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_signature, amount,userData) => {
     try {
-        const userData = req.user;
+       
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
 
         const expectedSignature = crypto
@@ -33,8 +33,8 @@ exports.verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_
         }
 
         await Payment.create({
-            userId: userData.userId,
-            tenantId: userData.tenantId,
+            userId: userData?.userId || null,
+            tenantId: userData?.tenantId  || null,
             orderId: razorpay_order_id,
             paymentId: razorpay_payment_id,
             signature: razorpay_signature,
@@ -44,6 +44,7 @@ exports.verifyPayment = async (razorpay_order_id, razorpay_payment_id, razorpay_
 
         return expectedSignature === razorpay_signature;
     } catch (error) {
-        throw new AppError("Payment verification failed", 500);
+        console.error("Payment verification error:", error);
+        throw new AppError(error.message || "Payment verification failed", 500);
     }
 }
