@@ -2,7 +2,7 @@ import axios from "axios";
 
 export default function Home() {
 
-
+  console.log(import.meta.env.VITE_RAZORPAY_KEY_ID);
   const payNow = async () => {
     try {
       const { data: order } = await axios.post(`http://localhost:5000/api/payment/create-order`, { amount: 1 });

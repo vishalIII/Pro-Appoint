@@ -1,5 +1,6 @@
 const express = require("express");
 const app = express();
+const cors = require("cors");
 const User = require("./models/user/user.model.js")
 const Tenant = require("./models/tenant/tenant.model.js")
 const errorHandler = require("./middlewares/errorHandler.middleware.js")
@@ -10,6 +11,10 @@ const adminRoutes = require("./routes/admin/index.js")
 const serviceRoutes = require("./routes/service/service.routes.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
 /* -------- Middleware -------- */
+app.use(cors({
+  origin: 'http://127.0.0.1:5173', 
+  credentials: true               
+}))
 app.use(express.json());
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
@@ -25,7 +30,7 @@ app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
-app.use("/api/payment",authMiddleware,paymentRoutes);
+app.use("/api/payment",paymentRoutes);
 
 //-------------------------------------------------------------------
 app.get("/", (req, res) => {
