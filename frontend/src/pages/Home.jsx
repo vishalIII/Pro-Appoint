@@ -16,7 +16,8 @@ export default function Home() {
         order_id: order.id,
 
         handler: async (response) => {
-          const { data } = await axios.post(`http://localhost:5000/api/payment/verify-payment`, response);
+          const finalResponse={...response, amount: 1}
+          const { data } = await axios.post(`http://localhost:5000/api/payment/verify-payment`, finalResponse);
           if (data.success) alert("Payment successful");
           else alert("Payment verification failed");
         }

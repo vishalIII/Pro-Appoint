@@ -16,10 +16,11 @@ exports.verifyPayment = async (req, res, next) => {
     const {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
+      amount
     } = req.body;
 
-    const value = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    const value = await paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature, amount);
 
     if (value) {
       return res.json({ success: true });
