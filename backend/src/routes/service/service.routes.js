@@ -1,5 +1,5 @@
 const express = require("express");
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 const {
   createService,
   getMyServices,
@@ -14,38 +14,21 @@ router.get("/check", (req, res) => {
 });
 
 // Create Service
-router.post(
-  "/shops/:shopId/services",
-  validateShopOwnershipMiddleware,
-  createService,
-);
+router.post("/", validateShopOwnershipMiddleware, createService);
 
 // Get All Services of a Shop
-router.get(
-  "/shops/:shopId/services",
-  validateShopOwnershipMiddleware,
-  getMyServices,
-);
+router.get("/", validateShopOwnershipMiddleware, getMyServices);
 
 // Get Single Service
-router.get(
-  "/shops/:shopId/services/:serviceId",
-  validateShopOwnershipMiddleware,
-  getServiceById,
-);
+router.get("/:serviceId", validateShopOwnershipMiddleware, getServiceById);
 
 // Update Service
-router.patch(
-  "/shops/:shopId/services/:serviceId",
-  validateShopOwnershipMiddleware,
-  updateService,
-);
+router.patch("/:serviceId", validateShopOwnershipMiddleware, updateService);
 
 // Delete Service
-router.delete(
-  "/shops/:shopId/services/:serviceId",
-  validateShopOwnershipMiddleware,
-  deleteService,
-);
+router.delete("/:serviceId", validateShopOwnershipMiddleware, deleteService);
+
+module.exports = router;
+
 
 module.exports = router;

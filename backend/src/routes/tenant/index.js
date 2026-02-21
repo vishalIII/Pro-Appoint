@@ -8,6 +8,15 @@ router.get("/check", (req, res) => {
 });
 
 router.use("/create-tenant",require("./tenantApplication.routes"))
-router.use("/shop-application",checkTenantSubscriptionMiddleware,tenantAuth, require("./shopApplication.routes"));
+
+/* --------------------------------------------------
+   SHOP ROUTES (includes shop management & application)
+   /api/tenant/shops
+   /api/tenant/shops/application
+   /api/tenant/shops/:shopId/services
+-------------------------------------------------- */
+router.use("/shops",checkTenantSubscriptionMiddleware,tenantAuth, require("../shop/index.js"));
 
 module.exports = router;
+
+
