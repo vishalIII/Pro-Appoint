@@ -8,7 +8,6 @@ const errorHandler = require("./middlewares/errorHandler.middleware.js")
 const authRoutes = require("./routes/auth/auth.routes.js");
 const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
-const serviceRoutes = require("./routes/service/service.routes.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
 /* -------- Middleware -------- */
 app.use(cors({
@@ -24,11 +23,9 @@ const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.j
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes);  //it contains applying as tenant and applying for shop as well
+app.use("/api/tenant",authMiddleware,tenantRoutes);  //it contains applying as tenant, applying for shop, and shop CRUD with nested services
 
 app.use("/api/admin",authMiddleware,adminRoutes)
-
-app.use("/api/service",authMiddleware,serviceRoutes) //it contains CRUD for services of shop
 
 app.use("/api/payment",paymentRoutes);
 
