@@ -9,12 +9,24 @@ const authRoutes = require("./routes/auth/auth.routes.js");
 const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
+const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
 /* -------- Middleware -------- */
 app.use(cors({
   origin: 'http://127.0.0.1:5173', 
   credentials: true               
 }))
 app.use(express.json());
+// Normalize multiple slashes in incoming URLs to prevent accidental '//' segments
+app.use((req, res, next) => {
+  try {
+    if (req.url && req.url.includes('//')) {
+      req.url = req.url.replace(/\/{2,}/g, '/');
+    }
+  } catch (e) {
+    // ignore and continue
+  }
+  next();
+});
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
@@ -23,11 +35,25 @@ const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.j
 
 app.use("/api/auth", authRoutes); //Register and login
 
-app.use("/api/tenant",authMiddleware,tenantRoutes);  //it contains applying as tenant, applying for shop, and shop CRUD with nested services
+// Mount tenant routes under both /api/tenant and /api/service for backward compatibility
+app.use(["/api/tenant", "/api/service"], authMiddleware, tenantRoutes);  //it contains applying as tenant, applying for shop, and shop CRUD with nested services
 
 app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/payment",paymentRoutes);
+
+// Public-facing appointment routes (customers can book without being a tenant)
+// example: POST /api/shops/:shopId/appointments and legacy /api/service/...
+app.use("/api/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
+app.use("/api/service/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
+
+// Public shop & service browsing routes (customers)
+const publicShopRoutes = require("./routes/public/shop.routes.js");
+app.use("/api/shops", authMiddleware, publicShopRoutes);
+
+// New public appointment endpoints (bookings independent from shop nested path)
+const publicAppointmentRoutes = require('./routes/public/appointment.routes.js');
+app.use('/api/public', authMiddleware, publicAppointmentRoutes);
 
 //-------------------------------------------------------------------
 app.get("/", (req, res) => {

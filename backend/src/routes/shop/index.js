@@ -9,6 +9,7 @@ const {
 const validateShopOwnershipMiddleware = require("../../middlewares/service/validateShopOwnership.middleware");
 const serviceRoutes = require("../service/service.routes");
 const shopApplicationRoutes = require("./shopApplication.routes");
+const appointmentRoutes = require("../appointment/appointment.routes");
 
 router.get("/check", (req, res) => {
   res.send("Shop API working");
@@ -34,6 +35,12 @@ router.delete("/:shopId", validateShopOwnershipMiddleware, deleteShop);
    /api/tenant/shops/:shopId/services
 -------------------------------------------------- */
 router.use("/:shopId/services", serviceRoutes);
+
+/* --------------------------------------------------
+   NESTED APPOINTMENT ROUTES
+   /api/tenant/shops/:shopId/appointments
+-------------------------------------------------- */
+router.use("/:shopId/appointments", appointmentRoutes);
 
 module.exports = router;
 

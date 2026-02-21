@@ -28,7 +28,5 @@ router.patch("/:serviceId", validateShopOwnershipMiddleware, updateService);
 // Delete Service
 router.delete("/:serviceId", validateShopOwnershipMiddleware, deleteService);
 
-module.exports = router;
-
 
 module.exports = router;

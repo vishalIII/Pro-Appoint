@@ -18,6 +18,20 @@ const appointmentSchema = new mongoose.Schema(
       index: true,
     },
 
+    shopId:{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "shop",
+      required: true,
+      index: true,
+    },
+
+    serviceId:{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "service",
+      required: true,
+      index: true,
+    },
+
     /* ---------------- TIME ---------------- */
 
     startTimeUTC: {
@@ -154,12 +168,9 @@ const appointmentSchema = new mongoose.Schema(
     location: {
       shopId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "tenant",
+        ref: "shop",
+        required: true,
       },
-      address: String,
-      room: String,
-      lat: Number,
-      lng: Number,
     },
 
     /* ---------------- CANCELLATION ---------------- */
@@ -190,11 +201,10 @@ const appointmentSchema = new mongoose.Schema(
 );
 
 //================================================ VALIDATION
-appointmentSchema.pre("validate", function (next) {
-
+appointmentSchema.pre("validate", function () {
   // Time sanity
   if (this.startTimeUTC >= this.endTimeUTC) {
-    return next(new Error("startTimeUTC must be before endTimeUTC"));
+    throw new Error("startTimeUTC must be before endTimeUTC");
   }
 
   // Auto duration
@@ -202,37 +212,31 @@ appointmentSchema.pre("validate", function (next) {
     (this.endTimeUTC - this.startTimeUTC) / 60000;
 
   if (this.durationMinutes <= 0) {
-    return next(new Error("Invalid duration"));
+    throw new Error("Invalid duration");
   }
 
   // Online validation
   if (this.mode === "online") {
     if (!this.meeting || !this.meeting.link) {
-      return next(
-        new Error("Meeting link is required for online appointments")
-      );
+      throw new Error("Meeting link is required for online appointments");
     }
   }
 
   // Offline validation
   if (this.mode === "offline") {
-    if (!this.location || !this.location.shopId || !this.location.address) {
-      return next(
-        new Error("Shop location is required for offline appointments")
-      );
+    if (!this.location || !this.location.shopId) {
+      throw new Error("Shop reference is required for offline appointments");
     }
   }
 
   // Payment consistency rules
   if (this.paidAt && this.paymentStatus !== "paid") {
-    return next(new Error("paidAt exists but paymentStatus is not paid"));
+    throw new Error("paidAt exists but paymentStatus is not paid");
   }
 
   if (this.paymentStatus === "refunded" && !this.refund?.refundedAt) {
-    return next(new Error("Refunded status requires refundedAt date"));
+    throw new Error("Refunded status requires refundedAt date");
   }
-
-  next();
 });
 
 //======================================== VALID TRANSITIONS
@@ -246,8 +250,9 @@ const allowedTransitions = {
   no_show: [],
 };
 
-appointmentSchema.pre("save", function (next) {
-  if (!this.isModified("status")) return next();
+appointmentSchema.pre("save", function () {
+  // use synchronous style and throw on invalid transitions
+  if (!this.isModified("status")) return;
 
   const prevStatus = this._previousStatus || this.status;
   const nextStatus = this.status;
@@ -256,12 +261,8 @@ appointmentSchema.pre("save", function (next) {
     this.isNew === false &&
     !allowedTransitions[prevStatus]?.includes(nextStatus)
   ) {
-    return next(
-      new Error(`Invalid status transition: ${prevStatus} → ${nextStatus}`)
-    );
+    throw new Error(`Invalid status transition: ${prevStatus} → ${nextStatus}`);
   }
-
-  next();
 });
 
 
@@ -275,3 +276,5 @@ appointmentSchema.index({
 
 // Auto expiry queries
 appointmentSchema.index({ expiresAt: 1 });
+
+module.exports = mongoose.model("appointment", appointmentSchema);
