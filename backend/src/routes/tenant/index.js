@@ -17,6 +17,9 @@ router.use("/create-tenant",require("./tenantApplication.routes"))
 -------------------------------------------------- */
 router.use("/shops",checkTenantSubscriptionMiddleware,tenantAuth, require("../shop/index.js"));
 
+// Tenant appointment management (tenant-only)
+router.use('/appointments', checkTenantSubscriptionMiddleware, tenantAuth, require('./appointment.routes'));
+
 module.exports = router;
 
 
