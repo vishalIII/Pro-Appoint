@@ -10,6 +10,8 @@ const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
 const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
+const publicShopRoutes = require("./routes/public/shop.routes.js");
+const publicAppointmentRoutes = require('./routes/public/appointment.routes.js');
 /* -------- Middleware -------- */
 app.use(cors({
   origin: 'http://127.0.0.1:5173', 
@@ -43,16 +45,13 @@ app.use("/api/admin",authMiddleware,adminRoutes)
 app.use("/api/payment",paymentRoutes);
 
 // Public-facing appointment routes (customers can book without being a tenant)
-// example: POST /api/shops/:shopId/appointments and legacy /api/service/...
+// example: POST /api/shops/:shopId/appointments 
 app.use("/api/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
-app.use("/api/service/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
 
 // Public shop & service browsing routes (customers)
-const publicShopRoutes = require("./routes/public/shop.routes.js");
 app.use("/api/shops", authMiddleware, publicShopRoutes);
 
 // New public appointment endpoints (bookings independent from shop nested path)
-const publicAppointmentRoutes = require('./routes/public/appointment.routes.js');
 app.use('/api/public', authMiddleware, publicAppointmentRoutes);
 
 //-------------------------------------------------------------------
