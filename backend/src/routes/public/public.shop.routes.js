@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { listShops, getShopByIdPublic } = require("../../controllers/public/shop.controller");
-const publicServiceRoutes = require("./service.routes");
+const publicServiceRoutes = require("./public.service.routes");
 
 router.get("/", listShops);
 router.get("/:shopId", getShopByIdPublic);

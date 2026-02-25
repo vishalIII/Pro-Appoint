@@ -10,8 +10,8 @@ const tenantRoutes=require("./routes/tenant/index.js")
 const adminRoutes = require("./routes/admin/index.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
 const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
-const publicShopRoutes = require("./routes/public/shop.routes.js");
-const publicAppointmentRoutes = require('./routes/public/appointment.routes.js');
+const publicShopRoutes = require("./routes/public/public.shop.routes.js");
+const publicAppointmentRoutes = require('./routes/public/public.appointment.routes.js');
 /* -------- Middleware -------- */
 app.use(cors({
   origin: 'http://127.0.0.1:5173', 
@@ -38,21 +38,27 @@ const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.j
 app.use("/api/auth", authRoutes); //Register and login
 
 // Mount tenant routes under both /api/tenant and /api/service for backward compatibility
-app.use(["/api/tenant", "/api/service"], authMiddleware, tenantRoutes);  //it contains applying as tenant, applying for shop, and shop CRUD with nested services
+app.use("/api/tenant", authMiddleware, tenantRoutes);  //it contains applying as tenant, applying for shop, and shop CRUD with nested services
 
 app.use("/api/admin",authMiddleware,adminRoutes)
 
 app.use("/api/payment",paymentRoutes);
 
-// Public-facing appointment routes (customers can book without being a tenant)
-// example: POST /api/shops/:shopId/appointments 
-app.use("/api/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
+// Public shop & service browsing routes (customers) NOT require authentication for browsing.
+app.use("/api/shops", publicShopRoutes);
 
-// Public shop & service browsing routes (customers)
-app.use("/api/shops", authMiddleware, publicShopRoutes);
+// New public appointment endpoints (bookings independent from shop nested path) ===== for customer appointments
+// app.use('/api/customer', authMiddleware, publicAppointmentRoutes);
 
-// New public appointment endpoints (bookings independent from shop nested path)
-app.use('/api/public', authMiddleware, publicAppointmentRoutes);
+app.use(
+  "/api/customer/appointments",
+  authMiddleware,
+  publicAppointmentRoutes
+);
+
+// // Public-facing appointment routes (customers can book without being a tenant)
+// // example: POST /api/shops/:shopId/appointments 
+// app.use("/api/shops/:shopId/appointments", authMiddleware, appointmentRoutes);
 
 //-------------------------------------------------------------------
 app.get("/", (req, res) => {

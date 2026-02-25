@@ -15,6 +15,14 @@ const validateShopOwnership = async (shopId, tenantId) => {
     throw new AppError("Unauthorized access to this shop", 403);
   }
 
+  // 🔥 Add this check
+  if (shop.status !== "approved") {
+    throw new AppError(
+      "Shop must be approved before creating services",
+      400
+    );
+  }
+
   return shop;
 };
 

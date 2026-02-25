@@ -24,23 +24,25 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       serviceId,
     } = payload || {};
 
-    if (!tenantId) {
-      if (!shopId) throw new AppError("Tenant ID is required", 400);
-      const shop = await Shop.findById(shopId).lean();
-      if (!shop) throw new AppError("Shop not found", 404);
-      tenantId = shop.tenantId;
+    const shop = await Shop.findById(shopId).lean();
+    if (!shop) throw new AppError("Shop not found", 404);
+    if (shop.status !== "approved") {
+      throw new AppError("Shop not available for booking", 400);
     }
+    tenantId = shop.tenantId;
 
     // Basic checks
     const finalAttendeeId = attendeeId || userId;
     if (!finalAttendeeId) throw new AppError("attendeeId is required", 400);
-    if (!startTimeUTC || !endTimeUTC) throw new AppError("startTimeUTC and endTimeUTC are required", 400);
+    if (!startTimeUTC || !endTimeUTC)
+      throw new AppError("startTimeUTC and endTimeUTC are required", 400);
     if (!mode) throw new AppError("mode is required", 400);
     if (!shopId) throw new AppError("shopId is required", 400);
     if (!serviceId) throw new AppError("serviceId is required", 400);
 
     if (!isValidObjectId(shopId)) throw new AppError("Invalid Shop ID", 400);
-    if (!isValidObjectId(serviceId)) throw new AppError("Invalid Service ID", 400);
+    if (!isValidObjectId(serviceId))
+      throw new AppError("Invalid Service ID", 400);
 
     // Validate service and derive price
     const service = await Service.findById(serviceId);
@@ -85,7 +87,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
     return doc;
   } catch (error) {
     if (error instanceof AppError) throw error;
-    console.error('Appointment.createAppointment unexpected error:', error);
+    console.error("Appointment.createAppointment unexpected error:", error);
     console.error(error.stack);
     throw new AppError(error.message || "Failed to create appointment", 500);
   }
@@ -116,7 +118,8 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
 exports.getAppointmentById = async ({ appointmentId, tenantId }) => {
   try {
     if (!appointmentId) throw new AppError("Appointment ID is required", 400);
-    if (!isValidObjectId(appointmentId)) throw new AppError("Invalid Appointment ID", 400);
+    if (!isValidObjectId(appointmentId))
+      throw new AppError("Invalid Appointment ID", 400);
     const q = { _id: appointmentId };
     if (tenantId) q.tenantId = tenantId;
 
@@ -129,10 +132,15 @@ exports.getAppointmentById = async ({ appointmentId, tenantId }) => {
   }
 };
 
-exports.updateAppointment = async ({ appointmentId, tenantId, updatePayload }) => {
+exports.updateAppointment = async ({
+  appointmentId,
+  tenantId,
+  updatePayload,
+}) => {
   try {
     if (!appointmentId) throw new AppError("Appointment ID is required", 400);
-    if (!isValidObjectId(appointmentId)) throw new AppError("Invalid Appointment ID", 400);
+    if (!isValidObjectId(appointmentId))
+      throw new AppError("Invalid Appointment ID", 400);
 
     const allowed = [
       "startTimeUTC",
@@ -154,7 +162,8 @@ exports.updateAppointment = async ({ appointmentId, tenantId, updatePayload }) =
       if (updatePayload?.[k] !== undefined) updates[k] = updatePayload[k];
     });
 
-    if (updates.startTimeUTC) updates.startTimeUTC = new Date(updates.startTimeUTC);
+    if (updates.startTimeUTC)
+      updates.startTimeUTC = new Date(updates.startTimeUTC);
     if (updates.endTimeUTC) updates.endTimeUTC = new Date(updates.endTimeUTC);
 
     // If switching to offline and location not provided, set location to only shopId
@@ -175,7 +184,7 @@ exports.updateAppointment = async ({ appointmentId, tenantId, updatePayload }) =
     const appointment = await Appointment.findOneAndUpdate(
       findQ,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!appointment) throw new AppError("Appointment not found", 404);
@@ -189,7 +198,8 @@ exports.updateAppointment = async ({ appointmentId, tenantId, updatePayload }) =
 exports.deleteAppointment = async ({ appointmentId, tenantId }) => {
   try {
     if (!appointmentId) throw new AppError("Appointment ID is required", 400);
-    if (!isValidObjectId(appointmentId)) throw new AppError("Invalid Appointment ID", 400);
+    if (!isValidObjectId(appointmentId))
+      throw new AppError("Invalid Appointment ID", 400);
     const q = { _id: appointmentId };
     if (tenantId) q.tenantId = tenantId;
 
