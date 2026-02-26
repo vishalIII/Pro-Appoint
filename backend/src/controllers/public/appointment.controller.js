@@ -5,6 +5,7 @@ exports.createAppointment = async (req, res, next) => {
   try {
     const payload = Object.assign({}, req.body);
     if (req.params?.shopId) payload.shopId = req.params.shopId;
+    if (req.params?.serviceId) payload.serviceId = req.params.serviceId;
     if (!payload.attendeeId && req.user?.userId) payload.attendeeId = req.user.userId;
 
     const appointment = await appointmentService.createAppointment({
@@ -46,6 +47,24 @@ exports.deleteAppointment = async (req, res, next) => {
     await appointmentService.deleteAppointment({ appointmentId: req.params.appointmentId });
     return res.status(200).json({ message: 'Appointment cancelled' });
   } catch (error) {
+    next(error);
+  }
+};
+
+
+exports.updateAppointment = async (req, res, next) => {
+  try {
+    const appointment = await appointmentService.updateAppointment({
+      appointmentId: req.params.appointmentId,
+      tenantId: req.user.tenantId,
+      updatePayload: req.body,
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Appointment updated", appointment });
+  } catch (error) {
+    console.error("Appointment.updateAppointment error:", error);
     next(error);
   }
 };

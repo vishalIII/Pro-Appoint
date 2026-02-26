@@ -5,6 +5,8 @@ const AppError = require("../../utils/appError");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const normalizeObjectId = (id) =>
+  typeof id === "string" ? id.trim().replace(/^:/, "") : id;
 
 exports.createAppointment = async ({ userId, tenantId, payload }) => {
   try {
@@ -20,11 +22,14 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       paymentMethod,
       paymentGateway,
       metadata,
-      shopId,
-      serviceId,
+      shopId: rawShopId,
+      serviceId: rawServiceId,
     } = payload || {};
-
+    const shopId = normalizeObjectId(rawShopId);
+    const serviceId = normalizeObjectId(rawServiceId);
+  console.log("REQ PARAMS:", payload.shopId, payload.serviceId);
     const shop = await Shop.findById(shopId).lean();
+    console.log("Finding shop with ID:", shopId);
     if (!shop) throw new AppError("Shop not found", 404);
     if (shop.status !== "approved") {
       throw new AppError("Shop not available for booking", 400);
@@ -117,6 +122,7 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
 
 exports.getAppointmentById = async ({ appointmentId, tenantId }) => {
   try {
+    appointmentId = normalizeObjectId(appointmentId);
     if (!appointmentId) throw new AppError("Appointment ID is required", 400);
     if (!isValidObjectId(appointmentId))
       throw new AppError("Invalid Appointment ID", 400);
@@ -138,11 +144,22 @@ exports.updateAppointment = async ({
   updatePayload,
 }) => {
   try {
-    if (!appointmentId) throw new AppError("Appointment ID is required", 400);
+    appointmentId = normalizeObjectId(appointmentId);
+
+    if (!appointmentId)
+      throw new AppError("Appointment ID is required", 400);
+
     if (!isValidObjectId(appointmentId))
       throw new AppError("Invalid Appointment ID", 400);
 
-    const allowed = [
+    const findQ = { _id: appointmentId };
+    if (tenantId) findQ.tenantId = tenantId;
+
+    // 1️⃣ Fetch existing appointment
+    const appointment = await Appointment.findOne(findQ);
+    if (!appointment) throw new AppError("Appointment not found", 404);
+
+    const allowedFields = [
       "startTimeUTC",
       "endTimeUTC",
       "mode",
@@ -158,45 +175,95 @@ exports.updateAppointment = async ({
     ];
 
     const updates = {};
-    allowed.forEach((k) => {
-      if (updatePayload?.[k] !== undefined) updates[k] = updatePayload[k];
+    allowedFields.forEach((key) => {
+      if (updatePayload?.[key] !== undefined) {
+        updates[key] = updatePayload[key];
+      }
     });
 
+    // Convert dates safely
     if (updates.startTimeUTC)
       updates.startTimeUTC = new Date(updates.startTimeUTC);
-    if (updates.endTimeUTC) updates.endTimeUTC = new Date(updates.endTimeUTC);
 
-    // If switching to offline and location not provided, set location to only shopId
-    if (updates.mode === "offline" && !updates.location) {
-      // fetch existing appointment to get shopId
-      const q = { _id: appointmentId };
-      if (tenantId) q.tenantId = tenantId;
-      const existing = await Appointment.findOne(q).lean();
-      const shopIdToUse = updates.shopId || existing?.shopId;
-      if (shopIdToUse) {
-        updates.location = { shopId: shopIdToUse };
+    if (updates.endTimeUTC)
+      updates.endTimeUTC = new Date(updates.endTimeUTC);
+
+    /* =====================================================
+       🔒 STATUS TRANSITION CONTROL (Industry Standard)
+    ===================================================== */
+
+    if (updates.status) {
+      const allowedTransitions = {
+        pending: ["confirmed", "rejected", "cancelled"],
+        confirmed: ["cancelled", "cancelled_late", "completed", "no_show"],
+        rejected: [],
+        cancelled: [],
+        cancelled_late: [],
+        completed: [],
+        no_show: [],
+      };
+
+      const currentStatus = appointment.status;
+      let nextStatus = updates.status;
+
+      if (!allowedTransitions[currentStatus]?.includes(nextStatus)) {
+        throw new AppError(
+          `Cannot change status from ${currentStatus} to ${nextStatus}`,
+          400
+        );
       }
+
+      /* ==========================================
+         ⏱ Auto-handle Late Cancellation
+         Example: 2-hour cancellation window
+      ========================================== */
+
+      if (nextStatus === "cancelled" && currentStatus === "confirmed") {
+        const now = new Date();
+        const startTime = new Date(appointment.startTimeUTC);
+
+        const hoursBeforeStart =
+          (startTime - now) / (1000 * 60 * 60);
+
+        const CANCELLATION_WINDOW_HOURS = 2;
+
+        if (hoursBeforeStart < CANCELLATION_WINDOW_HOURS) {
+          nextStatus = "cancelled_late";
+        }
+      }
+
+      updates.status = nextStatus;
     }
 
-    const findQ = { _id: appointmentId };
-    if (tenantId) findQ.tenantId = tenantId;
+    /* =====================================================
+       📍 Offline location handling
+    ===================================================== */
 
-    const appointment = await Appointment.findOneAndUpdate(
-      findQ,
-      { $set: updates },
-      { new: true, runValidators: true },
-    );
+    if (updates.mode === "offline" && !updates.location) {
+      updates.location = { shopId: appointment.shopId };
+    }
 
-    if (!appointment) throw new AppError("Appointment not found", 404);
+    // 2️⃣ Apply updates safely
+    Object.assign(appointment, updates);
+
+    // 3️⃣ Save document (runs validators & hooks)
+    await appointment.save();
+
     return appointment;
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(error.message || "Failed to update appointment", 500);
+
+    console.error("Update Appointment Error:", error);
+    throw new AppError(
+      error.message || "Failed to update appointment",
+      500
+    );
   }
 };
 
 exports.deleteAppointment = async ({ appointmentId, tenantId }) => {
   try {
+    appointmentId = normalizeObjectId(appointmentId);
     if (!appointmentId) throw new AppError("Appointment ID is required", 400);
     if (!isValidObjectId(appointmentId))
       throw new AppError("Invalid Appointment ID", 400);

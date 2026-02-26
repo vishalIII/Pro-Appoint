@@ -1,21 +1,22 @@
 const express = require('express');
-const router = express.Router();
-const appointmentController = require('../../controllers/appointment/appointment.controller');
+const router = express.Router({ mergeParams: true });
+const appointmentController = require('../../controllers/public/appointment.controller');
 
 // POST /api/public/appointments -> Book appointment (body must include shopId/serviceId)
 router.post('/', appointmentController.createAppointment);
 
 // GET /api/public/appointments/my -> My bookings (authenticated user)
 router.get('/', (req, res, next) => {
-  // reuse existing controller but set attendeeId to authenticated user
-  req.query.attendeeId = req.user?.userId;
-  return appointmentController.getAppointments(req, res, next);
+  return appointmentController.getMyAppointments(req, res, next);
 });
 
-// GET /api/public/appointments/:appointmentId -> view single booking
-router.get('/appointments/:appointmentId', appointmentController.getAppointmentById);
+// GET .../appointments/:appointmentId -> view single booking
+router.get('/:appointmentId', appointmentController.getAppointmentById);
 
-// DELETE /api/public/appointments/:appointmentId -> cancel booking
-router.delete('/appointments/:appointmentId', appointmentController.deleteAppointment);
+// PATCH .../appointments/:appointmentId -> update booking
+router.patch('/:appointmentId', appointmentController.updateAppointment);
+
+// DELETE .../appointments/:appointmentId -> cancel booking
+router.delete('/:appointmentId', appointmentController.deleteAppointment);
 
 module.exports = router;
