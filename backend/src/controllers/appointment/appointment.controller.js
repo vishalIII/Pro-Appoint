@@ -5,18 +5,21 @@ exports.createAppointment = async (req, res, next) => {
     const payload = Object.assign({}, req.body);
     // allow nested route: /shops/:shopId/appointments
     if (req.params?.shopId) payload.shopId = req.params.shopId;
+    if (req.params?.serviceId) payload.serviceId = req.params.serviceId;
     // default attendeeId to authenticated user if not provided
-    if (!payload.attendeeId && req.user?.userId) payload.attendeeId = req.user.userId;
+    if (!payload.attendeeId && req.user?.userId)
+      payload.attendeeId = req.user.userId;
 
     const appointment = await appointmentService.createAppointment({
       userId: req.user.userId,
-      tenantId: req.user.tenantId,
       payload,
     });
 
-    return res.status(201).json({ message: "Appointment created", appointment });
+    return res
+      .status(201)
+      .json({ message: "Appointment created", appointment });
   } catch (error) {
-    console.error('Appointment.createAppointment error:', error);
+    console.error("Appointment.createAppointment error:", error);
     next(error);
   }
 };
@@ -37,7 +40,7 @@ exports.getAppointments = async (req, res, next) => {
 
     return res.status(200).json({ count: appointments.length, appointments });
   } catch (error) {
-    console.error('Appointment.getAppointments error:', error);
+    console.error("Appointment.getAppointments error:", error);
     next(error);
   }
 };
@@ -51,7 +54,7 @@ exports.getAppointmentById = async (req, res, next) => {
 
     return res.status(200).json(appointment);
   } catch (error) {
-    console.error('Appointment.getAppointmentById error:', error);
+    console.error("Appointment.getAppointmentById error:", error);
     next(error);
   }
 };
@@ -64,9 +67,11 @@ exports.updateAppointment = async (req, res, next) => {
       updatePayload: req.body,
     });
 
-    return res.status(200).json({ message: "Appointment updated", appointment });
+    return res
+      .status(200)
+      .json({ message: "Appointment updated", appointment });
   } catch (error) {
-    console.error('Appointment.updateAppointment error:', error);
+    console.error("Appointment.updateAppointment error:", error);
     next(error);
   }
 };
@@ -80,7 +85,7 @@ exports.deleteAppointment = async (req, res, next) => {
 
     return res.status(200).json({ message: "Appointment deleted" });
   } catch (error) {
-    console.error('Appointment.deleteAppointment error:', error);
+    console.error("Appointment.deleteAppointment error:", error);
     next(error);
   }
 };

@@ -9,7 +9,7 @@ const {
 const validateShopOwnershipMiddleware = require("../../middlewares/service/validateShopOwnership.middleware");
 const serviceRoutes = require("../service/service.routes");
 const shopApplicationRoutes = require("./shopApplication.routes");
-const appointmentRoutes = require("../appointment/appointment.routes");
+const appointmentRoutes = require("../tenant/appointment.routes");
 
 router.get("/check", (req, res) => {
   res.send("Shop API working");
