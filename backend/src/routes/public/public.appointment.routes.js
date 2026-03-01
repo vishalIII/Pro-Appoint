@@ -13,8 +13,12 @@ router.get('/', (req, res, next) => {
 // GET .../appointments/:appointmentId -> view single booking
 router.get('/:appointmentId', appointmentController.getAppointmentById);
 
+// POST .../appointments/:appointmentId/review -> review completed appointment
+router.post('/:appointmentId/review', appointmentController.createAppointmentReview);
+
 // PATCH .../appointments/:appointmentId -> update booking
 router.patch('/:appointmentId', appointmentController.updateAppointment);
+router.patch('/:appointmentId/cancel', appointmentController.cancelAppointment);
 
 // DELETE .../appointments/:appointmentId -> cancel booking
 router.delete('/:appointmentId', appointmentController.deleteAppointment);

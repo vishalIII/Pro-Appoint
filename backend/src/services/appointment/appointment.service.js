@@ -5,12 +5,61 @@ const Shop = require("../../models/shop/shop.model");
 const Resource = require("../../models/resource/resource.model");
 const AppError = require("../../utils/appError");
 
-const PAYMENT_HOLD_MINUTES = 10;
 const BLOCKING_STATUSES = ["pending", "confirmed"];
+const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
+const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
+const DEFAULT_LATE_CANCELLATION_WINDOW_HOURS = 2;
+const DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS = 24;
+
+const readNonNegativeIntFromEnv = (key, fallback) => {
+  const raw = process.env[key];
+  if (raw === undefined || raw === null || raw === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const PAYMENT_HOLD_MINUTES = readNonNegativeIntFromEnv(
+  "PAYMENT_HOLD_MINUTES",
+  DEFAULT_PAYMENT_HOLD_MINUTES,
+);
+const NO_SHOW_GRACE_MINUTES = readNonNegativeIntFromEnv(
+  "NO_SHOW_GRACE_MINUTES",
+  DEFAULT_NO_SHOW_GRACE_MINUTES,
+);
+const LATE_CANCELLATION_WINDOW_HOURS = readNonNegativeIntFromEnv(
+  "LATE_CANCELLATION_WINDOW_HOURS",
+  DEFAULT_LATE_CANCELLATION_WINDOW_HOURS,
+);
+const CUSTOMER_REFUND_WINDOW_HOURS = readNonNegativeIntFromEnv(
+  "CUSTOMER_REFUND_WINDOW_HOURS",
+  DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS,
+);
+
+const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
+  instructor: "staff",
+};
+
+const RESOURCE_TYPE_ALIASES = {
+  staff: ["staff", "instructor"],
+};
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
   typeof id === "string" ? id.trim().replace(/^:/, "") : id;
+const normalizeResourceType = (type) => {
+  const normalized =
+    typeof type === "string" ? type.trim().toLowerCase() : "";
+  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
+};
+const getResourceTypeAliases = (normalizedType) =>
+  RESOURCE_TYPE_ALIASES[normalizedType] || [normalizedType];
 
 const addMinutes = (value, minutes) =>
   new Date(value.getTime() + minutes * 60 * 1000);
@@ -169,8 +218,7 @@ const normalizeRequiredResources = (requiredResources) => {
   const aggregated = new Map();
 
   for (const item of requiredResources) {
-    const type =
-      typeof item?.type === "string" ? item.type.trim().toLowerCase() : "";
+    const type = normalizeResourceType(item?.type);
     const quantity = Number(item?.quantity);
 
     if (!type) {
@@ -192,6 +240,27 @@ const normalizeRequiredResources = (requiredResources) => {
     quantity,
   }));
 };
+
+const normalizeServiceCapacity = (capacity) => {
+  const parsed = Number(capacity);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.floor(parsed);
+};
+
+const getPerBookingRequiredResources = ({
+  requiredResources,
+  serviceCapacity,
+}) =>
+  requiredResources.map((required) => ({
+    type: required.type,
+    // For multi-capacity services, convert full-session quantity to per-booking units.
+    quantity: Math.max(
+      1,
+      Math.ceil(required.quantity / serviceCapacity),
+    ),
+  }));
 
 const getActiveConflictFilter = (now) => ({
   status: { $in: BLOCKING_STATUSES },
@@ -243,11 +312,17 @@ const ensureBookableShopAndService = async ({
   const requiredResources = normalizeRequiredResources(
     service.requiredResources,
   );
+  const serviceCapacity = normalizeServiceCapacity(service.capacity);
+  const perBookingRequiredResources = getPerBookingRequiredResources({
+    requiredResources,
+    serviceCapacity,
+  });
 
   return {
     shop,
     service,
-    requiredResources,
+    requiredResources: perBookingRequiredResources,
+    serviceCapacity,
   };
 };
 
@@ -259,9 +334,13 @@ const getResourcesByType = async ({
 }) => {
   const entries = await Promise.all(
     requiredResources.map(async (required) => {
+      const typeAliases = getResourceTypeAliases(required.type);
       const resources = await Resource.find({
         shopId,
-        type: required.type,
+        type:
+          typeAliases.length === 1
+            ? typeAliases[0]
+            : { $in: typeAliases },
         isActive: true,
       })
         .sort({ _id: 1 })
@@ -284,25 +363,74 @@ const normalizeResourceCapacity = (resource) => {
   return Math.floor(capacity);
 };
 
+const normalizeResourceUnits = (units) => {
+  const parsed = Number(units);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.floor(parsed);
+};
+
+const parseAllocatedResourceEntries = (allocatedResources) => {
+  if (!Array.isArray(allocatedResources)) {
+    return [];
+  }
+
+  const entries = [];
+
+  for (const item of allocatedResources) {
+    if (item === null || item === undefined) {
+      continue;
+    }
+
+    // Backward compatibility: old shape was repeated resource ObjectIds.
+    const isPrimitiveResourceId =
+      typeof item === "string" ||
+      item instanceof mongoose.Types.ObjectId ||
+      item?._bsontype === "ObjectId";
+
+    if (isPrimitiveResourceId) {
+      entries.push({
+        resourceId: String(item),
+        units: 1,
+      });
+      continue;
+    }
+
+    if (typeof item === "object" && item.resourceId) {
+      entries.push({
+        resourceId: String(item.resourceId),
+        units: normalizeResourceUnits(item.units),
+      });
+    }
+  }
+
+  return entries;
+};
+
 const buildResourceUnitUsageMap = (appointments) => {
   const usage = new Map();
 
   for (const appointment of appointments || []) {
-    for (const resourceId of appointment.allocatedResources || []) {
-      const key = String(resourceId);
-      usage.set(key, (usage.get(key) || 0) + 1);
+    const allocatedEntries = parseAllocatedResourceEntries(
+      appointment.allocatedResources,
+    );
+
+    for (const allocated of allocatedEntries) {
+      const key = allocated.resourceId;
+      usage.set(key, (usage.get(key) || 0) + allocated.units);
     }
   }
 
   return usage;
 };
 
-const getResourceIdCounts = (resourceIds) => {
+const getAllocatedUnitsByResource = (allocatedResources) => {
   const counts = new Map();
 
-  for (const resourceId of resourceIds || []) {
-    const key = String(resourceId);
-    counts.set(key, (counts.get(key) || 0) + 1);
+  for (const entry of parseAllocatedResourceEntries(allocatedResources)) {
+    const key = entry.resourceId;
+    counts.set(key, (counts.get(key) || 0) + entry.units);
   }
 
   return counts;
@@ -333,7 +461,7 @@ const pickResourceUnits = ({
   usedUnitsByResource,
 }) => {
   let remaining = requiredQuantity;
-  const selectedResourceIds = [];
+  const selectedAllocations = [];
 
   const resourcesWithFreeUnits = (resources || [])
     .map((resource) => {
@@ -353,14 +481,17 @@ const pickResourceUnits = ({
     if (remaining <= 0) break;
 
     const take = Math.min(remaining, entry.freeUnits);
-    for (let i = 0; i < take; i += 1) {
-      selectedResourceIds.push(entry.resource._id);
+    if (take > 0) {
+      selectedAllocations.push({
+        resourceId: entry.resource._id,
+        units: take,
+      });
     }
     remaining -= take;
   }
 
   return {
-    selectedResourceIds,
+    selectedAllocations,
     fulfilled: remaining === 0,
   };
 };
@@ -380,7 +511,11 @@ const findBlockingAppointments = async ({
 
   const query = {
     shopId,
-    allocatedResources: { $in: resourceIds },
+    $or: [
+      { "allocatedResources.resourceId": { $in: resourceIds } },
+      // Backward compatibility for legacy array<ObjectId> documents.
+      { allocatedResources: { $in: resourceIds } },
+    ],
     startTimeUTC: { $lt: endTimeUTC },
     endTimeUTC: { $gt: startTimeUTC },
     ...getActiveConflictFilter(now),
@@ -392,6 +527,35 @@ const findBlockingAppointments = async ({
 
   return Appointment.find(query)
     .select("allocatedResources startTimeUTC endTimeUTC status expiresAt")
+    .session(session)
+    .lean();
+};
+
+const findAttendeeOverlappingAppointments = async ({
+  attendeeId,
+  startTimeUTC,
+  endTimeUTC,
+  session,
+  excludeAppointmentId,
+  now,
+}) => {
+  if (!attendeeId) {
+    return [];
+  }
+
+  const query = {
+    attendeeId,
+    startTimeUTC: { $lt: endTimeUTC },
+    endTimeUTC: { $gt: startTimeUTC },
+    ...getActiveConflictFilter(now),
+  };
+
+  if (excludeAppointmentId) {
+    query._id = { $ne: excludeAppointmentId };
+  }
+
+  return Appointment.find(query)
+    .select("_id serviceId startTimeUTC endTimeUTC status expiresAt")
     .session(session)
     .lean();
 };
@@ -426,7 +590,7 @@ const getFreeResourcesForWindow = async ({
 
   const usedUnitsByResource = buildResourceUnitUsageMap(conflicts);
 
-  const selectedResourceIds = [];
+  const selectedAllocations = [];
   const freeCountsByType = {};
 
   for (const required of requiredResources) {
@@ -442,7 +606,7 @@ const getFreeResourcesForWindow = async ({
       return {
         isAvailable: false,
         freeCountsByType,
-        selectedResourceIds: [],
+        selectedAllocations: [],
       };
     }
 
@@ -456,17 +620,17 @@ const getFreeResourcesForWindow = async ({
       return {
         isAvailable: false,
         freeCountsByType,
-        selectedResourceIds: [],
+        selectedAllocations: [],
       };
     }
 
-    selectedResourceIds.push(...picked.selectedResourceIds);
+    selectedAllocations.push(...picked.selectedAllocations);
   }
 
   return {
     isAvailable: true,
     freeCountsByType,
-    selectedResourceIds,
+    selectedAllocations,
   };
 };
 
@@ -479,7 +643,8 @@ const hasCapacityConflictForAllocatedResources = async ({
   session,
   now,
 }) => {
-  const requiredUnitsByResource = getResourceIdCounts(allocatedResources);
+  const requiredUnitsByResource =
+    getAllocatedUnitsByResource(allocatedResources);
   const resourceIds = [...requiredUnitsByResource.keys()];
   if (resourceIds.length === 0) return true;
 
@@ -812,6 +977,36 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         throw new AppError("Cannot book an appointment in the past", 400);
       }
 
+      const attendeeConflicts = await findAttendeeOverlappingAppointments({
+        attendeeId: finalAttendeeId,
+        startTimeUTC: requestedStart,
+        endTimeUTC: computedEnd,
+        session,
+        now,
+      });
+
+      const hasExactDuplicate = attendeeConflicts.some((conflict) => {
+        return (
+          String(conflict.serviceId) === String(service._id) &&
+          new Date(conflict.startTimeUTC).getTime() === requestedStart.getTime() &&
+          new Date(conflict.endTimeUTC).getTime() === computedEnd.getTime()
+        );
+      });
+
+      if (hasExactDuplicate) {
+        throw new AppError(
+          "You already booked this service for the selected slot",
+          409,
+        );
+      }
+
+      if (attendeeConflicts.length > 0) {
+        throw new AppError(
+          "You already have another appointment at this time",
+          409,
+        );
+      }
+
       const resourcesByType = await getResourcesByType({
         shopId: shop._id,
         tenantId: shop.tenantId,
@@ -845,7 +1040,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             attendeeId: finalAttendeeId,
             shopId: shop._id,
             serviceId: service._id,
-            allocatedResources: allocation.selectedResourceIds,
+            allocatedResources: allocation.selectedAllocations,
             startTimeUTC: requestedStart,
             endTimeUTC: computedEnd,
             mode,
@@ -881,6 +1076,7 @@ exports.confirmAppointmentPayment = async ({
   paymentReference,
   paymentGateway,
   paymentMethod,
+  tenantId,
 }) => {
   const session = await mongoose.startSession();
 
@@ -902,6 +1098,10 @@ exports.confirmAppointmentPayment = async ({
 
       if (!appointment) {
         throw new AppError("Appointment not found", 404);
+      }
+
+      if (tenantId && String(appointment.tenantId) !== String(tenantId)) {
+        throw new AppError("Unauthorized access to this appointment", 403);
       }
 
       if (
@@ -945,6 +1145,27 @@ exports.confirmAppointmentPayment = async ({
           "Appointment has no allocated resources",
           400,
         );
+      }
+
+      const attendeeConflicts = await findAttendeeOverlappingAppointments({
+        attendeeId: appointment.attendeeId,
+        startTimeUTC: appointment.startTimeUTC,
+        endTimeUTC: appointment.endTimeUTC,
+        excludeAppointmentId: appointment._id,
+        session,
+        now,
+      });
+
+      if (attendeeConflicts.length > 0) {
+        appointment.status = "cancelled";
+        appointment.paymentStatus = "failed";
+        appointment.expiresAt = now;
+        await appointment.save({ session });
+
+        updatedAppointment = appointment;
+        paymentConflict = true;
+        conflictReason = "Attendee already has another appointment at this time";
+        return;
       }
 
       const hasConflict = await hasCapacityConflictForAllocatedResources({
@@ -1122,6 +1343,7 @@ exports.updateAppointment = async ({
       "paymentMethod",
       "paymentReference",
       "paidAt",
+      "completedAt",
       "cancellation",
       "metadata",
     ];
@@ -1138,6 +1360,12 @@ exports.updateAppointment = async ({
     }
     if (updates.endTimeUTC) {
       updates.endTimeUTC = new Date(updates.endTimeUTC);
+    }
+    if (updates.completedAt) {
+      updates.completedAt = new Date(updates.completedAt);
+      if (Number.isNaN(updates.completedAt.getTime())) {
+        throw new AppError("Invalid completedAt", 400);
+      }
     }
 
     if (updates.status) {
@@ -1168,11 +1396,34 @@ exports.updateAppointment = async ({
         const hoursBeforeStart =
           (startTime - now) / (1000 * 60 * 60);
 
-        const CANCELLATION_WINDOW_HOURS = 2;
-
-        if (hoursBeforeStart < CANCELLATION_WINDOW_HOURS) {
+        if (hoursBeforeStart < LATE_CANCELLATION_WINDOW_HOURS) {
           nextStatus = "cancelled_late";
         }
+      }
+
+      if (nextStatus === "completed") {
+        const now = new Date();
+        const appointmentEnd = new Date(
+          updates.endTimeUTC || appointment.endTimeUTC,
+        );
+        const effectivePaymentStatus =
+          updates.paymentStatus || appointment.paymentStatus;
+
+        if (now < appointmentEnd) {
+          throw new AppError(
+            "Cannot complete appointment before its end time",
+            400,
+          );
+        }
+
+        if (effectivePaymentStatus !== "paid") {
+          throw new AppError(
+            "Cannot complete appointment before payment is paid",
+            400,
+          );
+        }
+
+        updates.completedAt = updates.completedAt || now;
       }
 
       updates.status = nextStatus;
@@ -1215,6 +1466,185 @@ exports.updateAppointment = async ({
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError(error.message || "Failed to update appointment", 500);
+  }
+};
+
+exports.markAppointmentNoShow = async ({
+  appointmentId: rawAppointmentId,
+  tenantId,
+  markedByUserId,
+}) => {
+  try {
+    const appointmentId = normalizeObjectId(rawAppointmentId);
+
+    if (!appointmentId || !isValidObjectId(appointmentId)) {
+      throw new AppError("Invalid Appointment ID", 400);
+    }
+
+    if (!tenantId || !isValidObjectId(tenantId)) {
+      throw new AppError("Invalid tenant ID", 400);
+    }
+
+    if (!markedByUserId || !isValidObjectId(markedByUserId)) {
+      throw new AppError("Invalid user ID", 400);
+    }
+
+    const appointment = await Appointment.findOne({
+      _id: appointmentId,
+      tenantId,
+    });
+
+    if (!appointment) {
+      throw new AppError("Appointment not found", 404);
+    }
+
+    if (appointment.status !== "confirmed") {
+      throw new AppError(
+        `Cannot mark no-show for appointment with status ${appointment.status}`,
+        400,
+      );
+    }
+
+    const now = new Date();
+    const noShowEligibleAt = addMinutes(
+      new Date(appointment.startTimeUTC),
+      NO_SHOW_GRACE_MINUTES,
+    );
+
+    if (now < noShowEligibleAt) {
+      throw new AppError(
+        `No-show can be marked only after ${NO_SHOW_GRACE_MINUTES} minutes from appointments start time`,
+        400,
+      );
+    }
+
+    appointment.status = "no_show";
+    appointment.noShowMarkedBy = markedByUserId;
+    appointment.noShowMarkedAt = now;
+
+    await appointment.save();
+    return appointment;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to mark appointment no-show", 500);
+  }
+};
+
+exports.cancelAppointment = async ({
+  appointmentId: rawAppointmentId,
+  actorType,
+  actorUserId,
+  actorTenantId,
+  reason,
+}) => {
+  try {
+    const appointmentId = normalizeObjectId(rawAppointmentId);
+
+    if (!appointmentId || !isValidObjectId(appointmentId)) {
+      throw new AppError("Invalid Appointment ID", 400);
+    }
+
+    if (!["customer", "tenant"].includes(actorType)) {
+      throw new AppError("Invalid cancellation actor", 400);
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      throw new AppError("Appointment not found", 404);
+    }
+
+    if (actorType === "customer") {
+      if (!actorUserId) {
+        throw new AppError("Unauthorized", 401);
+      }
+      if (String(appointment.attendeeId) !== String(actorUserId)) {
+        throw new AppError("Unauthorized access to this appointment", 403);
+      }
+    }
+
+    if (actorType === "tenant") {
+      if (!actorTenantId) {
+        throw new AppError("Unauthorized", 401);
+      }
+      if (String(appointment.tenantId) !== String(actorTenantId)) {
+        throw new AppError("Unauthorized access to this appointment", 403);
+      }
+    }
+
+    if (!["pending", "confirmed"].includes(appointment.status)) {
+      throw new AppError(
+        `Cannot cancel appointment with status ${appointment.status}`,
+        400,
+      );
+    }
+
+    const now = new Date();
+    const hoursBeforeStart =
+      (new Date(appointment.startTimeUTC) - now) / (1000 * 60 * 60);
+
+    const customerRefundEligible =
+      hoursBeforeStart >= CUSTOMER_REFUND_WINDOW_HOURS;
+    const refundEligible =
+      actorType === "tenant" || customerRefundEligible;
+
+    if (
+      actorType === "customer" &&
+      !customerRefundEligible &&
+      appointment.status === "confirmed"
+    ) {
+      appointment.status = "cancelled_late";
+    } else {
+      appointment.status = "cancelled";
+    }
+
+    appointment.cancellation = {
+      cancelledBy: actorUserId || appointment.cancellation?.cancelledBy,
+      cancelledAt: now,
+      reason:
+        reason ||
+        (actorType === "tenant"
+          ? "Cancelled by service provider"
+          : "Cancelled by customer"),
+    };
+
+    if (appointment.paymentStatus === "paid") {
+      if (refundEligible) {
+        appointment.paymentStatus = "refunded";
+        appointment.refund = {
+          amount: appointment.price || 0,
+          refundedAt: now,
+          reason:
+            actorType === "tenant"
+              ? "Tenant cancelled appointment"
+              : `Customer cancelled at least ${CUSTOMER_REFUND_WINDOW_HOURS} hours before start`,
+        };
+      } else {
+        appointment.refund = {
+          amount: 0,
+          refundedAt: appointment.refund?.refundedAt,
+          reason:
+            `No refund: customer cancelled less than ${CUSTOMER_REFUND_WINDOW_HOURS} hours before start`,
+        };
+      }
+    } else if (
+      ["pending", "unpaid"].includes(appointment.paymentStatus)
+    ) {
+      appointment.paymentStatus = "failed";
+      appointment.expiresAt = now;
+    }
+
+    await appointment.save();
+
+    return {
+      appointment,
+      refundEligible,
+      refundPolicy: refundEligible
+        ? "Refund eligible"
+        : `No refund (customer cancelled within ${CUSTOMER_REFUND_WINDOW_HOURS} hours)`,
+    };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to cancel appointment", 500);
   }
 };
 

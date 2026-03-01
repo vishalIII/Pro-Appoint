@@ -1,5 +1,22 @@
 const mongoose = require("mongoose");
 
+const allocatedResourceSchema = new mongoose.Schema(
+  {
+    resourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "resource",
+      required: true,
+      index: true,
+    },
+    units: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+  },
+  { _id: false },
+);
+
 const appointmentSchema = new mongoose.Schema(
   {
     /* ---------------- MULTI TENANT ---------------- */
@@ -32,14 +49,10 @@ const appointmentSchema = new mongoose.Schema(
       index: true,
     },
 
-    allocatedResources: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "resource",
-        required: true,
-        index: true,
-      },
-    ],
+    allocatedResources: {
+      type: [allocatedResourceSchema],
+      default: [],
+    },
 
     /* ---------------- TIME ---------------- */
 
@@ -152,6 +165,8 @@ const appointmentSchema = new mongoose.Schema(
       ref: "user",
     },
 
+    noShowMarkedAt: Date,
+
     /* ---------------- MODE ---------------- */
 
     mode: {
@@ -239,7 +254,10 @@ appointmentSchema.pre("validate", function () {
   }
 
   // Payment consistency rules
-  if (this.paidAt && this.paymentStatus !== "paid") {
+  if (
+    this.paidAt &&
+    !["paid", "refunded", "partially_refunded"].includes(this.paymentStatus)
+  ) {
     throw new Error("paidAt exists but paymentStatus is not paid");
   }
 
@@ -288,7 +306,15 @@ appointmentSchema.index({
 });
 
 appointmentSchema.index({
-  allocatedResources: 1,
+  attendeeId: 1,
+  status: 1,
+  startTimeUTC: 1,
+  endTimeUTC: 1,
+  expiresAt: 1,
+});
+
+appointmentSchema.index({
+  "allocatedResources.resourceId": 1,
   startTimeUTC: 1,
   endTimeUTC: 1,
   status: 1,

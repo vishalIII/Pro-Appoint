@@ -5,8 +5,22 @@ const Resource = require("../../models/resource/resource.model");
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const normalizeResourceType = (type) =>
-  typeof type === "string" ? type.trim().toLowerCase() : "";
+const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
+  instructor: "staff",
+};
+
+const RESOURCE_TYPE_ALIASES = {
+  staff: ["staff", "instructor"],
+};
+
+const normalizeResourceType = (type) => {
+  const normalized =
+    typeof type === "string" ? type.trim().toLowerCase() : "";
+  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
+};
+
+const getResourceTypeAliases = (normalizedType) =>
+  RESOURCE_TYPE_ALIASES[normalizedType] || [normalizedType];
 
 const validateShopOwnership = async ({ shopId, tenantId }) => {
   if (!isValidObjectId(shopId)) {
@@ -68,7 +82,8 @@ exports.getResources = async ({ tenantId, shopId, type, isActive }) => {
 
   const normalizedType = normalizeResourceType(type);
   if (normalizedType) {
-    query.type = normalizedType;
+    const aliases = getResourceTypeAliases(normalizedType);
+    query.type = aliases.length === 1 ? aliases[0] : { $in: aliases };
   }
 
   if (isActive !== undefined) {

@@ -3,6 +3,16 @@ const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
 
+const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
+  instructor: "staff",
+};
+
+const normalizeResourceType = (type) => {
+  const normalized =
+    typeof type === "string" ? type.trim().toLowerCase() : "";
+  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
+};
+
 /* --------------------------------------------------
    Helper: Validate Shop Ownership
 -------------------------------------------------- */
@@ -98,8 +108,7 @@ const normalizeRequiredResources = (requiredResources) => {
   const aggregated = new Map();
 
   for (const item of requiredResources) {
-    const type =
-      typeof item?.type === "string" ? item.type.trim().toLowerCase() : "";
+    const type = normalizeResourceType(item?.type);
     const quantity = Number(item?.quantity);
 
     if (!type) {

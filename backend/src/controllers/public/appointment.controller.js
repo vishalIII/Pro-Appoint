@@ -1,4 +1,5 @@
 const appointmentService = require('../../services/appointment/appointment.service');
+const reviewService = require('../../services/review/review.service');
 
 exports.createAppointment = async (req, res, next) => {
   try {
@@ -58,8 +59,57 @@ exports.getAppointmentById = async (req, res, next) => {
 
 exports.deleteAppointment = async (req, res, next) => {
   try {
-    await appointmentService.deleteAppointment({ appointmentId: req.params.appointmentId });
-    return res.status(200).json({ message: 'Appointment cancelled' });
+    const result = await appointmentService.cancelAppointment({
+      appointmentId: req.params.appointmentId,
+      actorType: "customer",
+      actorUserId: req.user.userId,
+      reason: req.body?.reason,
+    });
+
+    return res.status(200).json({
+      message: "Appointment cancelled",
+      refundEligible: result.refundEligible,
+      refundPolicy: result.refundPolicy,
+      appointment: result.appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.cancelAppointment = async (req, res, next) => {
+  try {
+    const result = await appointmentService.cancelAppointment({
+      appointmentId: req.params.appointmentId,
+      actorType: "customer",
+      actorUserId: req.user.userId,
+      reason: req.body?.reason,
+    });
+
+    return res.status(200).json({
+      message: "Appointment cancelled",
+      refundEligible: result.refundEligible,
+      refundPolicy: result.refundPolicy,
+      appointment: result.appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createAppointmentReview = async (req, res, next) => {
+  try {
+    const result = await reviewService.createReviewForAppointment({
+      appointmentId: req.params.appointmentId,
+      reviewerId: req.user.userId,
+      payload: req.body,
+    });
+
+    return res.status(201).json({
+      message: "Review created",
+      review: result.review,
+      shopSummary: result.shopSummary,
+    });
   } catch (error) {
     next(error);
   }
