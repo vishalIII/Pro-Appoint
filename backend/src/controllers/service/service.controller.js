@@ -18,6 +18,8 @@ exports.createService = async (req, res, next) => {
       capacity: req.body.capacity,
       discountPercentage: req.body.discountPercentage,
       price: req.body.price,
+      durationMinutes: req.body.durationMinutes,
+      requiredResources: req.body.requiredResources,
     });
 
     res.status(201).json(service);
@@ -86,6 +88,8 @@ exports.updateService = async (req, res, next) => {
       capacity: req.body.capacity,
       discountPercentage: req.body.discountPercentage,
       price: req.body.price,
+      durationMinutes: req.body.durationMinutes,
+      requiredResources: req.body.requiredResources,
     });
 
     res.json({

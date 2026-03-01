@@ -1,11 +1,26 @@
+const mongoose = require("mongoose");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
+
+const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
+  instructor: "staff",
+};
+
+const normalizeResourceType = (type) => {
+  const normalized =
+    typeof type === "string" ? type.trim().toLowerCase() : "";
+  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
+};
 
 /* --------------------------------------------------
    Helper: Validate Shop Ownership
 -------------------------------------------------- */
 const validateShopOwnership = async (shopId, tenantId) => {
+  if (!mongoose.Types.ObjectId.isValid(shopId)) {
+    throw new AppError("Invalid Shop ID", 400);
+  }
+
   const shop = await Shop.findOne({
     _id: shopId,
     tenantId: tenantId,
@@ -15,7 +30,6 @@ const validateShopOwnership = async (shopId, tenantId) => {
     throw new AppError("Unauthorized access to this shop", 403);
   }
 
-  // 🔥 Add this check
   if (shop.status !== "approved") {
     throw new AppError(
       "Shop must be approved before creating services",
@@ -86,6 +100,37 @@ const validateWeeklyAvailability = (weeklyAvailability) => {
   }
 };
 
+const normalizeRequiredResources = (requiredResources) => {
+  if (!Array.isArray(requiredResources) || requiredResources.length === 0) {
+    throw new AppError("requiredResources is required", 400);
+  }
+
+  const aggregated = new Map();
+
+  for (const item of requiredResources) {
+    const type = normalizeResourceType(item?.type);
+    const quantity = Number(item?.quantity);
+
+    if (!type) {
+      throw new AppError("Resource type is required", 400);
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new AppError(
+        `Invalid resource quantity for type ${type}`,
+        400,
+      );
+    }
+
+    aggregated.set(type, (aggregated.get(type) || 0) + quantity);
+  }
+
+  return [...aggregated.entries()].map(([type, quantity]) => ({
+    type,
+    quantity,
+  }));
+};
+
 /* --------------------------------------------------
    CREATE SERVICE
 -------------------------------------------------- */
@@ -100,6 +145,8 @@ exports.createService = async ({
   capacity,
   discountPercentage,
   price,
+  durationMinutes,
+  requiredResources,
 }) => {
   try {
     if (!tenantId) throw new AppError("Tenant ID is required", 400);
@@ -115,6 +162,13 @@ exports.createService = async ({
       throw new AppError("Valid price is required", 400);
     }
 
+    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+      throw new AppError("durationMinutes must be a positive integer", 400);
+    }
+
+    const normalizedRequiredResources =
+      normalizeRequiredResources(requiredResources);
+
     validateWeeklyAvailability(weeklyAvailability);
 
     return await Service.create({
@@ -127,6 +181,8 @@ exports.createService = async ({
       capacity,
       discountPercentage,
       price,
+      durationMinutes,
+      requiredResources: normalizedRequiredResources,
     });
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -194,6 +250,8 @@ exports.updateService = async ({
   capacity,
   discountPercentage,
   price,
+  durationMinutes,
+  requiredResources,
 }) => {
   try {
     await validateShopOwnership(shopId, tenantId);
@@ -240,6 +298,21 @@ exports.updateService = async ({
       if (price < 0)
         throw new AppError("Price cannot be negative", 400);
       updateData.price = price;
+    }
+
+    if (durationMinutes !== undefined) {
+      if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+        throw new AppError(
+          "durationMinutes must be a positive integer",
+          400,
+        );
+      }
+      updateData.durationMinutes = durationMinutes;
+    }
+
+    if (requiredResources !== undefined) {
+      updateData.requiredResources =
+        normalizeRequiredResources(requiredResources);
     }
 
     const service = await Service.findOneAndUpdate(

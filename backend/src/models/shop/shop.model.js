@@ -75,6 +75,27 @@ const ShopSchema = new mongoose.Schema(
       default: "pending",
     },
 
+    ratingAvg: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+
+    ratingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    ratingBreakdown: {
+      star1: { type: Number, default: 0, min: 0 },
+      star2: { type: Number, default: 0, min: 0 },
+      star3: { type: Number, default: 0, min: 0 },
+      star4: { type: Number, default: 0, min: 0 },
+      star5: { type: Number, default: 0, min: 0 },
+    },
+
     closedPeriods: [
       {
         startDate: {

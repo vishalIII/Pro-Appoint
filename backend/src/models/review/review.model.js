@@ -17,6 +17,20 @@ const reviewSchema = new mongoose.Schema(
       index: true,
     },
 
+    shopId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "shop",
+      required: true,
+      index: true,
+    },
+
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "service",
+      required: true,
+      index: true,
+    },
+
     reviewerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
@@ -52,5 +66,8 @@ const reviewSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+reviewSchema.index({ shopId: 1, status: 1, createdAt: -1 });
+reviewSchema.index({ reviewerId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("review", reviewSchema);

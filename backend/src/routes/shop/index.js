@@ -8,6 +8,7 @@ const {
 } = require("../../controllers/shop/shop.controller");
 const validateShopOwnershipMiddleware = require("../../middlewares/service/validateShopOwnership.middleware");
 const serviceRoutes = require("../service/service.routes");
+const resourceRoutes = require("../resource/resource.routes");
 const shopApplicationRoutes = require("./shopApplication.routes");
 const appointmentRoutes = require("../tenant/appointment.routes");
 
@@ -37,10 +38,15 @@ router.delete("/:shopId", validateShopOwnershipMiddleware, deleteShop);
 router.use("/:shopId/services", serviceRoutes);
 
 /* --------------------------------------------------
+   NESTED RESOURCE ROUTES
+   /api/tenant/shops/:shopId/resources
+-------------------------------------------------- */
+router.use("/:shopId/resources", resourceRoutes);
+
+/* --------------------------------------------------
    NESTED APPOINTMENT ROUTES
    /api/tenant/shops/:shopId/appointments
 -------------------------------------------------- */
 router.use("/:shopId/appointments", appointmentRoutes);
 
 module.exports = router;
-
