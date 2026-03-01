@@ -3,6 +3,23 @@ const {
   weeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
 
+const requiredResourceSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+  },
+  { _id: false },
+);
+
 const serviceSchema = new mongoose.Schema(
   {
     shopId: {
@@ -59,6 +76,21 @@ const serviceSchema = new mongoose.Schema(
 
     images: [String],
     price: Number,
+
+    durationMinutes: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    requiredResources: {
+      type: [requiredResourceSchema],
+      required: true,
+      validate: {
+        validator: (value) => Array.isArray(value) && value.length > 0,
+        message: "requiredResources must contain at least one entry",
+      },
+    },
 
     isActive: {
       type: Boolean,

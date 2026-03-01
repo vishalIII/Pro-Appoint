@@ -1,5 +1,4 @@
 const appointmentService = require('../../services/appointment/appointment.service');
-const AppError = require('../../utils/appError');
 
 exports.createAppointment = async (req, res, next) => {
   try {
@@ -15,6 +14,21 @@ exports.createAppointment = async (req, res, next) => {
     });
 
     return res.status(201).json({ message: 'Appointment created', appointment });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getAvailableSlots = async (req, res, next) => {
+  try {
+    const slotData = await appointmentService.getAvailableSlots({
+      shopId: req.params.shopId,
+      serviceId: req.params.serviceId,
+      date: req.query.date,
+      slotIntervalMinutes: req.query.slotIntervalMinutes,
+    });
+
+    return res.status(200).json(slotData);
   } catch (error) {
     next(error);
   }

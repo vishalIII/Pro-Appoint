@@ -32,6 +32,15 @@ const appointmentSchema = new mongoose.Schema(
       index: true,
     },
 
+    allocatedResources: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "resource",
+        required: true,
+        index: true,
+      },
+    ],
+
     /* ---------------- TIME ---------------- */
 
     startTimeUTC: {
@@ -250,18 +259,22 @@ const allowedTransitions = {
   no_show: [],
 };
 
-appointmentSchema.pre("save", function () {
-  // use synchronous style and throw on invalid transitions
-  if (!this.isModified("status")) return;
+appointmentSchema.pre("save", async function () {
+  if (!this.isModified("status") || this.isNew) return;
 
-  const prevStatus = this._previousStatus || this.status;
+  const previous = await this.constructor
+    .findById(this._id)
+    .session(this.$session())
+    .select("status")
+    .lean();
+
+  if (!previous) return;
+
+  const prevStatus = previous.status;
   const nextStatus = this.status;
 
-  if (
-    this.isNew === false &&
-    !allowedTransitions[prevStatus]?.includes(nextStatus)
-  ) {
-    throw new Error(`Invalid status transition: ${prevStatus} → ${nextStatus}`);
+  if (!allowedTransitions[prevStatus]?.includes(nextStatus)) {
+    throw new Error(`Invalid status transition: ${prevStatus} -> ${nextStatus}`);
   }
 });
 
@@ -272,6 +285,13 @@ appointmentSchema.index({
   status: 1,
   startTimeUTC: 1,
   endTimeUTC: 1,
+});
+
+appointmentSchema.index({
+  allocatedResources: 1,
+  startTimeUTC: 1,
+  endTimeUTC: 1,
+  status: 1,
 });
 
 // Auto expiry queries
