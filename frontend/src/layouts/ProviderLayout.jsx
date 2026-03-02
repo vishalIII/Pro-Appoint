@@ -2,13 +2,15 @@ import { Link, Outlet } from "react-router-dom";
 
 const ProviderLayout = () => {
   return (
-    <div>
-      <h2>Service Provider Panel</h2>
-      <nav>
-        <Link to="/provider">Dashboard</Link>
-      </nav>
+    <section className="dashboard-shell">
+      <header className="dashboard-header">
+        <h2>Tenant Panel</h2>
+        <nav className="dashboard-nav">
+          <Link to="/tenant">Overview</Link>
+        </nav>
+      </header>
       <Outlet />
-    </div>
+    </section>
   );
 };
 

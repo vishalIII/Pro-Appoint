@@ -1,21 +1,299 @@
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --text: #1b2430;
+  --muted: #5b6470;
+  --border: #d7dde5;
+  --primary: #1161d9;
+  --primary-dark: #0f50b0;
+  --danger: #c62828;
+  --success: #18794e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text);
+  background: linear-gradient(180deg, #eef3fb 0%, var(--bg) 100%);
 }
 
-nav {
-  background: #fff;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-nav a {
-  margin-right: 16px;
+a {
+  color: var(--primary);
   text-decoration: none;
-  color: #333;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nav-actions {
+  gap: 10px;
+}
+
+.role-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e7f0ff;
+  color: #0c3f91;
+  font-size: 12px;
   font-weight: 600;
 }
 
-main {
+.page-shell {
+  padding: 28px 24px;
+}
+
+.page-block {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   padding: 24px;
+  box-shadow: 0 8px 20px rgba(24, 36, 52, 0.06);
+}
+
+.auth-page {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.auth-card h1,
+.card h1,
+.card h3,
+.dashboard-header h2 {
+  margin: 0 0 10px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.form-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-field input,
+.form-field select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--primary-dark);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #435066;
+}
+
+.btn-secondary:hover {
+  background: #313c4e;
+}
+
+.dashboard-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dashboard-nav {
+  display: flex;
+  gap: 12px;
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+.success-text {
+  color: var(--success);
+}
+
+@media (max-width: 720px) {
+  .top-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-shell {
+    padding: 18px 14px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+}
+
+.home-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.section-head p {
+  margin: 6px 0 16px;
+  color: var(--muted);
+}
+
+.shops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.shop-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fafcff;
+}
+
+.shop-card h3 {
+  margin: 0 0 8px;
+}
+
+.shop-card p {
+  margin: 6px 0;
+}
+
+.cta-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.flow-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.flow-list li {
+  margin-bottom: 8px;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.shop-card-actions {
+  margin-top: 12px;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.service-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fafcff;
+}
+
+.service-card h3 {
+  margin: 0 0 8px;
+}
+
+.service-card p {
+  margin: 6px 0;
+}
+
+.service-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.page-title-row h1 {
+  margin: 0;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e7f0ff;
+  color: #0c3f91;
 }

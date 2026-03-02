@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
-import { getDashboardPathForRole } from "../auth/permissions";
+import { getDashboardPathForRole, ROLES } from "../rbac";
 
 export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -12,27 +12,36 @@ export default function Layout() {
   };
 
   return (
-    <div>
-      <nav>
-        <Link to="/">Home</Link>
-        <Link to="/about">About</Link>
+    <div className="app-shell">
+      <nav className="top-nav">
+        <div className="nav-group">
+          <Link to="/">Home</Link>
+          <Link to="/about">About</Link>
+          <Link to="/menu">Menu</Link>
+          <Link to="/shops">Shops</Link>
+          <Link to="/reviews">Reviews</Link>
+        </div>
 
-        {isAuthenticated ? (
-          <>
-            <Link to={getDashboardPathForRole(user?.role)}>Dashboard</Link>
-            <button type="button" onClick={handleLogout}>
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
-          </>
-        )}
+        <div className="nav-group nav-actions">
+          {isAuthenticated ? (
+            <>
+              <span className="role-badge">{user?.role}</span>
+              <Link to={getDashboardPathForRole(user?.role)}>Dashboard</Link>
+              {user?.role === ROLES.CUSTOMER ? <Link to="/customer/bookings">My Bookings</Link> : null}
+              <button type="button" className="btn btn-secondary" onClick={handleLogout}>
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">Login</Link>
+              <Link to="/register">Register</Link>
+            </>
+          )}
+        </div>
       </nav>
 
-      <main>
+      <main className="page-shell">
         <Outlet />
       </main>
     </div>

@@ -1,13 +1,9 @@
-import { useAuth } from "./useAuth";
-import { PERMISSIONS } from "./permissions";
+import { useAuthorization } from "../rbac";
 
 export const usePermission = () => {
-  const { user } = useAuth();
+  const { can } = useAuthorization();
 
-  const hasPermission = (permission) => {
-    if (!user) return false;
-    return PERMISSIONS[user.role]?.includes(permission);
+  return {
+    hasPermission: can
   };
-
-  return { hasPermission };
 };
