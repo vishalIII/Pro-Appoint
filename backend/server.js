@@ -1,8 +1,8 @@
 require("dotenv").config();
 const app = require("./src/app");
 const connectDB = require("./src/config/db");
+const { startAppointmentLifecycleJob } = require("./src/jobs/appointmentLifecycle.job");
 
-connectDB();
 // app.use(cors({
 //    origin: [
 //     "http://localhost:5173",
@@ -16,7 +16,15 @@ connectDB();
 
 /* ===== MIDDLEWARE ===== */
 
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}❤️`);
-});
+const PORT = process.env.PORT || 5000;
+
+const bootstrap = async () => {
+  await connectDB();
+  startAppointmentLifecycleJob();
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}❤️`);
+  });
+};
+
+bootstrap();
