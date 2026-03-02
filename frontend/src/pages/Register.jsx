@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { registerRequest } from "../auth/authApi";
-import { ROLES } from "../auth/permissions";
+import { ROLES } from "../rbac";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -51,63 +51,72 @@ export default function Register() {
   };
 
   return (
-    <section>
-      <h1>Register</h1>
-      {error ? <p>{error}</p> : null}
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="name">Name</label>
-          <input id="name" name="name" value={form.name} onChange={handleChange} required />
-        </div>
-        <div>
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            minLength={6}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="confirmPassword">Confirm Password</label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            minLength={6}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="role">Role</label>
-          <select id="role" name="role" value={form.role} onChange={handleChange}>
-            <option value={ROLES.CUSTOMER}>Customer</option>
-            <option value={ROLES.PROVIDER}>Service Provider</option>
-          </select>
-        </div>
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating account..." : "Register"}
-        </button>
-      </form>
-      <p>
-        Already registered? <Link to="/login">Go to login</Link>
-      </p>
+    <section className="auth-page">
+      <div className="card auth-card">
+        <h1>Register</h1>
+        {error ? <p className="error-text">{error}</p> : null}
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label className="form-field" htmlFor="name">
+            Name
+            <input id="name" name="name" value={form.name} onChange={handleChange} required />
+          </label>
+
+          <label className="form-field" htmlFor="email">
+            Email
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              required
+            />
+          </label>
+
+          <label className="form-field" htmlFor="password">
+            Password
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              minLength={6}
+              required
+            />
+          </label>
+
+          <label className="form-field" htmlFor="confirmPassword">
+            Confirm Password
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              minLength={6}
+              required
+            />
+          </label>
+
+          <label className="form-field" htmlFor="role">
+            Role
+            <select id="role" name="role" value={form.role} onChange={handleChange}>
+              <option value={ROLES.CUSTOMER}>Customer</option>
+              <option value={ROLES.PROVIDER}>Service Provider</option>
+            </select>
+          </label>
+
+          <button className="btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating account..." : "Register"}
+          </button>
+        </form>
+
+        <p>
+          Already registered? <Link to="/login">Go to login</Link>
+        </p>
+      </div>
     </section>
   );
 }

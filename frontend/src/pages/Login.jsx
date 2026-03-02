@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginRequest } from "../auth/authApi";
 import { useAuth } from "../auth/useAuth";
-import { getDashboardPathForRole } from "../auth/permissions";
+import { getDashboardPathForRole } from "../rbac";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -36,41 +36,46 @@ export default function Login() {
   };
 
   return (
-    <section>
-      <h1>Login</h1>
-      {successMessage ? <p>{successMessage}</p> : null}
-      {error ? <p>{error}</p> : null}
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Login"}
-        </button>
-      </form>
+    <section className="auth-page">
+      <div className="card auth-card">
+        <h1>Login</h1>
+        {successMessage ? <p className="success-text">{successMessage}</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
 
-      <p>
-        New user? <Link to="/register">Create an account</Link>
-      </p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label className="form-field" htmlFor="email">
+            Email
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              required
+            />
+          </label>
+
+          <label className="form-field" htmlFor="password">
+            Password
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
+          </label>
+
+          <button className="btn" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Logging in..." : "Login"}
+          </button>
+        </form>
+
+        <p>
+          New user? <Link to="/register">Create an account</Link>
+        </p>
+      </div>
     </section>
   );
 }
