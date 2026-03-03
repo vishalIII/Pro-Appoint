@@ -1,10 +1,23 @@
 const Shop = require("../../models/shop/shop.model");
+const Industry = require("../../models/service/industry/industry.model");
 const reviewService = require("../../services/review/review.service");
 
 exports.listShops = async (req, res, next) => {
   try {
     const shops = await Shop.find({ status: "approved" }).sort({ createdAt: -1 });
     return res.status(200).json({ count: shops.length, shops });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.listActiveIndustriesPublic = async (req, res, next) => {
+  try {
+    const industries = await Industry.find({ isActive: true })
+      .select("_id name")
+      .sort({ name: 1 });
+
+    return res.status(200).json({ count: industries.length, industries });
   } catch (error) {
     next(error);
   }

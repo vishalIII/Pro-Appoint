@@ -8,7 +8,6 @@ const CustomerLayout = () => {
         <nav className="dashboard-nav">
           <Link to="/customer">Overview</Link>
           <Link to="/customer/bookings">My Bookings</Link>
-          <Link to="/shops">Browse Shops</Link>
         </nav>
       </header>
       <Outlet />

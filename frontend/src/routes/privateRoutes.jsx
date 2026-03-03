@@ -7,12 +7,18 @@ import ProviderDashboard from "../dashboards/ProviderDashboard";
 import CustomerDashboard from "../dashboards/CustomerDashboard";
 import BookingFlow from "../pages/customer/BookingFlow";
 import MyBookings from "../pages/customer/MyBookings";
+import ApplyProvider from "../pages/provider/ApplyProvider";
 import { ROLES } from "../rbac";
 
 export const privateRoutes = [
   {
     path: "shops/:shopId/services/:serviceId/book",
     element: <BookingFlow />,
+    guard: { roles: [ROLES.CUSTOMER] }
+  },
+  {
+    path: "provider/apply",
+    element: <ApplyProvider />,
     guard: { roles: [ROLES.CUSTOMER] }
   },
   {

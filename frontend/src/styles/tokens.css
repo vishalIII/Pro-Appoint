@@ -1,0 +1,41 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Poppins:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #f8faf2;
+  --surface: #ffffff;
+  --text: #252525;
+  --muted: #6f7663;
+  --border: #e1e7d5;
+  --primary: #7fad39;
+  --primary-dark: #628d24;
+  --danger: #c62828;
+  --success: #1b7e46;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Poppins", "Trebuchet MS", sans-serif;
+  color: var(--text);
+  background: linear-gradient(180deg, #fbfdf6 0%, #f3f6ea 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

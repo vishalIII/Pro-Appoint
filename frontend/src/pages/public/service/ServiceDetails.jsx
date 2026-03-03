@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useAuth } from "../../auth/useAuth";
-import { ROLES } from "../../rbac";
+import { useAuth } from "../../../auth/useAuth";
+import { ROLES } from "../../../rbac";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -50,7 +50,7 @@ export default function ServiceDetails() {
       <div className="card">
         <div className="page-title-row">
           <h1>{service?.name || "Service Details"}</h1>
-          <Link to={`/shops/${shopId}`}>Back to Shop</Link>
+          <Link to={`/shops/${shopId}`}>Visit Shop</Link>
         </div>
 
         {isLoading ? <p>Loading service details...</p> : null}

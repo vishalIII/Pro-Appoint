@@ -13,6 +13,7 @@ export default function Login() {
   const location = useLocation();
 
   const successMessage = location.state?.message || "";
+  const redirectTo = location.state?.redirectTo || null;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -27,7 +28,7 @@ export default function Login() {
     try {
       const data = await loginRequest(form);
       login({ user: data.user, token: data.token });
-      navigate(getDashboardPathForRole(data.user?.role), { replace: true });
+      navigate(redirectTo || getDashboardPathForRole(data.user?.role), { replace: true });
     } catch (submissionError) {
       setError(submissionError.message || "Unable to login");
     } finally {
