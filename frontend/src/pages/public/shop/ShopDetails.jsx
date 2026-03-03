@@ -58,7 +58,7 @@ export default function ShopDetails() {
       <div className="card">
         <div className="page-title-row">
           <h1>{shop?.shopName || "Shop Details"}</h1>
-          <Link to="/shops">Back to Shops</Link>
+          {/* <Link to="/">Back to Shops</Link> */}
         </div>
 
         {isLoading ? <p>Loading shop details...</p> : null}

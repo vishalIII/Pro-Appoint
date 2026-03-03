@@ -1,10 +1,30 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
-import { getDashboardPathForRole, ROLES } from "../rbac";
+import { ROLES } from "../rbac";
 
 export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const canUseListBusiness = !isAuthenticated || user?.role === ROLES.CUSTOMER;
+  const navLinks = [
+    { to: "/", label: "Home", end: true },
+    { to: "/menu", label: "Shop" },
+    { to: "/about", label: "About" }
+  ];
+
+  const handleListBusiness = () => {
+    if (!isAuthenticated) {
+      navigate("/login", { state: { redirectTo: "/provider/apply" } });
+      return;
+    }
+
+    if (user?.role !== ROLES.CUSTOMER) {
+      navigate("/unauthorized");
+      return;
+    }
+
+    navigate("/provider/apply");
+  };
 
   const handleLogout = () => {
     logout();
@@ -13,33 +33,58 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
-      <nav className="top-nav">
-        <div className="nav-group">
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
-          <Link to="/menu">Menu</Link>
-          <Link to="/shops">Shops</Link>
-          <Link to="/reviews">Reviews</Link>
+      <header className="site-header">
+        <div className="header-info-wrap">
+          <div className="header-container header-info">
+            <div className="header-info-left">
+              <span>hello@freshmart.com</span>
+              <span>Free shipping for all orders over $99</span>
+            </div>
+            <div className="header-info-right">
+              <span>EN</span>
+              <span>USD</span>
+            </div>
+          </div>
         </div>
 
-        <div className="nav-group nav-actions">
-          {isAuthenticated ? (
-            <>
-              <span className="role-badge">{user?.role}</span>
-              <Link to={getDashboardPathForRole(user?.role)}>Dashboard</Link>
-              {user?.role === ROLES.CUSTOMER ? <Link to="/customer/bookings">My Bookings</Link> : null}
-              <button type="button" className="btn btn-secondary" onClick={handleLogout}>
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login">Login</Link>
-              <Link to="/register">Register</Link>
-            </>
-          )}
+        <div className="header-main-wrap">
+          <div className="header-container header-main">
+            <Link to="/" className="brand-logo" aria-label="Pro appoint home">
+              Pro<span>Appoint</span>
+            </Link>
+
+            <nav className="header-nav">
+              {navLinks.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => `header-nav-link${isActive ? " is-active" : ""}`}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="header-actions">
+              {isAuthenticated ? (
+                <button style={{color:"red"}} type="button" className="auth-action" onClick={handleLogout}>
+                  Log out
+                </button>
+              ) : (
+                <Link to="/login" className="auth-action">
+                  Log in
+                </Link>
+              )}
+              {canUseListBusiness ? (
+                <button type="button" className="list-business-btn" onClick={handleListBusiness}>
+                  List your business
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </nav>
+      </header>
 
       <main className="page-shell">
         <Outlet />

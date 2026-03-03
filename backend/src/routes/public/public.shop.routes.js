@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router({ mergeParams: true }); 
 const {
   listShops,
+  listActiveIndustriesPublic,
   getShopByIdPublic,
   getShopReviews,
   getShopReviewSummary,
@@ -9,6 +10,7 @@ const {
 const publicServiceRoutes = require("./public.service.routes");
 
 router.get("/", listShops);
+router.get("/industries", listActiveIndustriesPublic);
 router.get("/:shopId", getShopByIdPublic);
 router.get("/:shopId/reviews", getShopReviews);
 router.get("/:shopId/review-summary", getShopReviewSummary);
