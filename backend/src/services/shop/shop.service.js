@@ -1,36 +1,9 @@
 const mongoose = require("mongoose");
 const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
-
-const VALID_DAYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-];
-
-const validateWeeklyAvailability = (weeklyAvailability) => {
-  if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length !== 7) {
-    throw new AppError("All 7 days availability required", 400);
-  }
-
-  const providedDays = weeklyAvailability.map((item) =>
-    item?.day?.toLowerCase(),
-  );
-
-  if (new Set(providedDays).size !== 7) {
-    throw new AppError("Duplicate or missing days in weekly availability", 400);
-  }
-
-  for (const day of providedDays) {
-    if (!VALID_DAYS.includes(day)) {
-      throw new AppError(`Invalid day provided: ${day}`, 400);
-    }
-  }
-};
+const {
+  validateShopWeeklyAvailability,
+} = require("../../utils/availability");
 
 const getOwnedShop = async ({ shopId, tenantId }) => {
   if (!shopId) {
@@ -97,10 +70,6 @@ exports.updateShop = async ({ shopId, tenantId, updatePayload }) => {
       "weeklyAvailability",
     ];
 
-    if (updatePayload?.weeklyAvailability !== undefined) {
-      validateWeeklyAvailability(updatePayload.weeklyAvailability);
-    }
-
     const updates = {};
 
     allowedUpdates.forEach((field) => {
@@ -108,6 +77,12 @@ exports.updateShop = async ({ shopId, tenantId, updatePayload }) => {
         updates[field] = updatePayload[field];
       }
     });
+
+    if (updatePayload?.weeklyAvailability !== undefined) {
+      updates.weeklyAvailability = validateShopWeeklyAvailability(
+        updatePayload.weeklyAvailability,
+      );
+    }
 
     const shop = await Shop.findByIdAndUpdate(
       shopId,
