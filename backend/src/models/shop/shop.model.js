@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const {
-  weeklyAvailabilitySchema,
+  shopWeeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
 
 const ShopSchema = new mongoose.Schema(
@@ -40,7 +40,7 @@ const ShopSchema = new mongoose.Schema(
     },
 
     weeklyAvailability: {
-      type: [weeklyAvailabilitySchema],
+      type: [shopWeeklyAvailabilitySchema],
       required: true,
     },
 

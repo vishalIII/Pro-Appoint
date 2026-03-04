@@ -213,8 +213,78 @@
   color: #33581f;
 }
 
+.alert-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 20, 10, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+}
+
+.alert-modal-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.22s ease;
+}
+
+.alert-modal {
+  width: min(460px, calc(100vw - 28px));
+  background: #fff;
+  border: 1px solid #ecd2d2;
+  border-top: 4px solid var(--danger);
+  border-radius: 14px;
+  padding: 20px 18px 16px;
+  box-shadow: 0 18px 34px rgba(12, 16, 8, 0.2);
+  display: grid;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(6px) scale(0.985);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.alert-modal.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.alert-modal-message {
+  margin: 0;
+  color: #2b211f;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.alert-modal-ok {
+  min-width: 72px;
+  justify-self: end;
+  background: var(--danger);
+  padding: 8px 14px;
+}
+
+.alert-modal-ok:hover {
+  background: #a22020;
+}
+
 @media (max-width: 780px) {
   .card {
     padding: 18px;
+  }
+
+  .alert-modal {
+    width: calc(100vw - 24px);
+    padding: 16px 14px 14px;
+    gap: 12px;
+  }
+
+  .alert-modal-message {
+    font-size: 14px;
   }
 }

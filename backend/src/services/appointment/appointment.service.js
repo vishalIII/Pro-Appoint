@@ -151,7 +151,110 @@ const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   });
 };
 
-const isInsideServiceAndShopAvailability = ({
+const isSameUtcDate = (left, right) =>
+  left.getUTCFullYear() === right.getUTCFullYear() &&
+  left.getUTCMonth() === right.getUTCMonth() &&
+  left.getUTCDate() === right.getUTCDate();
+
+const getDayAvailability = (weeklyAvailability, dayName) =>
+  (weeklyAvailability || []).find(
+    (entry) =>
+      typeof entry?.day === "string" &&
+      entry.day.toLowerCase() === dayName,
+  );
+
+const isDayOpen = (dayAvailability) => {
+  if (!dayAvailability) return false;
+  if (typeof dayAvailability.isOpen === "boolean") {
+    return dayAvailability.isOpen;
+  }
+  if (typeof dayAvailability.isAvailable === "boolean") {
+    return dayAvailability.isAvailable;
+  }
+  return false;
+};
+
+const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
+  if (!dayAvailability) return [];
+
+  const ranges = [];
+
+  const slotList = Array.isArray(dayAvailability.slots)
+    ? dayAvailability.slots
+    : [];
+
+  for (const slot of slotList) {
+    const startCandidate = slot?.startTime ?? slot?.start;
+    const endCandidate = slot?.endTime ?? slot?.end;
+    const slotStart = parseTimeOnDateUTC(date, startCandidate);
+    const slotEnd = parseTimeOnDateUTC(date, endCandidate);
+
+    if (!slotStart || !slotEnd || slotStart >= slotEnd) {
+      continue;
+    }
+
+    ranges.push({
+      start: slotStart,
+      end: slotEnd,
+    });
+  }
+
+  if (ranges.length > 0) {
+    ranges.sort((left, right) => left.start.getTime() - right.start.getTime());
+    return ranges;
+  }
+
+  // Backward compatibility for previously stored single-window records.
+  const rangeStartText =
+    typeof dayAvailability.openTime === "string"
+      ? dayAvailability.openTime
+      : dayAvailability.startTime;
+  const rangeEndText =
+    typeof dayAvailability.closeTime === "string"
+      ? dayAvailability.closeTime
+      : dayAvailability.endTime;
+
+  if (rangeStartText && rangeEndText) {
+    const rangeStart = parseTimeOnDateUTC(date, rangeStartText);
+    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText);
+    if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
+      return [
+        {
+          start: rangeStart,
+          end: rangeEnd,
+        },
+      ];
+    }
+  }
+
+  return ranges;
+};
+
+const isWithinAnyRange = ({ startTimeUTC, endTimeUTC, ranges }) =>
+  ranges.some(
+    (range) =>
+      startTimeUTC >= range.start &&
+      endTimeUTC <= range.end,
+  );
+
+const getIntersectedRanges = (rangesA, rangesB) => {
+  const result = [];
+
+  for (const left of rangesA) {
+    for (const right of rangesB) {
+      const start = left.start > right.start ? left.start : right.start;
+      const end = left.end < right.end ? left.end : right.end;
+
+      if (start < end) {
+        result.push({ start, end });
+      }
+    }
+  }
+
+  return result;
+};
+
+const getBookingAvailabilityError = ({
   shop,
   service,
   startTimeUTC,
@@ -169,45 +272,82 @@ const isInsideServiceAndShopAvailability = ({
     ),
   );
   const dayEnd = addMinutes(dayStart, 24 * 60);
+  const isShopClosedByPeriod = isClosedForDateRange({
+    dayStart,
+    dayEnd,
+    closedPeriods: shop.closedPeriods,
+  });
 
-  if (
-    isClosedForDateRange({
-      dayStart,
-      dayEnd,
-      closedPeriods: shop.closedPeriods,
-    }) ||
-    isClosedForDateRange({
-      dayStart,
-      dayEnd,
-      closedPeriods: service.closedPeriods,
-    })
-  ) {
-    return false;
+  if (isShopClosedByPeriod) {
+    return "Shop is closed on selected day.";
+  }
+
+  if (!isSameUtcDate(startTimeUTC, endTimeUTC)) {
+    return "Booking time is outside shop working hours.";
   }
 
   const dayName = getDayNameUTC(startTimeUTC);
-  const dayAvailability = (service.weeklyAvailability || []).find(
-    (entry) => entry.day === dayName,
+  const shopDayAvailability = getDayAvailability(
+    shop.weeklyAvailability,
+    dayName,
   );
 
-  if (
-    !dayAvailability ||
-    !dayAvailability.isOpen ||
-    !Array.isArray(dayAvailability.slots)
-  ) {
-    return false;
+  if (!isDayOpen(shopDayAvailability)) {
+    return "Shop is closed on selected day.";
   }
 
-  return dayAvailability.slots.some((windowSlot) => {
-    const windowStart = parseTimeOnDateUTC(startTimeUTC, windowSlot.start);
-    const windowEnd = parseTimeOnDateUTC(startTimeUTC, windowSlot.end);
-
-    if (!windowStart || !windowEnd || windowStart >= windowEnd) {
-      return false;
-    }
-
-    return startTimeUTC >= windowStart && endTimeUTC <= windowEnd;
+  const shopRanges = getDayRangesOnDateUTC({
+    date: startTimeUTC,
+    dayAvailability: shopDayAvailability,
   });
+
+  if (
+    shopRanges.length === 0 ||
+    !isWithinAnyRange({
+      startTimeUTC,
+      endTimeUTC,
+      ranges: shopRanges,
+    })
+  ) {
+    return "Booking time is outside shop working hours.";
+  }
+
+  const isServiceClosedByPeriod = isClosedForDateRange({
+    dayStart,
+    dayEnd,
+    closedPeriods: service.closedPeriods,
+  });
+
+  if (isServiceClosedByPeriod) {
+    return "Service is not available at selected time.";
+  }
+
+  const serviceDayAvailability = getDayAvailability(
+    service.weeklyAvailability,
+    dayName,
+  );
+
+  if (!isDayOpen(serviceDayAvailability)) {
+    return "Service is not available at selected time.";
+  }
+
+  const serviceRanges = getDayRangesOnDateUTC({
+    date: startTimeUTC,
+    dayAvailability: serviceDayAvailability,
+  });
+
+  if (
+    serviceRanges.length === 0 ||
+    !isWithinAnyRange({
+      startTimeUTC,
+      endTimeUTC,
+      ranges: serviceRanges,
+    })
+  ) {
+    return "Service is not available at selected time.";
+  }
+
+  return null;
 };
 
 const normalizeRequiredResources = (requiredResources) => {
@@ -722,6 +862,16 @@ exports.getAvailableSlots = async ({
 
     const dayStart = selectedDate;
     const dayEnd = addMinutes(dayStart, 24 * 60);
+    const dayName = getDayNameUTC(selectedDate);
+
+    const shopDayAvailability = getDayAvailability(
+      shop.weeklyAvailability,
+      dayName,
+    );
+    const serviceDayAvailability = getDayAvailability(
+      service.weeklyAvailability,
+      dayName,
+    );
 
     if (
       isClosedForDateRange({
@@ -729,11 +879,13 @@ exports.getAvailableSlots = async ({
         dayEnd,
         closedPeriods: shop.closedPeriods,
       }) ||
+      !isDayOpen(shopDayAvailability) ||
       isClosedForDateRange({
         dayStart,
         dayEnd,
         closedPeriods: service.closedPeriods,
-      })
+      }) ||
+      !isDayOpen(serviceDayAvailability)
     ) {
       return {
         date,
@@ -743,16 +895,20 @@ exports.getAvailableSlots = async ({
       };
     }
 
-    const dayName = getDayNameUTC(selectedDate);
-    const dayAvailability = (service.weeklyAvailability || []).find(
-      (entry) => entry.day === dayName,
-    );
+    const shopRanges = getDayRangesOnDateUTC({
+      date: selectedDate,
+      dayAvailability: shopDayAvailability,
+    });
+    const serviceRanges = getDayRangesOnDateUTC({
+      date: selectedDate,
+      dayAvailability: serviceDayAvailability,
+    });
+    const effectiveRanges = getIntersectedRanges(shopRanges, serviceRanges);
 
     if (
-      !dayAvailability ||
-      !dayAvailability.isOpen ||
-      !Array.isArray(dayAvailability.slots) ||
-      dayAvailability.slots.length === 0
+      shopRanges.length === 0 ||
+      serviceRanges.length === 0 ||
+      effectiveRanges.length === 0
     ) {
       return {
         date,
@@ -764,17 +920,10 @@ exports.getAvailableSlots = async ({
 
     const candidateSlots = [];
 
-    for (const windowSlot of dayAvailability.slots) {
-      const windowStart = parseTimeOnDateUTC(selectedDate, windowSlot.start);
-      const windowEnd = parseTimeOnDateUTC(selectedDate, windowSlot.end);
+    for (const range of effectiveRanges) {
+      let cursor = new Date(range.start);
 
-      if (!windowStart || !windowEnd || windowStart >= windowEnd) {
-        continue;
-      }
-
-      let cursor = new Date(windowStart);
-
-      while (addMinutes(cursor, service.durationMinutes) <= windowEnd) {
+      while (addMinutes(cursor, service.durationMinutes) <= range.end) {
         candidateSlots.push({
           startTimeUTC: new Date(cursor),
           endTimeUTC: addMinutes(cursor, service.durationMinutes),
@@ -783,6 +932,10 @@ exports.getAvailableSlots = async ({
         cursor = addMinutes(cursor, interval);
       }
     }
+
+    candidateSlots.sort((left, right) =>
+      left.startTimeUTC.getTime() - right.startTimeUTC.getTime(),
+    );
 
     if (candidateSlots.length === 0) {
       return {
@@ -948,18 +1101,15 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         service.durationMinutes,
       );
 
-      const isInsideAvailability = isInsideServiceAndShopAvailability({
+      const availabilityError = getBookingAvailabilityError({
         shop,
         service,
         startTimeUTC: requestedStart,
         endTimeUTC: computedEnd,
       });
 
-      if (!isInsideAvailability) {
-        throw new AppError(
-          "Selected slot is outside service availability",
-          400,
-        );
+      if (availabilityError) {
+        throw new AppError(availabilityError, 400);
       }
 
       if (endTimeUTC) {
@@ -994,17 +1144,11 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       });
 
       if (hasExactDuplicate) {
-        throw new AppError(
-          "You already booked this service for the selected slot",
-          409,
-        );
+        throw new AppError("Time slot already booked.", 409);
       }
 
       if (attendeeConflicts.length > 0) {
-        throw new AppError(
-          "You already have another appointment at this time",
-          409,
-        );
+        throw new AppError("Time slot already booked.", 409);
       }
 
       const resourcesByType = await getResourcesByType({
@@ -1025,7 +1169,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       });
 
       if (!allocation.isAvailable) {
-        throw new AppError("Selected slot is no longer available", 409);
+        throw new AppError("Time slot already booked.", 409);
       }
 
       let finalLocation = location;
@@ -1436,6 +1580,32 @@ exports.updateAppointment = async ({
     const nextStart = updates.startTimeUTC || appointment.startTimeUTC;
     const nextEnd = updates.endTimeUTC || appointment.endTimeUTC;
 
+    if (updates.startTimeUTC || updates.endTimeUTC) {
+      if (nextStart >= nextEnd) {
+        throw new AppError("endTimeUTC must be after startTimeUTC", 400);
+      }
+
+      const [shop, service] = await Promise.all([
+        Shop.findById(appointment.shopId),
+        Service.findById(appointment.serviceId),
+      ]);
+
+      if (!shop || !service) {
+        throw new AppError("Shop or service not found for appointment", 404);
+      }
+
+      const availabilityError = getBookingAvailabilityError({
+        shop,
+        service,
+        startTimeUTC: nextStart,
+        endTimeUTC: nextEnd,
+      });
+
+      if (availabilityError) {
+        throw new AppError(availabilityError, 400);
+      }
+    }
+
     if (
       (updates.startTimeUTC || updates.endTimeUTC) &&
       Array.isArray(appointment.allocatedResources) &&
@@ -1452,10 +1622,7 @@ exports.updateAppointment = async ({
       });
 
       if (hasConflict) {
-        throw new AppError(
-          "Reschedule failed: allocated resources are already booked for this time",
-          409,
-        );
+        throw new AppError("Time slot already booked.", 409);
       }
     }
 

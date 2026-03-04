@@ -2,6 +2,9 @@ const mongoose = require("mongoose");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
+const {
+  validateServiceWeeklyAvailability,
+} = require("../../utils/availability");
 
 const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
   instructor: "staff",
@@ -38,66 +41,6 @@ const validateShopOwnership = async (shopId, tenantId) => {
   }
 
   return shop;
-};
-
-/* --------------------------------------------------
-   Weekly Availability Validation
--------------------------------------------------- */
-const validateWeeklyAvailability = (weeklyAvailability) => {
-  if (!Array.isArray(weeklyAvailability) || weeklyAvailability.length !== 7) {
-    throw new AppError("All 7 days availability required", 400);
-  }
-
-  const validDays = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ];
-
-  const providedDays = weeklyAvailability.map((d) =>
-    d.day?.toLowerCase()
-  );
-
-  const uniqueDays = new Set(providedDays);
-
-  if (uniqueDays.size !== 7) {
-    throw new AppError("Duplicate or missing days", 400);
-  }
-
-  for (let dayData of weeklyAvailability) {
-    if (!validDays.includes(dayData.day)) {
-      throw new AppError(`Invalid day: ${dayData.day}`, 400);
-    }
-
-    if (dayData.isOpen) {
-      if (!Array.isArray(dayData.slots) || dayData.slots.length === 0) {
-        throw new AppError(
-          `Open day must contain time slots: ${dayData.day}`,
-          400
-        );
-      }
-
-      for (let slot of dayData.slots) {
-        if (!slot.start || !slot.end) {
-          throw new AppError(
-            `Invalid time slot in ${dayData.day}`,
-            400
-          );
-        }
-
-        if (slot.start >= slot.end) {
-          throw new AppError(
-            `Start time must be before end time in ${dayData.day}`,
-            400
-          );
-        }
-      }
-    }
-  }
 };
 
 const normalizeRequiredResources = (requiredResources) => {
@@ -152,7 +95,7 @@ exports.createService = async ({
     if (!tenantId) throw new AppError("Tenant ID is required", 400);
     if (!shopId) throw new AppError("Shop ID is required", 400);
 
-    await validateShopOwnership(shopId, tenantId);
+    const shop = await validateShopOwnership(shopId, tenantId);
 
     if (!name || name.trim().length === 0) {
       throw new AppError("Service name is required", 400);
@@ -169,13 +112,16 @@ exports.createService = async ({
     const normalizedRequiredResources =
       normalizeRequiredResources(requiredResources);
 
-    validateWeeklyAvailability(weeklyAvailability);
+    const normalizedWeeklyAvailability = validateServiceWeeklyAvailability({
+      weeklyAvailability,
+      shopWeeklyAvailability: shop.weeklyAvailability,
+    });
 
     return await Service.create({
       shopId,
       name,
       description,
-      weeklyAvailability,
+      weeklyAvailability: normalizedWeeklyAvailability,
       category,
       images,
       capacity,
@@ -254,7 +200,7 @@ exports.updateService = async ({
   requiredResources,
 }) => {
   try {
-    await validateShopOwnership(shopId, tenantId);
+    const shop = await validateShopOwnership(shopId, tenantId);
 
     const updateData = {};
 
@@ -269,8 +215,10 @@ exports.updateService = async ({
       updateData.description = description;
 
     if (weeklyAvailability !== undefined) {
-      validateWeeklyAvailability(weeklyAvailability);
-      updateData.weeklyAvailability = weeklyAvailability;
+      updateData.weeklyAvailability = validateServiceWeeklyAvailability({
+        weeklyAvailability,
+        shopWeeklyAvailability: shop.weeklyAvailability,
+      });
     }
 
     if (category !== undefined)

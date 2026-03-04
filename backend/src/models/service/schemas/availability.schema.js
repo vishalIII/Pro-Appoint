@@ -1,31 +1,54 @@
 const mongoose = require("mongoose");
 
+const dayEnum = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
 const timeSlotSchema = new mongoose.Schema(
   {
-    start: { type: String, required: true }, // "09:00"
-    end: { type: String, required: true },   // "18:00"
+    startTime: { type: String, required: true }, // "09:00"
+    endTime: { type: String, required: true },   // "18:00"
   },
   { _id: false }
 );
 
-const weeklyAvailabilitySchema = new mongoose.Schema(
+const shopWeeklyAvailabilitySchema = new mongoose.Schema(
   {
     day: {
       type: String,
-      enum: [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-      ],
+      enum: dayEnum,
       required: true,
     },
     isOpen: {
       type: Boolean,
-      default: true,
+      required: true,
+      default: false,
+    },
+    slots: {
+      type: [timeSlotSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
+const serviceWeeklyAvailabilitySchema = new mongoose.Schema(
+  {
+    day: {
+      type: String,
+      enum: dayEnum,
+      required: true,
+    },
+    isOpen: {
+      type: Boolean,
+      required: true,
+      default: false,
     },
     slots: {
       type: [timeSlotSchema],
@@ -37,5 +60,6 @@ const weeklyAvailabilitySchema = new mongoose.Schema(
 
 module.exports = {
   timeSlotSchema,
-  weeklyAvailabilitySchema,
+  shopWeeklyAvailabilitySchema,
+  serviceWeeklyAvailabilitySchema,
 };

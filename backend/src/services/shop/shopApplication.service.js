@@ -4,6 +4,9 @@ const Tenant = require("../../models/tenant/tenant.model");
 const Industry = require("../../models/service/industry/industry.model");
 const AppError = require("../../utils/appError");
 const mongoose = require("mongoose");
+const {
+  validateShopWeeklyAvailability,
+} = require("../../utils/availability");
 
 const PLAN_SHOP_LIMIT = {
   basic: 1,
@@ -99,33 +102,9 @@ exports.applyShop = async (userId, data) => {
       throw new AppError("Selected industry is not available", 400);
     }
 
-    if (!weeklyAvailability || weeklyAvailability.length !== 7) {
-      throw new AppError("All 7 days availability must be provided", 400);
-    }
-
-    const validDays = [
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-      "sunday",
-    ];
-
-    const providedDays = weeklyAvailability.map((d) => d.day);
-    if (new Set(providedDays).size !== 7) {
-      throw new AppError(
-        "Duplicate or missing days in weekly availability",
-        400,
-      );
-    }
-
-    for (let day of providedDays) {
-      if (!validDays.includes(day)) {
-        throw new AppError(`Invalid day provided: ${day}`, 400);
-      }
-    }
+    const normalizedWeeklyAvailability = validateShopWeeklyAvailability(
+      weeklyAvailability,
+    );
 
     const existingShop = await Shop.findOne({ ownerId: userId });
 
@@ -139,7 +118,7 @@ exports.applyShop = async (userId, data) => {
       tenantId: tenant._id,
       ownerId: userId,
       industry,
-      weeklyAvailability,
+      weeklyAvailability: normalizedWeeklyAvailability,
       contactEmail,
       contactPhone,
       description,

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const {
-  weeklyAvailabilitySchema,
+  serviceWeeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
 
 const requiredResourceSchema = new mongoose.Schema(
@@ -50,7 +50,7 @@ const serviceSchema = new mongoose.Schema(
     },
 
     weeklyAvailability: {
-      type: [weeklyAvailabilitySchema],
+      type: [serviceWeeklyAvailabilitySchema],
       required: true,
     },
 

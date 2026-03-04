@@ -115,8 +115,114 @@
   color: #4d5740;
 }
 
+.service-details-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.service-availability-card {
+  background: linear-gradient(165deg, #f7fbe9 0%, #ffffff 58%);
+}
+
+.service-availability-card h2 {
+  margin: 0 0 16px;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.service-availability-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.service-availability-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e8efdb;
+}
+
+.service-availability-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.service-availability-day-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-availability-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 4px rgba(127, 173, 57, 0.15);
+}
+
+.service-availability-day {
+  font-size: 18px;
+  font-weight: 500;
+  color: #1f271a;
+}
+
+.service-availability-time {
+  font-size: 18px;
+  font-weight: 600;
+  color: #10190b;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.service-availability-time.is-closed {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.service-availability-item.is-today .service-availability-day,
+.service-availability-item.is-today .service-availability-time {
+  font-weight: 700;
+}
+
+.service-availability-item.is-closed .service-availability-day {
+  color: var(--danger);
+}
+
+.service-availability-item.is-closed .service-availability-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(198, 40, 40, 0.15);
+}
+
 @media (max-width: 960px) {
   .about-grid {
     grid-template-columns: 1fr;
+  }
+
+  .service-details-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .service-availability-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .service-availability-time {
+    font-size: 16px;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .service-availability-day {
+    font-size: 17px;
   }
 }
