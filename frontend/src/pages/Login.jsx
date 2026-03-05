@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginRequest } from "../auth/authApi";
 import { useAuth } from "../auth/useAuth";
-import { getDashboardPathForRole } from "../rbac";
+import { ROLES, getDashboardPathForRole } from "../rbac";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -28,7 +28,11 @@ export default function Login() {
     try {
       const data = await loginRequest(form);
       login({ user: data.user, token: data.token });
-      navigate(redirectTo || getDashboardPathForRole(data.user?.role), { replace: true });
+      if (data.user?.role === ROLES.PROVIDER) {
+        navigate("/tenant", { replace: true });
+      } else {
+        navigate(redirectTo || getDashboardPathForRole(data.user?.role), { replace: true });
+      }
     } catch (submissionError) {
       setError(submissionError.message || "Unable to login");
     } finally {

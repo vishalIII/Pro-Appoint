@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const {
+  createShop,
   getMyShops,
   getShopById,
   updateShop,
@@ -26,6 +27,7 @@ router.use("/shop-application", shopApplicationRoutes);
    SHOP MANAGEMENT ROUTES
    /api/tenant/shops
 -------------------------------------------------- */
+router.post("/", createShop);
 router.get("/", getMyShops);
 router.get("/:shopId", validateShopOwnershipMiddleware, getShopById);
 router.patch("/:shopId", validateShopOwnershipMiddleware, updateShop);

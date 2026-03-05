@@ -1,6 +1,26 @@
 const shopService = require("../../services/shop/shop.service");
 
 /* --------------------------------------------------
+   CREATE SHOP
+-------------------------------------------------- */
+exports.createShop = async (req, res, next) => {
+  try {
+    const shop = await shopService.createShop({
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      payload: req.body || {},
+    });
+
+    return res.status(201).json({
+      message: "Shop created successfully",
+      shop,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* --------------------------------------------------
    GET MY SHOPS
 -------------------------------------------------- */
 exports.getMyShops = async (req, res, next) => {
@@ -42,6 +62,7 @@ exports.updateShop = async (req, res, next) => {
     const shop = await shopService.updateShop({
       shopId: req.params.shopId,
       tenantId: req.user.tenantId,
+      userId: req.user.userId,
       updatePayload: req.body,
     });
 

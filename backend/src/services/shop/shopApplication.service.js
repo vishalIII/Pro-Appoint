@@ -4,15 +4,10 @@ const Tenant = require("../../models/tenant/tenant.model");
 const Industry = require("../../models/service/industry/industry.model");
 const AppError = require("../../utils/appError");
 const mongoose = require("mongoose");
+const { getPlanLimits } = require("../../config/planLimits");
 const {
   validateShopWeeklyAvailability,
 } = require("../../utils/availability");
-
-const PLAN_SHOP_LIMIT = {
-  basic: 1,
-  pro: 2,
-  enterprise: 3,
-};
 
 // get active industries ====================================================================================
 exports.getActiveIndustries = async () => {
@@ -49,15 +44,9 @@ exports.applyShop = async (userId, data) => {
     }
 
     // 4. Plan constraint
-    const tenantPlan = tenant.plan || "free";
-    const maxShopsAllowed = PLAN_SHOP_LIMIT[tenantPlan];
-
-    if (!maxShopsAllowed) {
-      throw new AppError(
-        "Invalid tenant plan. Cannot determine shop limit.",
-        400,
-      );
-    }
+    const tenantPlan = tenant.plan || "basic";
+    const planLimits = getPlanLimits(tenantPlan);
+    const maxShopsAllowed = planLimits.maxShops;
 
     const approvedShopCount = await Shop.countDocuments({
       tenantId: tenant._id,

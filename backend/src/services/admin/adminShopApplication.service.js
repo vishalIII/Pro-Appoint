@@ -1,5 +1,8 @@
 const Shop = require("../../models/shop/shop.model");
 const AppError = require("../../utils/appError");
+const {
+  deactivateServicesForShop,
+} = require("../service/service.service");
 // Get all shop applications
 exports.getAllShopApplication = async () => {
   try {
@@ -75,6 +78,8 @@ exports.rejectShop = async ({ shopId, reason, adminUserId }) => {
     },
     { runValidators: true }
   );
+
+  await deactivateServicesForShop({ shopId });
 
   return shopId;
 }catch(error){

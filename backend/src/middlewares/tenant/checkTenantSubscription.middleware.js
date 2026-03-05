@@ -13,9 +13,7 @@ module.exports = async (req, res, next) => {
   }
 
   // Trial expired
-  if (
-    new Date() > tenant.subscriptionEnd 
-  ) {
+  if (tenant.subscriptionEnd && new Date() > tenant.subscriptionEnd) {
     tenant.planStatus = "expired";
     await tenant.save();
 
