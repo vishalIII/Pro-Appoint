@@ -1,10 +1,13 @@
 const mongoose = require("mongoose");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
+const Appointment = require("../../models/appointment/appointment.model");
 const AppError = require("../../utils/appError");
 const {
   validateServiceWeeklyAvailability,
 } = require("../../utils/availability");
+
+const APPROVED_SHOP_STATUS = "approved";
 
 const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
   instructor: "staff",
@@ -19,7 +22,12 @@ const normalizeResourceType = (type) => {
 /* --------------------------------------------------
    Helper: Validate Shop Ownership
 -------------------------------------------------- */
-const validateShopOwnership = async (shopId, tenantId) => {
+const validateShopOwnership = async ({
+  shopId,
+  tenantId,
+  requireApproved = false,
+  actionLabel = "perform this action",
+}) => {
   if (!mongoose.Types.ObjectId.isValid(shopId)) {
     throw new AppError("Invalid Shop ID", 400);
   }
@@ -33,15 +41,35 @@ const validateShopOwnership = async (shopId, tenantId) => {
     throw new AppError("Unauthorized access to this shop", 403);
   }
 
-  if (shop.status !== "approved") {
+  if (requireApproved && shop.status !== APPROVED_SHOP_STATUS) {
     throw new AppError(
-      "Shop must be approved before creating services",
-      400
+      `Shop must be approved to ${actionLabel}`,
+      400,
     );
   }
 
   return shop;
 };
+
+const deactivateServicesForShop = async ({ shopId }) => {
+  if (!mongoose.Types.ObjectId.isValid(shopId)) {
+    return 0;
+  }
+
+  const result = await Service.updateMany(
+    {
+      shopId,
+      isActive: true,
+    },
+    {
+      $set: { isActive: false },
+    },
+  );
+
+  return Number(result?.modifiedCount || 0);
+};
+
+exports.deactivateServicesForShop = deactivateServicesForShop;
 
 const normalizeRequiredResources = (requiredResources) => {
   if (!Array.isArray(requiredResources) || requiredResources.length === 0) {
@@ -74,6 +102,38 @@ const normalizeRequiredResources = (requiredResources) => {
   }));
 };
 
+const normalizeClosedPeriods = (closedPeriods) => {
+  if (closedPeriods === undefined) return undefined;
+  if (!Array.isArray(closedPeriods)) {
+    throw new AppError("closedPeriods must be an array", 400);
+  }
+
+  return closedPeriods.map((period, index) => {
+    const startDate = new Date(period?.startDate);
+    const endDate = new Date(period?.endDate);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new AppError(`Invalid closed period dates at index ${index}`, 400);
+    }
+
+    if (startDate > endDate) {
+      throw new AppError(
+        `closedPeriods startDate must be before endDate at index ${index}`,
+        400,
+      );
+    }
+
+    return {
+      startDate,
+      endDate,
+      reason:
+        typeof period?.reason === "string" && period.reason.trim()
+          ? period.reason.trim()
+          : "Service is closed",
+    };
+  });
+};
+
 /* --------------------------------------------------
    CREATE SERVICE
 -------------------------------------------------- */
@@ -83,6 +143,7 @@ exports.createService = async ({
   name,
   description,
   weeklyAvailability,
+  closedPeriods,
   category,
   images,
   capacity,
@@ -95,7 +156,12 @@ exports.createService = async ({
     if (!tenantId) throw new AppError("Tenant ID is required", 400);
     if (!shopId) throw new AppError("Shop ID is required", 400);
 
-    const shop = await validateShopOwnership(shopId, tenantId);
+    const shop = await validateShopOwnership({
+      shopId,
+      tenantId,
+      requireApproved: true,
+      actionLabel: "create services",
+    });
 
     if (!name || name.trim().length === 0) {
       throw new AppError("Service name is required", 400);
@@ -116,12 +182,16 @@ exports.createService = async ({
       weeklyAvailability,
       shopWeeklyAvailability: shop.weeklyAvailability,
     });
+    const normalizedClosedPeriods = normalizeClosedPeriods(closedPeriods);
 
     return await Service.create({
       shopId,
       name,
       description,
       weeklyAvailability: normalizedWeeklyAvailability,
+      ...(normalizedClosedPeriods !== undefined
+        ? { closedPeriods: normalizedClosedPeriods }
+        : {}),
       category,
       images,
       capacity,
@@ -141,13 +211,20 @@ exports.createService = async ({
 -------------------------------------------------- */
 exports.getMyServices = async ({ tenantId, shopId }) => {
   try {
-    await validateShopOwnership(shopId, tenantId);
+    const shop = await validateShopOwnership({
+      shopId,
+      tenantId,
+    });
+
+    if (shop.status !== APPROVED_SHOP_STATUS) {
+      await deactivateServicesForShop({ shopId });
+    }
 
     return await Service.find({
       shopId,
-      isActive: true,
-    }).sort({ createdAt: -1 });
+    }).sort({ isActive: -1, createdAt: -1 });
   } catch (error) {
+    if (error instanceof AppError) throw error;
     throw new AppError(error.message || "Failed to fetch services", 500);
   }
 };
@@ -161,7 +238,12 @@ exports.getServiceById = async ({ tenantId, shopId, serviceId }) => {
       throw new AppError("Service ID is required", 400);
     }
 
-    await validateShopOwnership(shopId, tenantId);
+    await validateShopOwnership({
+      shopId,
+      tenantId,
+      requireApproved: true,
+      actionLabel: "view services",
+    });
 
     const service = await Service.findOne({
       _id: serviceId,
@@ -190,6 +272,7 @@ exports.updateService = async ({
   name,
   description,
   weeklyAvailability,
+  closedPeriods,
   category,
   images,
   isActive,
@@ -200,7 +283,12 @@ exports.updateService = async ({
   requiredResources,
 }) => {
   try {
-    const shop = await validateShopOwnership(shopId, tenantId);
+    const shop = await validateShopOwnership({
+      shopId,
+      tenantId,
+      requireApproved: true,
+      actionLabel: "update services",
+    });
 
     const updateData = {};
 
@@ -219,6 +307,10 @@ exports.updateService = async ({
         weeklyAvailability,
         shopWeeklyAvailability: shop.weeklyAvailability,
       });
+    }
+
+    if (closedPeriods !== undefined) {
+      updateData.closedPeriods = normalizeClosedPeriods(closedPeriods);
     }
 
     if (category !== undefined)
@@ -285,7 +377,26 @@ exports.updateService = async ({
 -------------------------------------------------- */
 exports.deleteService = async ({ tenantId, shopId, serviceId }) => {
   try {
-    await validateShopOwnership(shopId, tenantId);
+    await validateShopOwnership({
+      shopId,
+      tenantId,
+      requireApproved: true,
+      actionLabel: "delete services",
+    });
+
+    const activeFutureAppointments = await Appointment.countDocuments({
+      shopId,
+      serviceId,
+      status: { $in: ["pending", "confirmed"] },
+      startTimeUTC: { $gte: new Date() },
+    });
+
+    if (activeFutureAppointments > 0) {
+      throw new AppError(
+        "Cannot delete service with upcoming appointments. Deactivate it instead.",
+        409,
+      );
+    }
 
     const service = await Service.findOneAndUpdate(
       {

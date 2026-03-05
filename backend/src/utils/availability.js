@@ -255,7 +255,7 @@ const validateServiceWeeklyAvailability = ({
     const shopDay = shopByDay.get(day);
     if (!shopDay || !shopDay.isOpen) {
       throw new AppError(
-        `Service cannot be open on ${day} because shop is closed`,
+        `Service availability must be within shop availability. ${day} is closed for the shop.`,
         400,
       );
     }
@@ -289,7 +289,7 @@ const validateServiceWeeklyAvailability = ({
 
       if (!isInsideShopSlot) {
         throw new AppError(
-          `Service availability must be within shop working hours for ${day}`,
+          `Service availability must be within shop availability.`,
           400,
         );
       }

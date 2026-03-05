@@ -9,6 +9,9 @@ router.get("/check", (req, res) => {
 
 router.use("/create-tenant",require("./tenantApplication.routes"))
 
+// Subscription details should stay reachable even if the current plan is expired.
+router.use("/subscription", tenantAuth, require("./subscription.routes"));
+
 /* --------------------------------------------------
    SHOP ROUTES (includes shop management & application)
    /api/tenant/shops
@@ -20,6 +23,13 @@ router.use("/shops",checkTenantSubscriptionMiddleware,tenantAuth, require("../sh
 // Tenant appointment management (tenant-only)
 router.use('/appointments', checkTenantSubscriptionMiddleware, tenantAuth, require('./appointment.routes'));
 
-module.exports = router;
+// Dashboard analytics (tenant-only)
+router.use(
+  "/dashboard",
+  checkTenantSubscriptionMiddleware,
+  tenantAuth,
+  require("./dashboard.routes"),
+);
 
+module.exports = router;
 

@@ -22,6 +22,13 @@ const resourceSchema = new mongoose.Schema(
       trim: true,
     },
 
+    category: {
+  type: String,
+  enum: ["human", "equipment", "space"],
+  required: true,
+  index: true
+},
+
     type: {
       type: String,
       required: true,

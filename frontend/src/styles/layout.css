@@ -164,6 +164,10 @@
   padding: 28px 24px 36px;
 }
 
+.tenant-page-shell {
+  padding: 14px;
+}
+
 .page-block {
   max-width: 960px;
   margin: 0 auto;
@@ -200,5 +204,9 @@
 
   .page-shell {
     padding: 18px 12px 30px;
+  }
+
+  .tenant-page-shell {
+    padding: 10px;
   }
 }

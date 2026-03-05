@@ -1427,7 +1427,12 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
       }
     }
 
-    return await Appointment.find(query).sort({ startTimeUTC: 1 });
+    return await Appointment.find(query)
+      .sort({ startTimeUTC: 1 })
+      .populate("attendeeId", "name email")
+      .populate("serviceId", "name")
+      .populate("shopId", "shopName")
+      .populate("allocatedResources.resourceId", "name type");
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError(error.message || "Failed to fetch appointments", 500);
@@ -1445,7 +1450,11 @@ exports.getAppointmentById = async ({ appointmentId, tenantId }) => {
     const q = { _id: appointmentId };
     if (tenantId) q.tenantId = tenantId;
 
-    const appointment = await Appointment.findOne(q);
+    const appointment = await Appointment.findOne(q)
+      .populate("attendeeId", "name email")
+      .populate("serviceId", "name")
+      .populate("shopId", "shopName")
+      .populate("allocatedResources.resourceId", "name type");
     if (!appointment) throw new AppError("Appointment not found", 404);
     return appointment;
   } catch (error) {

@@ -1,10 +1,12 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { ROLES } from "../rbac";
 
 export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTenantRoute = location.pathname.startsWith("/tenant");
   const canUseListBusiness = !isAuthenticated || user?.role === ROLES.CUSTOMER;
   const navLinks = [
     { to: "/", label: "Home", end: true },
@@ -30,6 +32,16 @@ export default function Layout() {
     logout();
     navigate("/login", { replace: true });
   };
+
+  if (isTenantRoute) {
+    return (
+      <div className="app-shell tenant-app-shell">
+        <main className="tenant-page-shell">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
