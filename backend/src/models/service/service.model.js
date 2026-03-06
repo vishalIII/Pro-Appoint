@@ -41,9 +41,11 @@ const serviceSchema = new mongoose.Schema(
 
     capacity: {
       type: Number,
-      default: 1, 
+      required: true,
+      min: 1,
+      default: 1,
     },
-
+    
     discountPercentage: {
       type: Number,
       default: 0,

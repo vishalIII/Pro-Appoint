@@ -7,6 +7,7 @@ import {
   fetchShopById,
   fetchShopServices,
   updateShopService,
+  fetchShopResources
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import StatusPill from "./components/StatusPill";
@@ -44,7 +45,7 @@ const createInitialForm = () => ({
     return acc;
   }, {}),
   closedPeriods: [],
-  requiredResources: [{ type: "staff", quantity: "1" }],
+  requiredResources: [],
 });
 
 const toLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
@@ -191,6 +192,34 @@ export default function ProviderServicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [formErrors, setFormErrors] = useState({});
+
+
+  //------------------------------------------
+  const [resources, setResources] = useState([]);
+
+  useEffect(() => {
+    const loadResources = async () => {
+      if (!token || !createShopId) return;
+
+      try {
+        const res = await fetchShopResources({
+          token,
+          shopId: createShopId,
+        });
+
+        setResources(res.resources || []);
+      } catch {
+        setResources([]);
+      }
+    };
+
+    loadResources();
+  }, [token, createShopId]);
+
+
+
+  //-----------------------------------------------
+
 
   const effectiveShopId = useMemo(
     () => routeShopId || selectedShopId,
@@ -394,21 +423,20 @@ export default function ProviderServicesPage() {
       nextErrors.requiredResources = "At least one required resource is needed";
     } else {
       for (const resource of form.requiredResources) {
-        const normalizedType = String(resource.type || "").trim().toLowerCase();
+
+        const resourceId = String(resource.resourceId || "").trim();
         const quantity = Number(resource.quantity);
-        if (!normalizedType) {
-          nextErrors.requiredResources = "Resource type is required";
+
+        if (!resourceId) {
+          nextErrors.requiredResources = "Please select a resource";
           break;
         }
-        if (!/^[a-z][a-z0-9_\-\s]*$/.test(normalizedType)) {
-          nextErrors.requiredResources =
-            "Resource type must be lowercase (letters, numbers, spaces, - or _)";
-          break;
-        }
+
         if (!Number.isInteger(quantity) || quantity < 1) {
           nextErrors.requiredResources = "Resource quantity must be at least 1";
           break;
         }
+
       }
     }
 
@@ -455,9 +483,9 @@ export default function ProviderServicesPage() {
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
         requiredResources: form.requiredResources.map((item) => ({
-          type: String(item.type || "").trim().toLowerCase(),
+          resourceId: item.resourceId,
           quantity: Number(item.quantity),
-        })),
+        }))
       };
 
       if (form.description.trim()) {
@@ -568,7 +596,10 @@ export default function ProviderServicesPage() {
   const addRequiredResource = () => {
     setForm((prev) => ({
       ...prev,
-      requiredResources: [...prev.requiredResources, { type: "", quantity: "1" }],
+      requiredResources: [
+        ...prev.requiredResources,
+        { resourceId: "", quantity: "1" },
+      ],
     }));
   };
 
@@ -878,33 +909,27 @@ export default function ProviderServicesPage() {
 
             <div className="form-field">
               Required Resources
+
               {form.requiredResources.map((resource, index) => (
-                <div className="service-meta" key={`resource-${index}`}>
+                <div className="service-meta" key={index}>
 
                   <label>
-                    Category
+                    Resource
                     <select
-                      value={resource.category || ""}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "category", event.target.value)
+                      value={resource.resourceId}
+                      onChange={(e) =>
+                        updateRequiredResource(index, "resourceId", e.target.value)
                       }
                     >
-                      <option value="">Select</option>
-                      <option value="human">Human</option>
-                      <option value="equipment">Equipment</option>
-                      <option value="space">Space</option>
-                    </select>
-                  </label>
+                      <option value="">Select resource</option>
 
-                  <label>
-                    Type
-                    <input
-                      type="text"
-                      value={resource.type}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "type", event.target.value.toLowerCase())
-                      }
-                    />
+                      {resources.map((r) => (
+                        <option key={r._id} value={r._id}>
+                          {r.name} ({r.category})
+                        </option>
+                      ))}
+
+                    </select>
                   </label>
 
                   <label>
@@ -913,8 +938,8 @@ export default function ProviderServicesPage() {
                       type="number"
                       min="1"
                       value={resource.quantity}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "quantity", event.target.value)
+                      onChange={(e) =>
+                        updateRequiredResource(index, "quantity", e.target.value)
                       }
                     />
                   </label>
@@ -923,19 +948,21 @@ export default function ProviderServicesPage() {
                     type="button"
                     className="btn btn-secondary btn-small"
                     onClick={() => removeRequiredResource(index)}
-                    disabled={form.requiredResources.length === 1}
                   >
                     Remove
                   </button>
 
                 </div>
               ))}
-              <button type="button" className="btn btn-secondary btn-small" onClick={addRequiredResource}>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                onClick={addRequiredResource}
+              >
                 Add Resource
               </button>
-              {formErrors.requiredResources ? (
-                <span className="error-text">{formErrors.requiredResources}</span>
-              ) : null}
+
             </div>
 
             <button className="btn" type="submit" disabled={isSubmitting}>

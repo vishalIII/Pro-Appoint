@@ -22,13 +22,6 @@ const resourceSchema = new mongoose.Schema(
       trim: true,
     },
 
-    category: {
-  type: String,
-  enum: ["human", "equipment", "space"],
-  required: true,
-  index: true
-},
-
     type: {
       type: String,
       required: true,
@@ -56,6 +49,6 @@ const resourceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-resourceSchema.index({ shopId: 1, type: 1, isActive: 1 });
+resourceSchema.index({ shopId: 1, type: 1, isActive: 1, capacity: 1 });
 
 module.exports = mongoose.model("resource", resourceSchema);
