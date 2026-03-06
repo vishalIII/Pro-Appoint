@@ -201,3 +201,4 @@ export const deleteShopResource = ({ token, shopId, resourceId }) =>
     path: `/tenant/shops/${shopId}/resources/${resourceId}`,
     method: "DELETE",
   });
+

@@ -226,3 +226,35 @@
     font-size: 17px;
   }
 }
+
+.service-image-gallery {
+  margin-bottom: 24px;
+}
+
+.service-main-image {
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.service-thumbnail-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.service-thumbnail {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: 0.2s;
+}
+
+.service-thumbnail:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}

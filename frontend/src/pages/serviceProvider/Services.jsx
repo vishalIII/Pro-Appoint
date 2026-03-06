@@ -7,9 +7,38 @@ import {
   fetchShopById,
   fetchShopServices,
   updateShopService,
+  fetchShopResources
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import StatusPill from "./components/StatusPill";
+
+const generateTimeOptions = (start, end, step = 30) => {
+  const result = [];
+
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+
+  let current = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  while (current <= endMinutes) {
+    const h = String(Math.floor(current / 60)).padStart(2, "0");
+    const m = String(current % 60).padStart(2, "0");
+    result.push(`${h}:${m}`);
+
+    current += step;
+  }
+
+  return result;
+};
+
+const formatHHMM = (time) => {
+  if (!time) return "00:00";
+
+  const [h = "0", m = "0"] = time.split(":");
+
+  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+};
 
 const DAYS = [
   "monday",
@@ -44,7 +73,7 @@ const createInitialForm = () => ({
     return acc;
   }, {}),
   closedPeriods: [],
-  requiredResources: [{ type: "staff", quantity: "1" }],
+  requiredResources: [],
 });
 
 const toLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
@@ -67,14 +96,15 @@ const isValidHttpUrl = (value) => {
 const toWeeklyAvailability = (dayHours) =>
   DAYS.map((day) => {
     const item = dayHours[day];
+
     return {
       day,
       isOpen: Boolean(item?.isOpen),
       slots: item?.isOpen
         ? [
           {
-            startTime: item.startTime,
-            endTime: item.endTime,
+            startTime: formatHHMM(item.startTime),
+            endTime: formatHHMM(item.endTime),
           },
         ]
         : [],
@@ -191,6 +221,34 @@ export default function ProviderServicesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [formErrors, setFormErrors] = useState({});
+
+
+  //------------------------------------------
+  const [resources, setResources] = useState([]);
+
+  useEffect(() => {
+    const loadResources = async () => {
+      if (!token || !createShopId) return;
+
+      try {
+        const res = await fetchShopResources({
+          token,
+          shopId: createShopId,
+        });
+
+        setResources(res.resources || []);
+      } catch {
+        setResources([]);
+      }
+    };
+
+    loadResources();
+  }, [token, createShopId]);
+
+
+
+  //-----------------------------------------------
+
 
   const effectiveShopId = useMemo(
     () => routeShopId || selectedShopId,
@@ -394,21 +452,20 @@ export default function ProviderServicesPage() {
       nextErrors.requiredResources = "At least one required resource is needed";
     } else {
       for (const resource of form.requiredResources) {
-        const normalizedType = String(resource.type || "").trim().toLowerCase();
+
+        const resourceId = String(resource.resourceId || "").trim();
         const quantity = Number(resource.quantity);
-        if (!normalizedType) {
-          nextErrors.requiredResources = "Resource type is required";
+
+        if (!resourceId) {
+          nextErrors.requiredResources = "Please select a resource";
           break;
         }
-        if (!/^[a-z][a-z0-9_\-\s]*$/.test(normalizedType)) {
-          nextErrors.requiredResources =
-            "Resource type must be lowercase (letters, numbers, spaces, - or _)";
-          break;
-        }
+
         if (!Number.isInteger(quantity) || quantity < 1) {
           nextErrors.requiredResources = "Resource quantity must be at least 1";
           break;
         }
+
       }
     }
 
@@ -446,7 +503,7 @@ export default function ProviderServicesPage() {
       }
 
       const images = parseImages(form.imagesText);
-
+      // console.log("Weekly availability sending:", toWeeklyAvailability(form.dayHours));
       const payload = {
         name: form.name.trim(),
         price: Number(form.price),
@@ -454,10 +511,16 @@ export default function ProviderServicesPage() {
         capacity: Number(form.capacity),
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
-        requiredResources: form.requiredResources.map((item) => ({
-          type: String(item.type || "").trim().toLowerCase(),
-          quantity: Number(item.quantity),
-        })),
+        requiredResources: form.requiredResources.map((item) => {
+          const selected = resources.find(
+            (r) => r._id === item.resourceId
+          );
+
+          return {
+            type: selected?.type,
+            quantity: Number(item.quantity),
+          };
+        })
       };
 
       if (form.description.trim()) {
@@ -568,7 +631,10 @@ export default function ProviderServicesPage() {
   const addRequiredResource = () => {
     setForm((prev) => ({
       ...prev,
-      requiredResources: [...prev.requiredResources, { type: "", quantity: "1" }],
+      requiredResources: [
+        ...prev.requiredResources,
+        { resourceId: "", quantity: "1" },
+      ],
     }));
   };
 
@@ -784,13 +850,22 @@ export default function ProviderServicesPage() {
 
             <div className="form-field">
               Weekly Availability
+
               {DAYS.map((day) => {
                 const shopDay = createShopAvailabilityByDay[day];
                 const isDayOpenInShop = Boolean(shopDay?.isOpen);
 
+                const timeOptions = generateTimeOptions(
+                  shopDay?.minTime || "09:00",
+                  shopDay?.maxTime || "18:00",
+                  Number(form.durationMinutes) || 30
+                );
+
                 return (
                   <div className="service-meta" key={day}>
                     <strong>{toLabel(day)}</strong>
+
+                    {/* OPEN CHECKBOX */}
                     <label>
                       Open
                       <input
@@ -800,32 +875,50 @@ export default function ProviderServicesPage() {
                         disabled={!isDayOpenInShop}
                       />
                     </label>
+
+                    {/* START TIME */}
                     <label>
                       Start
-                      <input
-                        type="time"
-                        min={shopDay?.minTime || "09:00"}
-                        max={shopDay?.maxTime || "18:00"}
-                        value={form.dayHours[day]?.startTime || "09:00"}
+                      <select
+                        value={form.dayHours[day]?.startTime || ""}
                         onChange={(event) => setDayValue(day, "startTime", event.target.value)}
                         disabled={!isDayOpenInShop || !form.dayHours[day]?.isOpen}
-                      />
+                      >
+                        <option value="">Select</option>
+
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
                     </label>
+
+                    {/* END TIME */}
                     <label>
                       End
-                      <input
-                        type="time"
-                        min={shopDay?.minTime || "09:00"}
-                        max={shopDay?.maxTime || "18:00"}
-                        value={form.dayHours[day]?.endTime || "18:00"}
+                      <select
+                        value={form.dayHours[day]?.endTime || ""}
                         onChange={(event) => setDayValue(day, "endTime", event.target.value)}
                         disabled={!isDayOpenInShop || !form.dayHours[day]?.isOpen}
-                      />
+                      >
+                        <option value="">Select</option>
+
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    {!isDayOpenInShop ? <span className="muted-text">Shop closed</span> : null}
+
+                    {!isDayOpenInShop ? (
+                      <span className="muted-text">Shop closed</span>
+                    ) : null}
                   </div>
                 );
               })}
+
               {formErrors.weeklyAvailability ? (
                 <span className="error-text">{formErrors.weeklyAvailability}</span>
               ) : null}
@@ -878,33 +971,27 @@ export default function ProviderServicesPage() {
 
             <div className="form-field">
               Required Resources
+
               {form.requiredResources.map((resource, index) => (
-                <div className="service-meta" key={`resource-${index}`}>
+                <div className="service-meta" key={index}>
 
                   <label>
-                    Category
+                    Resource
                     <select
-                      value={resource.category || ""}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "category", event.target.value)
+                      value={resource.resourceId}
+                      onChange={(e) =>
+                        updateRequiredResource(index, "resourceId", e.target.value)
                       }
                     >
-                      <option value="">Select</option>
-                      <option value="human">Human</option>
-                      <option value="equipment">Equipment</option>
-                      <option value="space">Space</option>
-                    </select>
-                  </label>
+                      <option value="">Select resource</option>
 
-                  <label>
-                    Type
-                    <input
-                      type="text"
-                      value={resource.type}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "type", event.target.value.toLowerCase())
-                      }
-                    />
+                      {resources.map((r) => (
+                        <option key={r._id} value={r._id}>
+                          {r.name} ({r.category})
+                        </option>
+                      ))}
+
+                    </select>
                   </label>
 
                   <label>
@@ -913,8 +1000,8 @@ export default function ProviderServicesPage() {
                       type="number"
                       min="1"
                       value={resource.quantity}
-                      onChange={(event) =>
-                        updateRequiredResource(index, "quantity", event.target.value)
+                      onChange={(e) =>
+                        updateRequiredResource(index, "quantity", e.target.value)
                       }
                     />
                   </label>
@@ -923,19 +1010,21 @@ export default function ProviderServicesPage() {
                     type="button"
                     className="btn btn-secondary btn-small"
                     onClick={() => removeRequiredResource(index)}
-                    disabled={form.requiredResources.length === 1}
                   >
                     Remove
                   </button>
 
                 </div>
               ))}
-              <button type="button" className="btn btn-secondary btn-small" onClick={addRequiredResource}>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                onClick={addRequiredResource}
+              >
                 Add Resource
               </button>
-              {formErrors.requiredResources ? (
-                <span className="error-text">{formErrors.requiredResources}</span>
-              ) : null}
+
             </div>
 
             <button className="btn" type="submit" disabled={isSubmitting}>
