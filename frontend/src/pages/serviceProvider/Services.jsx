@@ -12,6 +12,34 @@ import {
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import StatusPill from "./components/StatusPill";
 
+const generateTimeOptions = (start, end, step = 30) => {
+  const result = [];
+
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+
+  let current = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  while (current <= endMinutes) {
+    const h = String(Math.floor(current / 60)).padStart(2, "0");
+    const m = String(current % 60).padStart(2, "0");
+    result.push(`${h}:${m}`);
+
+    current += step;
+  }
+
+  return result;
+};
+
+const formatHHMM = (time) => {
+  if (!time) return "00:00";
+
+  const [h = "0", m = "0"] = time.split(":");
+
+  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+};
+
 const DAYS = [
   "monday",
   "tuesday",
@@ -68,14 +96,15 @@ const isValidHttpUrl = (value) => {
 const toWeeklyAvailability = (dayHours) =>
   DAYS.map((day) => {
     const item = dayHours[day];
+
     return {
       day,
       isOpen: Boolean(item?.isOpen),
       slots: item?.isOpen
         ? [
           {
-            startTime: item.startTime,
-            endTime: item.endTime,
+            startTime: formatHHMM(item.startTime),
+            endTime: formatHHMM(item.endTime),
           },
         ]
         : [],
@@ -474,7 +503,7 @@ export default function ProviderServicesPage() {
       }
 
       const images = parseImages(form.imagesText);
-
+      // console.log("Weekly availability sending:", toWeeklyAvailability(form.dayHours));
       const payload = {
         name: form.name.trim(),
         price: Number(form.price),
@@ -482,10 +511,16 @@ export default function ProviderServicesPage() {
         capacity: Number(form.capacity),
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
-        requiredResources: form.requiredResources.map((item) => ({
-          resourceId: item.resourceId,
-          quantity: Number(item.quantity),
-        }))
+        requiredResources: form.requiredResources.map((item) => {
+          const selected = resources.find(
+            (r) => r._id === item.resourceId
+          );
+
+          return {
+            type: selected?.type,
+            quantity: Number(item.quantity),
+          };
+        })
       };
 
       if (form.description.trim()) {
@@ -815,13 +850,22 @@ export default function ProviderServicesPage() {
 
             <div className="form-field">
               Weekly Availability
+
               {DAYS.map((day) => {
                 const shopDay = createShopAvailabilityByDay[day];
                 const isDayOpenInShop = Boolean(shopDay?.isOpen);
 
+                const timeOptions = generateTimeOptions(
+                  shopDay?.minTime || "09:00",
+                  shopDay?.maxTime || "18:00",
+                  Number(form.durationMinutes) || 30
+                );
+
                 return (
                   <div className="service-meta" key={day}>
                     <strong>{toLabel(day)}</strong>
+
+                    {/* OPEN CHECKBOX */}
                     <label>
                       Open
                       <input
@@ -831,32 +875,50 @@ export default function ProviderServicesPage() {
                         disabled={!isDayOpenInShop}
                       />
                     </label>
+
+                    {/* START TIME */}
                     <label>
                       Start
-                      <input
-                        type="time"
-                        min={shopDay?.minTime || "09:00"}
-                        max={shopDay?.maxTime || "18:00"}
-                        value={form.dayHours[day]?.startTime || "09:00"}
+                      <select
+                        value={form.dayHours[day]?.startTime || ""}
                         onChange={(event) => setDayValue(day, "startTime", event.target.value)}
                         disabled={!isDayOpenInShop || !form.dayHours[day]?.isOpen}
-                      />
+                      >
+                        <option value="">Select</option>
+
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
                     </label>
+
+                    {/* END TIME */}
                     <label>
                       End
-                      <input
-                        type="time"
-                        min={shopDay?.minTime || "09:00"}
-                        max={shopDay?.maxTime || "18:00"}
-                        value={form.dayHours[day]?.endTime || "18:00"}
+                      <select
+                        value={form.dayHours[day]?.endTime || ""}
                         onChange={(event) => setDayValue(day, "endTime", event.target.value)}
                         disabled={!isDayOpenInShop || !form.dayHours[day]?.isOpen}
-                      />
+                      >
+                        <option value="">Select</option>
+
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    {!isDayOpenInShop ? <span className="muted-text">Shop closed</span> : null}
+
+                    {!isDayOpenInShop ? (
+                      <span className="muted-text">Shop closed</span>
+                    ) : null}
                   </div>
                 );
               })}
+
               {formErrors.weeklyAvailability ? (
                 <span className="error-text">{formErrors.weeklyAvailability}</span>
               ) : null}

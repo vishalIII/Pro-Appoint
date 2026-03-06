@@ -90,9 +90,9 @@ export default function ServiceDetails() {
   const availabilityMap = new Map(
     Array.isArray(service?.weeklyAvailability)
       ? service.weeklyAvailability.map((entry) => [
-          typeof entry?.day === "string" ? entry.day.toLowerCase() : "",
-          entry
-        ])
+        typeof entry?.day === "string" ? entry.day.toLowerCase() : "",
+        entry
+      ])
       : []
   );
 
@@ -111,13 +111,39 @@ export default function ServiceDetails() {
   });
 
   return (
+
     <section className="page-block service-details-page">
+
+      {!isLoading && service?.images?.length > 0 && (
+        <div className="service-image-gallery">
+          <img
+            src={service.images[0]}
+            alt={service.name}
+            className="service-main-image"
+          />
+
+          {service.images.length > 1 && (
+            <div className="service-thumbnail-row">
+              {service.images.slice(1).map((img, index) => (
+                <img
+                  key={index}
+                  src={img}
+                  alt={`${service.name} ${index + 2}`}
+                  className="service-thumbnail"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="service-details-layout">
         <aside className="card service-availability-card">
           <h2>Opening times</h2>
 
           {isLoading ? <p>Loading opening times...</p> : null}
           {error ? <p className="error-text">Opening times are unavailable right now.</p> : null}
+
 
           {!isLoading && !error ? (
             <ul className="service-availability-list">
