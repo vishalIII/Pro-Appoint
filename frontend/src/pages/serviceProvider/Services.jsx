@@ -394,8 +394,9 @@ export default function ProviderServicesPage() {
     }
 
     const duration = Number(form.durationMinutes);
-    if (!Number.isInteger(duration) || duration < 1) {
-      nextErrors.durationMinutes = "Duration must be at least 1 minute";
+    if (!Number.isInteger(duration) || duration < 30 || duration % 30 !== 0) {
+      nextErrors.durationMinutes =
+        "Duration must be divisible by 30 minutes (30, 60, 90...)";
     }
 
     if (String(form.price).trim() === "") {
@@ -792,16 +793,19 @@ export default function ProviderServicesPage() {
 
               <label className="form-field" htmlFor="service-duration">
                 Duration Minutes
-                <input
+                <select
                   id="service-duration"
-                  type="number"
-                  min="1"
                   value={form.durationMinutes}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, durationMinutes: event.target.value }))
                   }
                   required
-                />
+                >
+                  <option value="30">30 minutes</option>
+                  <option value="60">1 hour</option>
+                  <option value="90">1 hour 30 minutes</option>
+                  <option value="120">2 hours</option>
+                </select>
                 {formErrors.durationMinutes ? (
                   <span className="error-text">{formErrors.durationMinutes}</span>
                 ) : null}
@@ -858,7 +862,7 @@ export default function ProviderServicesPage() {
                 const timeOptions = generateTimeOptions(
                   shopDay?.minTime || "09:00",
                   shopDay?.maxTime || "18:00",
-                  Number(form.durationMinutes) || 30
+                  30
                 );
 
                 return (

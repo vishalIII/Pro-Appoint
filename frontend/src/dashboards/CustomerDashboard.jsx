@@ -13,7 +13,7 @@ export default function CustomerDashboard() {
           </Link>
         </Can>
         <Can permission="cancel_booking">
-          <Link className="btn btn-secondary" to="/customer/bookings">
+          <Link className="btn btn-secondary" to="/bookings">
             Manage Bookings
           </Link>
         </Can>

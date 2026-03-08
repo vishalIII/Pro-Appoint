@@ -5,6 +5,15 @@ import AlertModal from "../../components/AlertModal";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
+
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const toLocalDateTimeValue = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -37,11 +46,11 @@ const parseTimeOnDateUTC = (date, timeText) => {
   );
 };
 
-const getMinStartTimeLocal = () => {
-  const now = new Date();
-  now.setSeconds(0, 0);
-  return toLocalDateTimeValue(now);
-};
+// const getMinStartTimeLocal = () => {
+//   const now = new Date();
+//   now.setSeconds(0, 0);
+//   return toLocalDateTimeValue(now);
+// };
 
 const getDayNameUTC = (date) => {
   const dayNames = [
@@ -53,7 +62,7 @@ const getDayNameUTC = (date) => {
     "friday",
     "saturday"
   ];
-  return dayNames[date.getUTCDay()];
+  return dayNames[date.getDay()];
 };
 
 const normalizeShopSchedule = (payload) => ({
@@ -271,6 +280,23 @@ const mapServerErrorToPopupMessage = ({ rawMessage, shopSchedule, serviceSchedul
   return message || "Failed to create appointment";
 };
 
+
+const generateSlots = ({ ranges, duration }) => {
+  const slots = [];
+
+  for (const range of ranges) {
+    let cursor = new Date(range.start);
+
+    while (cursor.getTime() + duration * 60000 <= range.end.getTime()) {
+      slots.push(new Date(cursor));
+      cursor = new Date(cursor.getTime() + 30 * 60000); // 30 min interval
+    }
+  }
+
+  return slots;
+};
+
+
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
   const { token } = useAuth();
@@ -293,9 +319,82 @@ export default function BookingFlow() {
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [popupMessage, setPopupMessage] = useState("");
-  const [minStartTimeLocal, setMinStartTimeLocal] = useState(() => getMinStartTimeLocal());
+  // const [minStartTimeLocal, setMinStartTimeLocal] = useState(() => getMinStartTimeLocal())
   const [shopSchedule, setShopSchedule] = useState(null);
   const [serviceSchedule, setServiceSchedule] = useState(null);
+  const [serviceDuration, setServiceDuration] = useState(30);
+
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
+const [availableSlots, setAvailableSlots] = useState([]);
+const [selectedSlot, setSelectedSlot] = useState("");
+
+
+  useEffect(() => {
+  if (!selectedDate || !shopSchedule || !serviceSchedule) return;
+
+//  const bookingDate = new Date(selectedDate + "T00:00:00");
+const bookingDate = new Date(selectedDate);
+
+  const shopDayAvailability = getDayAvailability(shopSchedule, bookingDate);
+  const serviceDayAvailability = getDayAvailability(serviceSchedule, bookingDate);
+
+  if (!isDayOpen(shopDayAvailability) || !isDayOpen(serviceDayAvailability)) {
+    setAvailableSlots([]);
+    return;
+  }
+
+  const shopRanges = getDayRangesOnDateUTC({
+    bookingDate,
+    dayAvailability: shopDayAvailability
+  });
+
+  const serviceRanges = getDayRangesOnDateUTC({
+    bookingDate,
+    dayAvailability: serviceDayAvailability
+  });
+
+  const validRanges = [];
+
+for (const shopRange of shopRanges) {
+  for (const serviceRange of serviceRanges) {
+
+    const start = new Date(
+      Math.max(shopRange.start.getTime(), serviceRange.start.getTime())
+    );
+
+    const end = new Date(
+      Math.min(shopRange.end.getTime(), serviceRange.end.getTime())
+    );
+
+    if (start < end) {
+      validRanges.push({ start, end });
+    }
+  }
+}
+
+  const slots = generateSlots({
+  ranges: validRanges,
+  duration: serviceDuration
+});
+
+const now = new Date();
+
+const filteredSlots = slots.filter((slot) => {
+  if (selectedDate === getTodayDate()) {
+    return slot.getTime() > now.getTime();
+  }
+  
+  return true;
+});
+if (filteredSlots.length > 0) {
+  setSelectedSlot(filteredSlots[0].toISOString());
+} else {
+  setSelectedSlot("");
+}
+setAvailableSlots(filteredSlots);
+
+  
+}, [selectedDate, shopSchedule, serviceSchedule, serviceDuration]);
 
   useEffect(() => {
     let cancelled = false;
@@ -303,58 +402,62 @@ export default function BookingFlow() {
     setServiceSchedule(null);
 
     const fetchBookingSchedules = async () => {
-      if (!shopId || !serviceId) return;
+  if (!shopId || !serviceId) return;
 
-      try {
-        const [shopResponse, serviceResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/shops/${shopId}`),
-          fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
-        ]);
-        const [shopPayload, servicePayload] = await Promise.all([
-          parseJsonSafely(shopResponse),
-          parseJsonSafely(serviceResponse)
-        ]);
+  try {
+    const [shopResponse, serviceResponse] = await Promise.all([
+      fetch(`${API_BASE_URL}/shops/${shopId}`),
+      fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
+    ]);
 
-        if (!shopResponse.ok || !shopPayload) {
-          if (!cancelled) {
-            setShopSchedule(null);
-          }
-        } else if (!cancelled) {
-          setShopSchedule(normalizeShopSchedule(shopPayload));
-        }
+    const [shopPayload, servicePayload] = await Promise.all([
+      parseJsonSafely(shopResponse),
+      parseJsonSafely(serviceResponse)
+    ]);
 
-        if (!serviceResponse.ok || !servicePayload) {
-          if (!cancelled) {
-            setServiceSchedule(null);
-          }
-        } else if (!cancelled) {
-          setServiceSchedule(normalizeServiceSchedule(servicePayload));
-        }
-      } catch {
-        if (!cancelled) {
-          setShopSchedule(null);
-          setServiceSchedule(null);
-        }
+    // Shop schedule
+    if (!shopResponse.ok || !shopPayload) {
+      if (!cancelled) setShopSchedule(null);
+    } else if (!cancelled) {
+      setShopSchedule(normalizeShopSchedule(shopPayload));
+    }
+
+    // Service schedule + duration
+    if (!serviceResponse.ok || !servicePayload) {
+      if (!cancelled) {
+        setServiceSchedule(null);
       }
-    };
+    } else if (!cancelled) {
+      setServiceSchedule(normalizeServiceSchedule(servicePayload));
+      setServiceDuration(servicePayload.durationMinutes || 30);
+    }
 
-    fetchBookingSchedules();
+  } catch {
+    if (!cancelled) {
+      setShopSchedule(null);
+      setServiceSchedule(null);
+    }
+  }
+};
 
-    return () => {
-      cancelled = true;
-    };
-  }, [shopId, serviceId]);
+fetchBookingSchedules();
+return () => {
+  cancelled = true;
+};
 
-  useEffect(() => {
-    setMinStartTimeLocal(getMinStartTimeLocal());
-    const intervalId = window.setInterval(() => {
-      setMinStartTimeLocal(getMinStartTimeLocal());
-    }, 30000);
+}, [shopId, serviceId]);
 
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
+
+  // useEffect(() => {
+  //   setMinStartTimeLocal(getMinStartTimeLocal());
+  //   const intervalId = window.setInterval(() => {
+  //     setMinStartTimeLocal(getMinStartTimeLocal());
+  //   }, 30000);
+
+  //   return () => {
+  //     window.clearInterval(intervalId);
+  //   };
+  // }, []);
 
   const showPopupError = (message) => {
     const text = message || "Failed to create appointment";
@@ -377,8 +480,8 @@ export default function BookingFlow() {
     setSuccessMessage("");
     setPopupMessage("");
 
-    const startDate = new Date(form.startTimeLocal);
-    const duration = Number(form.durationMinutes);
+    const startDate = new Date(selectedSlot);
+    const duration = serviceDuration;
 
     if (Number.isNaN(startDate.getTime())) {
       setSubmitError("Please select a valid start date and time.");
@@ -483,7 +586,7 @@ export default function BookingFlow() {
       }
 
       setSuccessMessage("Appointment booked successfully.");
-      setTimeout(() => navigate("/customer/bookings", { replace: true }), 700);
+      setTimeout(() => navigate("/bookings", { replace: true }), 700);
     } catch (error) {
       showPopupError(error.message || "Failed to create appointment");
     } finally {
@@ -503,31 +606,49 @@ export default function BookingFlow() {
         {successMessage ? <p className="success-text">{successMessage}</p> : null}
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-field" htmlFor="startTimeLocal">
-            Start Time
-            <input
-              id="startTimeLocal"
-              type="datetime-local"
-              name="startTimeLocal"
-              value={form.startTimeLocal}
-              min={minStartTimeLocal}
-              onChange={handleChange}
-              required
-            />
-          </label>
+          <label className="form-field">
+  Select Date
+  <input
+  type="date"
+  value={selectedDate}
+  min={getTodayDate()}
+  onChange={(e) => setSelectedDate(e.target.value)}
+  required
+/>
+</label>
 
-          <label className="form-field" htmlFor="durationMinutes">
-            Duration (minutes)
-            <input
-              id="durationMinutes"
-              type="number"
-              min="1"
-              name="durationMinutes"
-              value={form.durationMinutes}
-              onChange={handleChange}
-              required
-            />
-          </label>
+<label className="form-field">
+  Available Slots
+
+  {availableSlots.length === 0 ? (
+    <p className="error-text">No slots available</p>
+  ) : (
+    <select
+      value={selectedSlot}
+      onChange={(e) => setSelectedSlot(e.target.value)}
+      required
+    >
+      <option value="">Select slot</option>
+
+      {availableSlots.map((slot) => {
+        const value = slot.toISOString();
+
+        return (
+          <option key={value} value={value}>
+            {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </option>
+        );
+      })}
+    </select>
+  )}
+</label>
+
+          <label className="form-field">
+  Duration
+  <div className="readonly-field">
+    {serviceDuration} minutes
+  </div>
+</label>
 
           <label className="form-field" htmlFor="mode">
             Mode
