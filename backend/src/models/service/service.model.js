@@ -85,14 +85,21 @@ const serviceSchema = new mongoose.Schema(
       min: 1,
     },
 
-    requiredResources: {
-      type: [requiredResourceSchema],
+    requiredResources: [
+  { 
+    _id: false,
+    resourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "resource",
       required: true,
-      validate: {
-        validator: (value) => Array.isArray(value) && value.length > 0,
-        message: "requiredResources must contain at least one entry",
-      },
     },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+  },
+],
 
     isActive: {
       type: Boolean,
@@ -103,4 +110,8 @@ const serviceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+serviceSchema.index({
+  shopId: 1,
+  isActive: 1,
+});
 module.exports = mongoose.model("service", serviceSchema);

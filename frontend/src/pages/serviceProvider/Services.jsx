@@ -226,24 +226,20 @@ export default function ProviderServicesPage() {
   //------------------------------------------
   const [resources, setResources] = useState([]);
 
-  useEffect(() => {
-  if (!editingService || resources.length === 0) return;
+  // useEffect(() => {
+  //   if (!editingService || resources.length === 0) return;
 
-  const mappedResources =
-    editingService.requiredResources?.map((r) => {
-      const matched = resources.find((res) => res.type === r.type);
+  //   const mappedResources =
+  //     editingService.requiredResources?.map((r) => ({
+  //       resourceId: r.resourceId,
+  //       quantity: String(r.quantity || 1),
+  //     })) || [];
 
-      return {
-        resourceId: matched?._id || "",
-        quantity: String(r.quantity || 1),
-      };
-    }) || [];
-
-  setForm((prev) => ({
-    ...prev,
-    requiredResources: mappedResources,
-  }));
-}, [resources]);
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     requiredResources: mappedResources,
+  //   }));
+  // }, [resources]);
 
   useEffect(() => {
     const loadResources = async () => {
@@ -351,12 +347,13 @@ export default function ProviderServicesPage() {
   }, [approvedShops, createShopId, showCreateForm, token]);
 
   useEffect(() => {
-    if (!showCreateForm || !createShopId) return;
+    if (!showCreateForm || !createShopId || editingService) return;
+
     setForm((prev) => ({
       ...prev,
       dayHours: buildDayHoursFromShopAvailability(createShopAvailabilityByDay),
     }));
-  }, [createShopAvailabilityByDay, createShopId, showCreateForm]);
+  }, [createShopAvailabilityByDay, createShopId, showCreateForm, editingService]);
 
   useEffect(() => {
     if (showCreateForm && !isCreateServiceEnabled) {
@@ -451,14 +448,18 @@ export default function ProviderServicesPage() {
         break;
       }
 
-      const shopDay = createShopAvailabilityByDay[day];
+      const shopDay =
+        createShopAvailabilityByDay?.[day] ||
+        buildShopAvailabilityByDay(shopDetails?.weeklyAvailability)?.[day];
+
       if (!shopDay?.isOpen) {
         nextErrors.weeklyAvailability = `${toLabel(day)} is closed for this shop`;
         break;
       }
 
       if (!isWithinShopAvailability(shopDay, item.startTime, item.endTime)) {
-        nextErrors.weeklyAvailability = "Service availability must be within shop availability.";
+        nextErrors.weeklyAvailability =
+          "Service availability must be within shop availability.";
         break;
       }
     }
@@ -507,110 +508,114 @@ export default function ProviderServicesPage() {
   };
 
   const handleEdit = (service) => {
-  setEditingService(service);
+    setEditingService(service);
 
-  const dayHours = createInitialForm().dayHours;
+    const dayHours = createInitialForm().dayHours;
 
-  if (service.weeklyAvailability) {
-    service.weeklyAvailability.forEach((day) => {
-      if (day.slots?.length) {
-        dayHours[day.day] = {
-          isOpen: true,
-          startTime: day.slots[0].startTime,
-          endTime: day.slots[0].endTime,
-        };
-      }
-    });
-  }
-
-  // ✅ FIX: map type -> resourceId
-  const mappedResources =
-    service.requiredResources?.map((r) => {
-      const matched = resources.find((res) => res.type === r.type);
-
-      return {
-        resourceId: matched?._id || "",
-        quantity: String(r.quantity || 1),
+    if (service.weeklyAvailability) {
+  service.weeklyAvailability.forEach((day) => {
+    if (!day.isOpen) {
+      dayHours[day.day] = {
+        isOpen: false,
+        startTime: defaultDayHours[day.day].startTime,
+        endTime: defaultDayHours[day.day].endTime,
       };
-    }) || [];
-
-  setForm({
-    name: service.name || "",
-    description: service.description || "",
-    category: service.category || "",
-    price: service.price || "",
-    durationMinutes: service.durationMinutes?.toString() || "30",
-    capacity: service.capacity?.toString() || "1",
-    discountPercentage: service.discountPercentage?.toString() || "0",
-    imagesText: (service.images || []).join("\n"),
-    dayHours,
-    closedPeriods: service.closedPeriods || [],
-    requiredResources: mappedResources,
-  });
-
-  setCreateShopId(service.shopId);
-  setShowCreateForm(true);
-};
-  
- const handleSubmit = async (event) => {
-  event.preventDefault();
-  if (!validateForm()) return;
-
-  setIsSubmitting(true);
-  setError("");
-
-  try {
-    const images = parseImages(form.imagesText);
-
-    const payload = {
-      name: form.name.trim(),
-      price: Number(form.price),
-      durationMinutes: Number(form.durationMinutes),
-      capacity: Number(form.capacity),
-      discountPercentage: Number(form.discountPercentage),
-      weeklyAvailability: toWeeklyAvailability(form.dayHours),
-      requiredResources: form.requiredResources.map((item) => {
-        const selected = resources.find((r) => r._id === item.resourceId);
-
-        return {
-          type: selected?.type,
-          quantity: Number(item.quantity),
-        };
-      }),
-    };
-
-    if (form.description.trim()) payload.description = form.description.trim();
-    if (form.category.trim()) payload.category = form.category.trim();
-    if (images.length) payload.images = images;
-
-    if (editingService) {
-      // UPDATE SERVICE
-      await updateShopService({
-        token,
-        shopId: createShopId,
-        serviceId: editingService._id,
-        payload,
-      });
-    } else {
-      // CREATE SERVICE
-      await createShopService({
-        token,
-        shopId: createShopId,
-        payload,
-      });
+      return;
     }
 
-    setForm(createInitialForm());
-    setEditingService(null);
-    setShowCreateForm(false);
+    if (day.slots?.length) {
+      dayHours[day.day] = {
+        isOpen: true,
+        startTime: day.slots[0].startTime,
+        endTime: day.slots[0].endTime,
+      };
+    }
+  });
+}
 
-    await loadServices();
-  } catch (err) {
-    setError(err.message || "Failed to save service");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    const mappedResources =
+      service.requiredResources?.map((r) => ({
+        resourceId: r.resourceId?._id || r.resourceId,
+        quantity: String(r.quantity || 1),
+      })) || [];
+
+    setForm({
+      name: service.name || "",
+      description: service.description || "",
+      category: service.category || "",
+      price: service.price || "",
+      durationMinutes: service.durationMinutes?.toString() || "30",
+      capacity: service.capacity?.toString() || "1",
+      discountPercentage: service.discountPercentage?.toString() || "0",
+      imagesText: (service.images || []).join("\n"),
+      dayHours,
+      closedPeriods: service.closedPeriods || [],
+      requiredResources: mappedResources,
+    });
+
+    setCreateShopId(service.shopId);
+    setShowCreateForm(true);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const images = parseImages(form.imagesText);
+
+      const payload = {
+        name: form.name.trim(),
+        price: Number(form.price),
+        durationMinutes: Number(form.durationMinutes),
+        capacity: Number(form.capacity),
+        discountPercentage: Number(form.discountPercentage),
+        weeklyAvailability: toWeeklyAvailability(form.dayHours),
+
+        requiredResources: form.requiredResources.map((item) => ({
+  resourceId:
+    typeof item.resourceId === "object"
+      ? item.resourceId._id
+      : item.resourceId,
+  quantity: Number(item.quantity),
+}))
+      };
+
+      if (form.description.trim()) payload.description = form.description.trim();
+      if (form.category.trim()) payload.category = form.category.trim();
+      if (images.length) payload.images = images;
+
+      if (editingService) {
+        // UPDATE SERVICE
+        await updateShopService({
+          token,
+          shopId: createShopId,
+          serviceId: editingService._id,
+          payload,
+        });
+      } else {
+        // CREATE SERVICE
+        await createShopService({
+          token,
+          shopId: createShopId,
+          payload,
+        });
+      }
+
+      setForm(createInitialForm());
+      setEditingService(null);
+      setShowCreateForm(false);
+
+      await loadServices();
+    } catch (err) {
+      setError(err.message || "Failed to save service");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleToggle = async (service) => {
     if (!effectiveShopId || !isCurrentShopApproved) return;
@@ -750,7 +755,15 @@ export default function ProviderServicesPage() {
             type="button"
             disabled={!isCreateServiceEnabled}
             title={!isCreateServiceEnabled ? createDisabledMessage : undefined}
-            onClick={() => setShowCreateForm((prev) => !prev)}
+            onClick={() => {
+              if (!showCreateForm) {
+                // OPEN CREATE FORM
+                setEditingService(null);
+                setForm(createInitialForm());
+              }
+
+              setShowCreateForm((prev) => !prev);
+            }}
           >
             {showCreateForm ? "Close Form" : "+ Create Service"}
           </button>
@@ -1072,12 +1085,12 @@ export default function ProviderServicesPage() {
 
             <button className="btn" type="submit" disabled={isSubmitting}>
               {isSubmitting
-  ? editingService
-    ? "Updating..."
-    : "Creating..."
-  : editingService
-  ? "Update Service"
-  : "Create Service"}
+                ? editingService
+                  ? "Updating..."
+                  : "Creating..."
+                : editingService
+                  ? "Update Service"
+                  : "Create Service"}
             </button>
           </form>
         ) : null}
@@ -1121,12 +1134,12 @@ export default function ProviderServicesPage() {
                         </button>
 
                         <button
-  type="button"
-  className="btn btn-small btn-secondary"
-  onClick={() => handleEdit(service)}
->
-  Edit
-</button>
+                          type="button"
+                          className="btn btn-small btn-secondary"
+                          onClick={() => handleEdit(service)}
+                        >
+                          Edit
+                        </button>
 
                         <button
                           type="button"
