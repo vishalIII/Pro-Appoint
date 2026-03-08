@@ -14,6 +14,7 @@ const STATUS_OPTIONS = [
   { value: "no_show", label: "No-show" },
 ];
 
+
 const ACTIONS_BY_STATUS = {
   pending: ["accept", "reject", "cancel", "mark-paid"],
   confirmed: ["complete", "no-show", "cancel", "mark-paid"],
@@ -62,9 +63,9 @@ export default function ProviderAppointmentsPage() {
       const list = Array.isArray(payload?.appointments) ? payload.appointments : [];
       const filtered = selectedShopId
         ? list.filter((item) => {
-            const shopId = item?.shopId?._id || item?.shopId;
-            return String(shopId) === String(selectedShopId);
-          })
+          const shopId = item?.shopId?._id || item?.shopId;
+          return String(shopId) === String(selectedShopId);
+        })
         : list;
       setAppointments(filtered);
     } catch (loadError) {
@@ -145,15 +146,37 @@ export default function ProviderAppointmentsPage() {
               </thead>
               <tbody>
                 {appointments.map((appointment) => {
+                  
                   const actions = ACTIONS_BY_STATUS[appointment.status] || [];
                   return (
                     <tr key={appointment._id}>
                       <td>{getCustomerName(appointment)}</td>
                       <td>{getServiceName(appointment)}</td>
                       <td>{getDateTimeLabel(appointment.startTimeUTC)}</td>
-                      <td>
-                        <StatusPill value={appointment.status} />
-                      </td>
+
+
+                     
+                      {/* <StatusPill value={appointment.status} /> */}
+                    
+                      {/* <td>
+                        <div
+                          title={appointment?.cancellation?.reason || ""}
+                          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                          <StatusPill value={appointment.status} />
+
+                          {appointment?.cancellation?.reason?.includes("Auto-cancelled") && (
+                            <span className="badge badge-warning">Auto</span>
+                          )}
+                        </div>
+                      </td> */}
+
+                      <td title={appointment?.status === "cancelled" ? appointment?.cancellation?.reason : ""}>
+  <StatusPill value={appointment.status} />
+</td>
+
+
+
                       <td>
                         <StatusPill value={appointment.paymentStatus} />
                       </td>
