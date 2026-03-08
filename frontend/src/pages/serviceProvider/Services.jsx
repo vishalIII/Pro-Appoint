@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import {
   createShopService,
@@ -208,7 +208,7 @@ const isWithinShopAvailability = (shopDay, startTime, endTime) => {
 
 export default function ProviderServicesPage() {
   const { token } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { shopId: routeShopId } = useParams();
   const { shops, selectedShopId, setSelectedShopId, activeShop } = useProviderWorkspace();
   const [shopDetails, setShopDetails] = useState(null);
@@ -222,9 +222,28 @@ export default function ProviderServicesPage() {
   const [error, setError] = useState("");
   const [formErrors, setFormErrors] = useState({});
 
-
+  const [editingService, setEditingService] = useState(null);
   //------------------------------------------
   const [resources, setResources] = useState([]);
+
+  useEffect(() => {
+  if (!editingService || resources.length === 0) return;
+
+  const mappedResources =
+    editingService.requiredResources?.map((r) => {
+      const matched = resources.find((res) => res.type === r.type);
+
+      return {
+        resourceId: matched?._id || "",
+        quantity: String(r.quantity || 1),
+      };
+    }) || [];
+
+  setForm((prev) => ({
+    ...prev,
+    requiredResources: mappedResources,
+  }));
+}, [resources]);
 
   useEffect(() => {
     const loadResources = async () => {
@@ -487,91 +506,111 @@ export default function ProviderServicesPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleCreate = async (event) => {
-    event.preventDefault();
-    if (!isCreateServiceEnabled || !createShopId || isSubmitting) return;
-    if (!validateForm()) return;
+  const handleEdit = (service) => {
+  setEditingService(service);
 
-    setIsSubmitting(true);
-    setError("");
+  const dayHours = createInitialForm().dayHours;
 
-    try {
-      const isApprovedTargetShop = approvedShops.some(
-        (shop) => String(shop._id) === String(createShopId),
-      );
-      if (!isApprovedTargetShop) {
-        throw new Error("Service can be created only for approved shops");
+  if (service.weeklyAvailability) {
+    service.weeklyAvailability.forEach((day) => {
+      if (day.slots?.length) {
+        dayHours[day.day] = {
+          isOpen: true,
+          startTime: day.slots[0].startTime,
+          endTime: day.slots[0].endTime,
+        };
       }
+    });
+  }
 
-      const images = parseImages(form.imagesText);
-      // console.log("Weekly availability sending:", toWeeklyAvailability(form.dayHours));
-      const payload = {
-        name: form.name.trim(),
-        price: Number(form.price),
-        durationMinutes: Number(form.durationMinutes),
-        capacity: Number(form.capacity),
-        discountPercentage: Number(form.discountPercentage),
-        weeklyAvailability: toWeeklyAvailability(form.dayHours),
-        requiredResources: form.requiredResources.map((item) => {
-          const selected = resources.find(
-            (r) => r._id === item.resourceId
-          );
+  // ✅ FIX: map type -> resourceId
+  const mappedResources =
+    service.requiredResources?.map((r) => {
+      const matched = resources.find((res) => res.type === r.type);
 
-          return {
-            type: selected?.type,
-            quantity: Number(item.quantity),
-          };
-        })
+      return {
+        resourceId: matched?._id || "",
+        quantity: String(r.quantity || 1),
       };
+    }) || [];
 
-      if (form.description.trim()) {
-        payload.description = form.description.trim();
-      }
+  setForm({
+    name: service.name || "",
+    description: service.description || "",
+    category: service.category || "",
+    price: service.price || "",
+    durationMinutes: service.durationMinutes?.toString() || "30",
+    capacity: service.capacity?.toString() || "1",
+    discountPercentage: service.discountPercentage?.toString() || "0",
+    imagesText: (service.images || []).join("\n"),
+    dayHours,
+    closedPeriods: service.closedPeriods || [],
+    requiredResources: mappedResources,
+  });
 
-      if (form.category.trim()) {
-        payload.category = form.category.trim();
-      }
+  setCreateShopId(service.shopId);
+  setShowCreateForm(true);
+};
+  
+ const handleSubmit = async (event) => {
+  event.preventDefault();
+  if (!validateForm()) return;
 
-      if (images.length > 0) {
-        payload.images = images;
-      }
+  setIsSubmitting(true);
+  setError("");
 
-      const normalizedClosedPeriods = form.closedPeriods
-        .filter((item) => item.startDate && item.endDate)
-        .map((item) => ({
-          startDate: item.startDate,
-          endDate: item.endDate,
-          ...(item.reason?.trim() ? { reason: item.reason.trim() } : {}),
-        }));
+  try {
+    const images = parseImages(form.imagesText);
 
-      if (normalizedClosedPeriods.length > 0) {
-        payload.closedPeriods = normalizedClosedPeriods;
-      }
+    const payload = {
+      name: form.name.trim(),
+      price: Number(form.price),
+      durationMinutes: Number(form.durationMinutes),
+      capacity: Number(form.capacity),
+      discountPercentage: Number(form.discountPercentage),
+      weeklyAvailability: toWeeklyAvailability(form.dayHours),
+      requiredResources: form.requiredResources.map((item) => {
+        const selected = resources.find((r) => r._id === item.resourceId);
 
+        return {
+          type: selected?.type,
+          quantity: Number(item.quantity),
+        };
+      }),
+    };
+
+    if (form.description.trim()) payload.description = form.description.trim();
+    if (form.category.trim()) payload.category = form.category.trim();
+    if (images.length) payload.images = images;
+
+    if (editingService) {
+      // UPDATE SERVICE
+      await updateShopService({
+        token,
+        shopId: createShopId,
+        serviceId: editingService._id,
+        payload,
+      });
+    } else {
+      // CREATE SERVICE
       await createShopService({
         token,
         shopId: createShopId,
         payload,
       });
-
-      const targetShopId = createShopId;
-
-      setForm(createInitialForm());
-      setFormErrors({});
-      setShowCreateForm(false);
-      setSelectedShopId(targetShopId);
-
-      if (String(effectiveShopId) === String(targetShopId)) {
-        await loadServices();
-      } else {
-        navigate(`/tenant/shops/${targetShopId}/services`);
-      }
-    } catch (createError) {
-      setError(createError.message || "Failed to create service");
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+
+    setForm(createInitialForm());
+    setEditingService(null);
+    setShowCreateForm(false);
+
+    await loadServices();
+  } catch (err) {
+    setError(err.message || "Failed to save service");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleToggle = async (service) => {
     if (!effectiveShopId || !isCurrentShopApproved) return;
@@ -721,7 +760,7 @@ export default function ProviderServicesPage() {
         {error ? <p className="error-text">{error}</p> : null}
 
         {showCreateForm ? (
-          <form className="auth-form" onSubmit={handleCreate}>
+          <form className="auth-form" onSubmit={handleSubmit}>
             <label className="form-field" htmlFor="service-shop">
               Shop
               <select
@@ -1032,7 +1071,13 @@ export default function ProviderServicesPage() {
             </div>
 
             <button className="btn" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Service"}
+              {isSubmitting
+  ? editingService
+    ? "Updating..."
+    : "Creating..."
+  : editingService
+  ? "Update Service"
+  : "Create Service"}
             </button>
           </form>
         ) : null}
@@ -1074,6 +1119,15 @@ export default function ProviderServicesPage() {
                         >
                           {service.isActive ? "Deactivate" : "Activate"}
                         </button>
+
+                        <button
+  type="button"
+  className="btn btn-small btn-secondary"
+  onClick={() => handleEdit(service)}
+>
+  Edit
+</button>
+
                         <button
                           type="button"
                           className="btn btn-small btn-secondary"
