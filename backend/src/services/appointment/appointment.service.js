@@ -4,6 +4,7 @@ const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const Resource = require("../../models/resource/resource.model");
 const AppError = require("../../utils/appError");
+const generateRoomId = require("../../utils/meeting/generateRoomId");
 
 const BLOCKING_STATUSES = ["pending", "confirmed"];
 const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
@@ -54,8 +55,7 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
   typeof id === "string" ? id.trim().replace(/^:/, "") : id;
 const normalizeResourceType = (type) => {
-  const normalized =
-    typeof type === "string" ? type.trim().toLowerCase() : "";
+  const normalized = typeof type === "string" ? type.trim().toLowerCase() : "";
   return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
 };
 const getResourceTypeAliases = (normalizedType) =>
@@ -120,12 +120,8 @@ const getDayNameUTC = (date) => {
   return dayNames[date.getUTCDay()];
 };
 
-const isOverlapping = ({
-  startA,
-  endA,
-  startB,
-  endB,
-}) => startA < endB && endA > startB;
+const isOverlapping = ({ startA, endA, startB, endB }) =>
+  startA < endB && endA > startB;
 
 const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   if (!Array.isArray(closedPeriods) || closedPeriods.length === 0) {
@@ -159,8 +155,7 @@ const isSameUtcDate = (left, right) =>
 const getDayAvailability = (weeklyAvailability, dayName) =>
   (weeklyAvailability || []).find(
     (entry) =>
-      typeof entry?.day === "string" &&
-      entry.day.toLowerCase() === dayName,
+      typeof entry?.day === "string" && entry.day.toLowerCase() === dayName,
   );
 
 const isDayOpen = (dayAvailability) => {
@@ -232,9 +227,7 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
 
 const isWithinAnyRange = ({ startTimeUTC, endTimeUTC, ranges }) =>
   ranges.some(
-    (range) =>
-      startTimeUTC >= range.start &&
-      endTimeUTC <= range.end,
+    (range) => startTimeUTC >= range.start && endTimeUTC <= range.end,
   );
 
 const getIntersectedRanges = (rangesA, rangesB) => {
@@ -396,10 +389,7 @@ const getPerBookingRequiredResources = ({
   requiredResources.map((required) => ({
     type: required.type,
     // For multi-capacity services, convert full-session quantity to per-booking units.
-    quantity: Math.max(
-      1,
-      Math.ceil(required.quantity / serviceCapacity),
-    ),
+    quantity: Math.max(1, Math.ceil(required.quantity / serviceCapacity)),
   }));
 
 const getActiveConflictFilter = (now) => ({
@@ -411,11 +401,7 @@ const getActiveConflictFilter = (now) => ({
   ],
 });
 
-const ensureBookableShopAndService = async ({
-  shopId,
-  serviceId,
-  session,
-}) => {
+const ensureBookableShopAndService = async ({ shopId, serviceId, session }) => {
   if (!shopId) throw new AppError("shopId is required", 400);
   if (!serviceId) throw new AppError("serviceId is required", 400);
 
@@ -477,10 +463,7 @@ const getResourcesByType = async ({
       const typeAliases = getResourceTypeAliases(required.type);
       const resources = await Resource.find({
         shopId,
-        type:
-          typeAliases.length === 1
-            ? typeAliases[0]
-            : { $in: typeAliases },
+        type: typeAliases.length === 1 ? typeAliases[0] : { $in: typeAliases },
         isActive: true,
       })
         .sort({ _id: 1 })
@@ -576,10 +559,7 @@ const getAllocatedUnitsByResource = (allocatedResources) => {
   return counts;
 };
 
-const getTotalFreeUnitsForType = ({
-  resources,
-  usedUnitsByResource,
-}) => {
+const getTotalFreeUnitsForType = ({ resources, usedUnitsByResource }) => {
   let totalFreeUnits = 0;
 
   for (const resource of resources || []) {
@@ -933,8 +913,9 @@ exports.getAvailableSlots = async ({
       }
     }
 
-    candidateSlots.sort((left, right) =>
-      left.startTimeUTC.getTime() - right.startTimeUTC.getTime(),
+    candidateSlots.sort(
+      (left, right) =>
+        left.startTimeUTC.getTime() - right.startTimeUTC.getTime(),
     );
 
     if (candidateSlots.length === 0) {
@@ -1004,9 +985,8 @@ exports.getAvailableSlots = async ({
           endB: candidate.endTimeUTC,
         }),
       );
-      const usedUnitsByResource = buildResourceUnitUsageMap(
-        overlappingConflicts,
-      );
+      const usedUnitsByResource =
+        buildResourceUnitUsageMap(overlappingConflicts);
 
       let canAllocate = true;
       const freeResourcesByType = {};
@@ -1096,10 +1076,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         throw new AppError("Unauthorized tenant access for this shop", 403);
       }
 
-      const computedEnd = addMinutes(
-        requestedStart,
-        service.durationMinutes,
-      );
+      const computedEnd = addMinutes(requestedStart, service.durationMinutes);
 
       const availabilityError = getBookingAvailabilityError({
         shop,
@@ -1138,7 +1115,8 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       const hasExactDuplicate = attendeeConflicts.some((conflict) => {
         return (
           String(conflict.serviceId) === String(service._id) &&
-          new Date(conflict.startTimeUTC).getTime() === requestedStart.getTime() &&
+          new Date(conflict.startTimeUTC).getTime() ===
+            requestedStart.getTime() &&
           new Date(conflict.endTimeUTC).getTime() === computedEnd.getTime()
         );
       });
@@ -1236,9 +1214,8 @@ exports.confirmAppointmentPayment = async ({
     let conflictReason = null;
 
     await session.withTransaction(async () => {
-      const appointment = await Appointment.findById(appointmentId).session(
-        session,
-      );
+      const appointment =
+        await Appointment.findById(appointmentId).session(session);
 
       if (!appointment) {
         throw new AppError("Appointment not found", 404);
@@ -1257,10 +1234,7 @@ exports.confirmAppointmentPayment = async ({
       }
 
       if (!["pending", "confirmed"].includes(appointment.status)) {
-        throw new AppError(
-          "Appointment is not in a payable state",
-          400,
-        );
+        throw new AppError("Appointment is not in a payable state", 400);
       }
 
       const now = new Date();
@@ -1285,10 +1259,7 @@ exports.confirmAppointmentPayment = async ({
         !Array.isArray(appointment.allocatedResources) ||
         appointment.allocatedResources.length === 0
       ) {
-        throw new AppError(
-          "Appointment has no allocated resources",
-          400,
-        );
+        throw new AppError("Appointment has no allocated resources", 400);
       }
 
       const attendeeConflicts = await findAttendeeOverlappingAppointments({
@@ -1308,7 +1279,8 @@ exports.confirmAppointmentPayment = async ({
 
         updatedAppointment = appointment;
         paymentConflict = true;
-        conflictReason = "Attendee already has another appointment at this time";
+        conflictReason =
+          "Attendee already has another appointment at this time";
         return;
       }
 
@@ -1377,9 +1349,8 @@ exports.markAppointmentPaymentFailed = async ({
     let updatedAppointment;
 
     await session.withTransaction(async () => {
-      const appointment = await Appointment.findById(appointmentId).session(
-        session,
-      );
+      const appointment =
+        await Appointment.findById(appointmentId).session(session);
 
       if (!appointment) {
         throw new AppError("Appointment not found", 404);
@@ -1406,7 +1377,10 @@ exports.markAppointmentPaymentFailed = async ({
     return updatedAppointment;
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(error.message || "Failed to mark payment as failed", 500);
+    throw new AppError(
+      error.message || "Failed to mark payment as failed",
+      500,
+    );
   } finally {
     await session.endSession();
   }
@@ -1546,8 +1520,7 @@ exports.updateAppointment = async ({
         const now = new Date();
         const startTime = new Date(appointment.startTimeUTC);
 
-        const hoursBeforeStart =
-          (startTime - now) / (1000 * 60 * 60);
+        const hoursBeforeStart = (startTime - now) / (1000 * 60 * 60);
 
         if (hoursBeforeStart < LATE_CANCELLATION_WINDOW_HOURS) {
           nextStatus = "cancelled_late";
@@ -1635,6 +1608,25 @@ exports.updateAppointment = async ({
       }
     }
 
+    /* ---------------- CREATE VIDEO MEETING ---------------- */
+    if (
+      previousStatus !== "confirmed" &&
+      updates.status === "confirmed" &&
+      appointment.mode === "online" &&
+      !appointment.meeting?.roomId
+    ) {
+      updates.meeting = {
+        platform: "zegocloud",
+        roomId: generateRoomId(appointment._id),
+        hostUserId: appointment.tenantId,
+        participants: [
+          { userId: appointment.tenantId, role: "host" },
+          { userId: appointment.attendeeId, role: "guest" },
+        ],
+      };
+    }
+    //--------------------------------------------------------
+
     Object.assign(appointment, updates);
     await appointment.save();
 
@@ -1702,7 +1694,10 @@ exports.markAppointmentNoShow = async ({
     return appointment;
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(error.message || "Failed to mark appointment no-show", 500);
+    throw new AppError(
+      error.message || "Failed to mark appointment no-show",
+      500,
+    );
   }
 };
 
@@ -1760,8 +1755,7 @@ exports.cancelAppointment = async ({
 
     const customerRefundEligible =
       hoursBeforeStart >= CUSTOMER_REFUND_WINDOW_HOURS;
-    const refundEligible =
-      actorType === "tenant" || customerRefundEligible;
+    const refundEligible = actorType === "tenant" || customerRefundEligible;
 
     if (
       actorType === "customer" &&
@@ -1798,13 +1792,10 @@ exports.cancelAppointment = async ({
         appointment.refund = {
           amount: 0,
           refundedAt: appointment.refund?.refundedAt,
-          reason:
-            `No refund: customer cancelled less than ${CUSTOMER_REFUND_WINDOW_HOURS} hours before start`,
+          reason: `No refund: customer cancelled less than ${CUSTOMER_REFUND_WINDOW_HOURS} hours before start`,
         };
       }
-    } else if (
-      ["pending", "unpaid"].includes(appointment.paymentStatus)
-    ) {
+    } else if (["pending", "unpaid"].includes(appointment.paymentStatus)) {
       appointment.paymentStatus = "failed";
       appointment.expiresAt = now;
     }
