@@ -393,7 +393,18 @@ export default function ProviderServicesPage() {
 
   const validateForm = () => {
     const nextErrors = {};
+    const resourceIds = new Set();
 
+    for (const resource of form.requiredResources) {
+      const id = String(resource.resourceId);
+
+      if (resourceIds.has(id)) {
+        nextErrors.requiredResources = "Duplicate resources are not allowed";
+        break;
+      }
+
+      resourceIds.add(id);
+    }
     if (!createShopId) {
       nextErrors.createShopId = "Select an approved shop";
     } else {
@@ -513,29 +524,29 @@ export default function ProviderServicesPage() {
     const dayHours = createInitialForm().dayHours;
 
     if (service.weeklyAvailability) {
-  service.weeklyAvailability.forEach((day) => {
-    if (!day.isOpen) {
-      dayHours[day.day] = {
-        isOpen: false,
-        startTime: defaultDayHours[day.day].startTime,
-        endTime: defaultDayHours[day.day].endTime,
-      };
-      return;
-    }
+      service.weeklyAvailability.forEach((day) => {
+        if (!day.isOpen) {
+          dayHours[day.day] = {
+            isOpen: false,
+            startTime: defaultDayHours[day.day].startTime,
+            endTime: defaultDayHours[day.day].endTime,
+          };
+          return;
+        }
 
-    if (day.slots?.length) {
-      dayHours[day.day] = {
-        isOpen: true,
-        startTime: day.slots[0].startTime,
-        endTime: day.slots[0].endTime,
-      };
+        if (day.slots?.length) {
+          dayHours[day.day] = {
+            isOpen: true,
+            startTime: day.slots[0].startTime,
+            endTime: day.slots[0].endTime,
+          };
+        }
+      });
     }
-  });
-}
 
     const mappedResources =
       service.requiredResources?.map((r) => ({
-        resourceId: r.resourceId?._id || r.resourceId,
+        resourceId: String(r.resourceId?._id || r.resourceId || ""),
         quantity: String(r.quantity || 1),
       })) || [];
 
@@ -576,12 +587,13 @@ export default function ProviderServicesPage() {
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
 
         requiredResources: form.requiredResources.map((item) => ({
-  resourceId:
-    typeof item.resourceId === "object"
-      ? item.resourceId._id
-      : item.resourceId,
-  quantity: Number(item.quantity),
-}))
+          resourceId: String(
+            typeof item.resourceId === "object"
+              ? item.resourceId?._id
+              : item.resourceId
+          ),
+          quantity: Number(item.quantity),
+        }))
       };
 
       if (form.description.trim()) payload.description = form.description.trim();
@@ -1034,7 +1046,7 @@ export default function ProviderServicesPage() {
                   <label>
                     Resource
                     <select
-                      value={resource.resourceId}
+                      value={String(resource.resourceId || "")}
                       onChange={(e) =>
                         updateRequiredResource(index, "resourceId", e.target.value)
                       }

@@ -1,5 +1,9 @@
 const appointmentService = require("../../services/appointment/appointment.service");
 
+
+const { sendNotification } = require("../../services/notification.service")
+
+
 exports.createAppointment = async (req, res, next) => {
   try {
     const payload = Object.assign({}, req.body);
@@ -14,6 +18,13 @@ exports.createAppointment = async (req, res, next) => {
       userId: req.user.userId,
       payload,
     });
+
+    await sendNotification({
+   userId: appointment.userId,
+   type: "appointment_created",
+   title: "Appointment Booked",
+   message: "Your appointment is booked"
+})
 
     return res
       .status(201)

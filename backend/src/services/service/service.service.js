@@ -26,20 +26,25 @@ const normalizeRequiredResources = async (requiredResources, shopId) => {
 
   const aggregated = new Map();
 
-  for (const item of requiredResources) {
-    const resourceId = item?.resourceId;
-    const quantity = Number(item?.quantity);
+ for (const item of requiredResources) {
+  let resourceId = item?.resourceId;
 
-    if (!mongoose.Types.ObjectId.isValid(resourceId)) {
-      throw new AppError("Invalid resourceId", 400);
-    }
-
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new AppError("Invalid resource quantity", 400);
-    }
-
-    aggregated.set(resourceId, (aggregated.get(resourceId) || 0) + quantity);
+  if (typeof resourceId === "object") {
+    resourceId = resourceId?._id;
   }
+
+  const quantity = Number(item?.quantity);
+
+  if (!mongoose.Types.ObjectId.isValid(resourceId)) {
+    throw new AppError("Invalid resourceId", 400);
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new AppError("Invalid resource quantity", 400);
+  }
+
+  aggregated.set(resourceId.toString(), (aggregated.get(resourceId) || 0) + quantity);
+}
 
   const resourceIds = [...aggregated.keys()];
 

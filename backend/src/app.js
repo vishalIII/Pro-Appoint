@@ -84,6 +84,22 @@ app.get("/hello", (req, res) => {
   res.send("Hello from Node.js 🚀");
 });
 
+
+//------------------------------------------------ JUST Testing
+app.get("/test-notification", (req,res)=>{
+ const { getIO } = require("./socket/socket")
+
+ const io = getIO()
+
+ io.emit("notification",{
+   title:"Test",
+   message:"Socket working"
+ })
+
+ res.send("sent")
+})
+//------------------------------------------------
+
 app.use(errorHandler)
 
 module.exports = app;
