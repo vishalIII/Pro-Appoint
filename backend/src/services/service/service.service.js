@@ -13,12 +13,55 @@ const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
   instructor: "staff",
 };
 
-const normalizeResourceType = (type) => {
-  const normalized =
-    typeof type === "string" ? type.trim().toLowerCase() : "";
-  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
-};
+// const normalizeResourceType = (type) => {
+//   const normalized = typeof type === "string" ? type.trim().toLowerCase() : "";
+//   return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
+// };
+const Resource = require("../../models/resource/resource.model");
 
+const normalizeRequiredResources = async (requiredResources, shopId) => {
+  if (!Array.isArray(requiredResources) || requiredResources.length === 0) {
+    throw new AppError("requiredResources is required", 400);
+  }
+
+  const aggregated = new Map();
+
+ for (const item of requiredResources) {
+  let resourceId = item?.resourceId;
+
+  if (typeof resourceId === "object") {
+    resourceId = resourceId?._id;
+  }
+
+  const quantity = Number(item?.quantity);
+
+  if (!mongoose.Types.ObjectId.isValid(resourceId)) {
+    throw new AppError("Invalid resourceId", 400);
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw new AppError("Invalid resource quantity", 400);
+  }
+
+  aggregated.set(resourceId.toString(), (aggregated.get(resourceId) || 0) + quantity);
+}
+
+  const resourceIds = [...aggregated.keys()];
+
+  const resources = await Resource.find({
+    _id: { $in: resourceIds },
+    shopId,
+  });
+
+  if (resources.length !== resourceIds.length) {
+    throw new AppError("One or more resources are invalid", 400);
+  }
+
+  return resourceIds.map((resourceId) => ({
+    resourceId,
+    quantity: aggregated.get(resourceId),
+  }));
+};
 /* --------------------------------------------------
    Helper: Validate Shop Ownership
 -------------------------------------------------- */
@@ -42,10 +85,7 @@ const validateShopOwnership = async ({
   }
 
   if (requireApproved && shop.status !== APPROVED_SHOP_STATUS) {
-    throw new AppError(
-      `Shop must be approved to ${actionLabel}`,
-      400,
-    );
+    throw new AppError(`Shop must be approved to ${actionLabel}`, 400);
   }
 
   return shop;
@@ -71,36 +111,6 @@ const deactivateServicesForShop = async ({ shopId }) => {
 
 exports.deactivateServicesForShop = deactivateServicesForShop;
 
-const normalizeRequiredResources = (requiredResources) => {
-  if (!Array.isArray(requiredResources) || requiredResources.length === 0) {
-    throw new AppError("requiredResources is required", 400);
-  }
-
-  const aggregated = new Map();
-
-  for (const item of requiredResources) {
-    const type = normalizeResourceType(item?.type);
-    const quantity = Number(item?.quantity);
-
-    if (!type) {
-      throw new AppError("Resource type is required", 400);
-    }
-
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new AppError(
-        `Invalid resource quantity for type ${type}`,
-        400,
-      );
-    }
-
-    aggregated.set(type, (aggregated.get(type) || 0) + quantity);
-  }
-
-  return [...aggregated.entries()].map(([type, quantity]) => ({
-    type,
-    quantity,
-  }));
-};
 
 const normalizeClosedPeriods = (closedPeriods) => {
   if (closedPeriods === undefined) return undefined;
@@ -175,8 +185,17 @@ exports.createService = async ({
       throw new AppError("durationMinutes must be a positive integer", 400);
     }
 
-    const normalizedRequiredResources =
-      normalizeRequiredResources(requiredResources);
+    if (durationMinutes % 30 !== 0) {
+      throw new AppError(
+        "Service duration must be divisible by 30 minutes",
+        400,
+      );
+    }
+
+    const normalizedRequiredResources = await normalizeRequiredResources(
+      requiredResources,
+      shopId,
+    );
 
     const normalizedWeeklyAvailability = validateServiceWeeklyAvailability({
       weeklyAvailability,
@@ -222,7 +241,12 @@ exports.getMyServices = async ({ tenantId, shopId }) => {
 
     return await Service.find({
       shopId,
-    }).sort({ isActive: -1, createdAt: -1 });
+    })
+      .populate({
+        path: "requiredResources.resourceId",
+        select: "name type capacity",
+      })
+      .sort({ isActive: -1, createdAt: -1 });
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError(error.message || "Failed to fetch services", 500);
@@ -299,8 +323,7 @@ exports.updateService = async ({
       updateData.name = name;
     }
 
-    if (description !== undefined)
-      updateData.description = description;
+    if (description !== undefined) updateData.description = description;
 
     if (weeklyAvailability !== undefined) {
       updateData.weeklyAvailability = validateServiceWeeklyAvailability({
@@ -313,18 +336,14 @@ exports.updateService = async ({
       updateData.closedPeriods = normalizeClosedPeriods(closedPeriods);
     }
 
-    if (category !== undefined)
-      updateData.category = category;
+    if (category !== undefined) updateData.category = category;
 
-    if (images !== undefined)
-      updateData.images = images;
+    if (images !== undefined) updateData.images = images;
 
-    if (isActive !== undefined)
-      updateData.isActive = isActive;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
     if (capacity !== undefined) {
-      if (capacity < 1)
-        throw new AppError("Capacity must be at least 1", 400);
+      if (capacity < 1) throw new AppError("Capacity must be at least 1", 400);
       updateData.capacity = capacity;
     }
 
@@ -335,30 +354,28 @@ exports.updateService = async ({
     }
 
     if (price !== undefined) {
-      if (price < 0)
-        throw new AppError("Price cannot be negative", 400);
+      if (price < 0) throw new AppError("Price cannot be negative", 400);
       updateData.price = price;
     }
 
     if (durationMinutes !== undefined) {
       if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
-        throw new AppError(
-          "durationMinutes must be a positive integer",
-          400,
-        );
+        throw new AppError("durationMinutes must be a positive integer", 400);
       }
       updateData.durationMinutes = durationMinutes;
     }
 
     if (requiredResources !== undefined) {
-      updateData.requiredResources =
-        normalizeRequiredResources(requiredResources);
+      updateData.requiredResources = await normalizeRequiredResources(
+        requiredResources,
+        shopId,
+      );
     }
 
     const service = await Service.findOneAndUpdate(
       { _id: serviceId, shopId },
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!service) {
@@ -407,7 +424,7 @@ exports.deleteService = async ({ tenantId, shopId, serviceId }) => {
       {
         $set: { isActive: false },
       },
-      { new: true }
+      { new: true },
     );
 
     if (!service) {

@@ -25,6 +25,7 @@ import {
   getTodayIsoDate,
   getUtcEndOfDay,
   getUtcStartOfDay,
+  getRevenueRangeForPreset,
 } from "./utils/dateRange";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
@@ -227,7 +228,7 @@ export default function ProviderDashboard() {
         fetchRevenueAnalytics({
           token,
           shopId: selectedShopId,
-          range: rangePreset === "custom" ? "week" : rangePreset,
+          range: getRevenueRangeForPreset(rangePreset),
         }),
         fetchServicePerformance({
           token,

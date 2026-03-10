@@ -1,0 +1,18 @@
+const express = require("express");
+
+const router = express.Router();
+
+const videoController = require("../controllers/video/video.controller");
+
+const auth = require("../middlewares/auth.middleware");
+
+const meetingAccess = require("../middlewares/meetingAccess.middleware");
+
+router.get(
+  "/join/:appointmentId",
+  auth,
+  meetingAccess,
+  videoController.joinMeeting
+);
+
+module.exports = router;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import {
   createShopService,
@@ -208,7 +208,7 @@ const isWithinShopAvailability = (shopDay, startTime, endTime) => {
 
 export default function ProviderServicesPage() {
   const { token } = useAuth();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { shopId: routeShopId } = useParams();
   const { shops, selectedShopId, setSelectedShopId, activeShop } = useProviderWorkspace();
   const [shopDetails, setShopDetails] = useState(null);
@@ -222,9 +222,30 @@ export default function ProviderServicesPage() {
   const [error, setError] = useState("");
   const [formErrors, setFormErrors] = useState({});
 
-
+  const [editingService, setEditingService] = useState(null);
   //------------------------------------------
   const [resources, setResources] = useState([]);
+  const [isAddingResource, setIsAddingResource] = useState(false);
+  const [pendingResource, setPendingResource] = useState({
+    resourceId: "",
+    quantity: "1",
+  });
+  const [pendingResourceError, setPendingResourceError] = useState("");
+
+  // useEffect(() => {
+  //   if (!editingService || resources.length === 0) return;
+
+  //   const mappedResources =
+  //     editingService.requiredResources?.map((r) => ({
+  //       resourceId: r.resourceId,
+  //       quantity: String(r.quantity || 1),
+  //     })) || [];
+
+  //   setForm((prev) => ({
+  //     ...prev,
+  //     requiredResources: mappedResources,
+  //   }));
+  // }, [resources]);
 
   useEffect(() => {
     const loadResources = async () => {
@@ -332,18 +353,27 @@ export default function ProviderServicesPage() {
   }, [approvedShops, createShopId, showCreateForm, token]);
 
   useEffect(() => {
-    if (!showCreateForm || !createShopId) return;
+    if (!showCreateForm || !createShopId || editingService) return;
+
     setForm((prev) => ({
       ...prev,
       dayHours: buildDayHoursFromShopAvailability(createShopAvailabilityByDay),
     }));
-  }, [createShopAvailabilityByDay, createShopId, showCreateForm]);
+  }, [createShopAvailabilityByDay, createShopId, showCreateForm, editingService]);
 
   useEffect(() => {
     if (showCreateForm && !isCreateServiceEnabled) {
       setShowCreateForm(false);
     }
   }, [isCreateServiceEnabled, showCreateForm]);
+
+  useEffect(() => {
+    if (!showCreateForm) {
+      setIsAddingResource(false);
+      setPendingResource({ resourceId: "", quantity: "1" });
+      setPendingResourceError("");
+    }
+  }, [showCreateForm]);
 
   const loadServices = useCallback(async () => {
     if (!token || !effectiveShopId) {
@@ -377,7 +407,18 @@ export default function ProviderServicesPage() {
 
   const validateForm = () => {
     const nextErrors = {};
+    const resourceIds = new Set();
 
+    for (const resource of form.requiredResources) {
+      const id = String(resource.resourceId);
+
+      if (resourceIds.has(id)) {
+        nextErrors.requiredResources = "Duplicate resources are not allowed";
+        break;
+      }
+
+      resourceIds.add(id);
+    }
     if (!createShopId) {
       nextErrors.createShopId = "Select an approved shop";
     } else {
@@ -394,8 +435,9 @@ export default function ProviderServicesPage() {
     }
 
     const duration = Number(form.durationMinutes);
-    if (!Number.isInteger(duration) || duration < 1) {
-      nextErrors.durationMinutes = "Duration must be at least 1 minute";
+    if (!Number.isInteger(duration) || duration < 30 || duration % 30 !== 0) {
+      nextErrors.durationMinutes =
+        "Duration must be divisible by 30 minutes (30, 60, 90...)";
     }
 
     if (String(form.price).trim() === "") {
@@ -431,14 +473,18 @@ export default function ProviderServicesPage() {
         break;
       }
 
-      const shopDay = createShopAvailabilityByDay[day];
+      const shopDay =
+        createShopAvailabilityByDay?.[day] ||
+        buildShopAvailabilityByDay(shopDetails?.weeklyAvailability)?.[day];
+
       if (!shopDay?.isOpen) {
         nextErrors.weeklyAvailability = `${toLabel(day)} is closed for this shop`;
         break;
       }
 
       if (!isWithinShopAvailability(shopDay, item.startTime, item.endTime)) {
-        nextErrors.weeklyAvailability = "Service availability must be within shop availability.";
+        nextErrors.weeklyAvailability =
+          "Service availability must be within shop availability.";
         break;
       }
     }
@@ -486,24 +532,66 @@ export default function ProviderServicesPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleCreate = async (event) => {
+  const handleEdit = (service) => {
+    setEditingService(service);
+
+    const dayHours = createInitialForm().dayHours;
+
+    if (service.weeklyAvailability) {
+      service.weeklyAvailability.forEach((day) => {
+        if (!day.isOpen) {
+          dayHours[day.day] = {
+            isOpen: false,
+            startTime: defaultDayHours[day.day].startTime,
+            endTime: defaultDayHours[day.day].endTime,
+          };
+          return;
+        }
+
+        if (day.slots?.length) {
+          dayHours[day.day] = {
+            isOpen: true,
+            startTime: day.slots[0].startTime,
+            endTime: day.slots[0].endTime,
+          };
+        }
+      });
+    }
+
+    const mappedResources =
+      service.requiredResources?.map((r) => ({
+        resourceId: String(r.resourceId?._id || r.resourceId || ""),
+        quantity: String(r.quantity || 1),
+      })) || [];
+
+    setForm({
+      name: service.name || "",
+      description: service.description || "",
+      category: service.category || "",
+      price: service.price || "",
+      durationMinutes: service.durationMinutes?.toString() || "30",
+      capacity: service.capacity?.toString() || "1",
+      discountPercentage: service.discountPercentage?.toString() || "0",
+      imagesText: (service.images || []).join("\n"),
+      dayHours,
+      closedPeriods: service.closedPeriods || [],
+      requiredResources: mappedResources,
+    });
+
+    setCreateShopId(service.shopId);
+    setShowCreateForm(true);
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!isCreateServiceEnabled || !createShopId || isSubmitting) return;
     if (!validateForm()) return;
 
     setIsSubmitting(true);
     setError("");
 
     try {
-      const isApprovedTargetShop = approvedShops.some(
-        (shop) => String(shop._id) === String(createShopId),
-      );
-      if (!isApprovedTargetShop) {
-        throw new Error("Service can be created only for approved shops");
-      }
-
       const images = parseImages(form.imagesText);
-      // console.log("Weekly availability sending:", toWeeklyAvailability(form.dayHours));
+
       const payload = {
         name: form.name.trim(),
         price: Number(form.price),
@@ -511,62 +599,48 @@ export default function ProviderServicesPage() {
         capacity: Number(form.capacity),
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
-        requiredResources: form.requiredResources.map((item) => {
-          const selected = resources.find(
-            (r) => r._id === item.resourceId
-          );
 
-          return {
-            type: selected?.type,
-            quantity: Number(item.quantity),
-          };
-        })
+        requiredResources: form.requiredResources.map((item) => ({
+          resourceId: String(
+            typeof item.resourceId === "object"
+              ? item.resourceId?._id
+              : item.resourceId
+          ),
+          quantity: Number(item.quantity),
+        }))
       };
 
-      if (form.description.trim()) {
-        payload.description = form.description.trim();
+      if (form.description.trim()) payload.description = form.description.trim();
+      if (form.category.trim()) payload.category = form.category.trim();
+      if (images.length) payload.images = images;
+
+      if (editingService) {
+        // UPDATE SERVICE
+        await updateShopService({
+          token,
+          shopId: createShopId,
+          serviceId: editingService._id,
+          payload,
+        });
+      } else {
+        // CREATE SERVICE
+        await createShopService({
+          token,
+          shopId: createShopId,
+          payload,
+        });
       }
-
-      if (form.category.trim()) {
-        payload.category = form.category.trim();
-      }
-
-      if (images.length > 0) {
-        payload.images = images;
-      }
-
-      const normalizedClosedPeriods = form.closedPeriods
-        .filter((item) => item.startDate && item.endDate)
-        .map((item) => ({
-          startDate: item.startDate,
-          endDate: item.endDate,
-          ...(item.reason?.trim() ? { reason: item.reason.trim() } : {}),
-        }));
-
-      if (normalizedClosedPeriods.length > 0) {
-        payload.closedPeriods = normalizedClosedPeriods;
-      }
-
-      await createShopService({
-        token,
-        shopId: createShopId,
-        payload,
-      });
-
-      const targetShopId = createShopId;
 
       setForm(createInitialForm());
-      setFormErrors({});
+      setEditingService(null);
       setShowCreateForm(false);
-      setSelectedShopId(targetShopId);
+      setIsAddingResource(false);
+      setPendingResource({ resourceId: "", quantity: "1" });
+      setPendingResourceError("");
 
-      if (String(effectiveShopId) === String(targetShopId)) {
-        await loadServices();
-      } else {
-        navigate(`/tenant/shops/${targetShopId}/services`);
-      }
-    } catch (createError) {
-      setError(createError.message || "Failed to create service");
+      await loadServices();
+    } catch (err) {
+      setError(err.message || "Failed to save service");
     } finally {
       setIsSubmitting(false);
     }
@@ -628,14 +702,58 @@ export default function ProviderServicesPage() {
     }));
   };
 
-  const addRequiredResource = () => {
+  const startAddingResource = () => {
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setPendingResourceError("");
+    setIsAddingResource(true);
+  };
+
+  const cancelAddingResource = () => {
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setPendingResourceError("");
+    setIsAddingResource(false);
+  };
+
+  const finishAddingResource = () => {
+    setPendingResourceError("");
+
+    const resourceId = String(pendingResource.resourceId || "").trim();
+    const quantity = Number(pendingResource.quantity);
+
+    if (!resourceId) {
+      setPendingResourceError("Please select a resource");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setPendingResourceError("Resource quantity must be at least 1");
+      return;
+    }
+
+    if (form.requiredResources.some((item) => String(item.resourceId) === resourceId)) {
+      setPendingResourceError("Duplicate resources are not allowed");
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       requiredResources: [
         ...prev.requiredResources,
-        { resourceId: "", quantity: "1" },
+        { resourceId, quantity: String(quantity) },
       ],
     }));
+
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setIsAddingResource(false);
   };
 
   const updateRequiredResource = (index, key, value) => {
@@ -710,7 +828,15 @@ export default function ProviderServicesPage() {
             type="button"
             disabled={!isCreateServiceEnabled}
             title={!isCreateServiceEnabled ? createDisabledMessage : undefined}
-            onClick={() => setShowCreateForm((prev) => !prev)}
+            onClick={() => {
+              if (!showCreateForm) {
+                // OPEN CREATE FORM
+                setEditingService(null);
+                setForm(createInitialForm());
+              }
+
+              setShowCreateForm((prev) => !prev);
+            }}
           >
             {showCreateForm ? "Close Form" : "+ Create Service"}
           </button>
@@ -720,7 +846,7 @@ export default function ProviderServicesPage() {
         {error ? <p className="error-text">{error}</p> : null}
 
         {showCreateForm ? (
-          <form className="auth-form" onSubmit={handleCreate}>
+          <form className="auth-form" onSubmit={handleSubmit}>
             <label className="form-field" htmlFor="service-shop">
               Shop
               <select
@@ -792,16 +918,19 @@ export default function ProviderServicesPage() {
 
               <label className="form-field" htmlFor="service-duration">
                 Duration Minutes
-                <input
+                <select
                   id="service-duration"
-                  type="number"
-                  min="1"
                   value={form.durationMinutes}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, durationMinutes: event.target.value }))
                   }
                   required
-                />
+                >
+                  <option value="30">30 minutes</option>
+                  <option value="60">1 hour</option>
+                  <option value="90">1 hour 30 minutes</option>
+                  <option value="120">2 hours</option>
+                </select>
                 {formErrors.durationMinutes ? (
                   <span className="error-text">{formErrors.durationMinutes}</span>
                 ) : null}
@@ -858,7 +987,7 @@ export default function ProviderServicesPage() {
                 const timeOptions = generateTimeOptions(
                   shopDay?.minTime || "09:00",
                   shopDay?.maxTime || "18:00",
-                  Number(form.durationMinutes) || 30
+                  30
                 );
 
                 return (
@@ -972,25 +1101,78 @@ export default function ProviderServicesPage() {
             <div className="form-field">
               Required Resources
 
-              {form.requiredResources.map((resource, index) => (
-                <div className="service-meta" key={index}>
+              {form.requiredResources.length === 0 ? (
+                <p className="muted-text">No resources added yet.</p>
+              ) : (
+                form.requiredResources.map((resource, index) => {
+                  const detail = resources.find(
+                    (r) => String(r._id) === String(resource.resourceId),
+                  );
 
+                  return (
+                    <div className="service-meta" key={`required-resource-${resource.resourceId}`}>
+                      <div>
+                        <strong>{detail?.name || resource.resourceId}</strong>
+                        <p className="muted-text">
+                          {detail?.type
+                            ? `${detail?.type}${detail?.capacity ? ` • capacity ${detail.capacity}` : ""}`
+                            : "Resource"}
+                        </p>
+                      </div>
+
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="1"
+                          value={resource.quantity}
+                          onChange={(e) =>
+                            updateRequiredResource(index, "quantity", e.target.value)
+                          }
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => removeRequiredResource(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+
+              {!isAddingResource ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={startAddingResource}
+                  disabled={!resources.length}
+                  title={!resources.length ? "Add resources first" : undefined}
+                >
+                  Add Resource
+                </button>
+              ) : (
+                <div className="service-meta">
                   <label>
                     Resource
                     <select
-                      value={resource.resourceId}
-                      onChange={(e) =>
-                        updateRequiredResource(index, "resourceId", e.target.value)
+                      value={pendingResource.resourceId}
+                      onChange={(event) =>
+                        setPendingResource((prev) => ({
+                          ...prev,
+                          resourceId: event.target.value,
+                        }))
                       }
                     >
                       <option value="">Select resource</option>
-
-                      {resources.map((r) => (
-                        <option key={r._id} value={r._id}>
-                          {r.name} ({r.category})
+                      {resources.map((resource) => (
+                        <option key={resource._id} value={resource._id}>
+                          {resource.name} ({resource.type})
                         </option>
                       ))}
-
                     </select>
                   </label>
 
@@ -999,36 +1181,48 @@ export default function ProviderServicesPage() {
                     <input
                       type="number"
                       min="1"
-                      value={resource.quantity}
-                      onChange={(e) =>
-                        updateRequiredResource(index, "quantity", e.target.value)
+                      value={pendingResource.quantity}
+                      onChange={(event) =>
+                        setPendingResource((prev) => ({
+                          ...prev,
+                          quantity: event.target.value,
+                        }))
                       }
                     />
                   </label>
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-small"
-                    onClick={() => removeRequiredResource(index)}
-                  >
-                    Remove
-                  </button>
+                  <div className="provider-action-row">
+                    <button type="button" className="btn" onClick={finishAddingResource}>
+                      Done
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      onClick={cancelAddingResource}
+                    >
+                      Cancel
+                    </button>
+                  </div>
 
+                  {pendingResourceError ? (
+                    <span className="error-text">{pendingResourceError}</span>
+                  ) : null}
                 </div>
-              ))}
+              )}
 
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                onClick={addRequiredResource}
-              >
-                Add Resource
-              </button>
-
+              <p className="muted-text">
+                Select a resource and quantity, then click Done to add it to the list.
+              </p>
             </div>
 
             <button className="btn" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Service"}
+              {isSubmitting
+                ? editingService
+                  ? "Updating..."
+                  : "Creating..."
+                : editingService
+                  ? "Update Service"
+                  : "Create Service"}
             </button>
           </form>
         ) : null}
@@ -1070,6 +1264,15 @@ export default function ProviderServicesPage() {
                         >
                           {service.isActive ? "Deactivate" : "Activate"}
                         </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-small btn-secondary"
+                          onClick={() => handleEdit(service)}
+                        >
+                          Edit
+                        </button>
+
                         <button
                           type="button"
                           className="btn btn-small btn-secondary"

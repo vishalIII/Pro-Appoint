@@ -6,8 +6,8 @@ const CustomerLayout = () => {
       <header className="dashboard-header">
         <h2>Customer Panel</h2>
         <nav className="dashboard-nav">
-          <Link to="/customer">Overview</Link>
-          <Link to="/customer/bookings">My Bookings</Link>
+          <Link to="/">Overview</Link>
+          <Link to="/bookings">My Bookings</Link>
         </nav>
       </header>
       <Outlet />

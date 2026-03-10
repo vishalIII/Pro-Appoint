@@ -90,7 +90,7 @@ export default function MyBookings() {
       <div className="card">
         <div className="page-title-row">
           <h1>My Bookings</h1>
-          <Link to="/shops">Book New Service</Link>
+          <Link to="/menu">Book New Service</Link>
         </div>
 
         {isLoading ? <p>Loading bookings...</p> : null}

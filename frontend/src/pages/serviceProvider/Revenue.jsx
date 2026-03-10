@@ -3,6 +3,7 @@ import { useAuth } from "../../auth/useAuth";
 import LineTrendChart from "./components/LineTrendChart";
 import { fetchRevenueAnalytics } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
+import { getRevenueRangeForPreset } from "./utils/dateRange";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -28,7 +29,7 @@ export default function ProviderRevenuePage() {
       const payload = await fetchRevenueAnalytics({
         token,
         shopId: selectedShopId,
-        range: rangePreset === "custom" ? "week" : rangePreset,
+        range: getRevenueRangeForPreset(rangePreset),
       });
       setData(payload);
     } catch (loadError) {

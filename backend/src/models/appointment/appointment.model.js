@@ -35,14 +35,14 @@ const appointmentSchema = new mongoose.Schema(
       index: true,
     },
 
-    shopId:{
+    shopId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "shop",
       required: true,
       index: true,
     },
 
-    serviceId:{
+    serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "service",
       required: true,
@@ -181,10 +181,37 @@ const appointmentSchema = new mongoose.Schema(
     meeting: {
       platform: {
         type: String,
-        enum: ["zoom", "google_meet", "teams", "in_person"],
+        enum: ["zegocloud", "zoom", "google_meet", "teams", "in_person"],
       },
-      link: String,
-      meetingId: String,
+
+      roomId: {
+        type: String,
+        index: true,
+      },
+
+      joinUrl: String,
+
+      hostUserId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+
+      participants: [
+        {
+          userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "user",
+          },
+          role: {
+            type: String,
+            enum: ["host", "guest", "observer"],
+            default: "guest",
+          },
+        },
+      ],
+
+      startedAt: Date,
+      endedAt: Date,
     },
 
     /* ---------------- OFFLINE LOCATION ---------------- */
@@ -221,7 +248,7 @@ const appointmentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 //================================================ VALIDATION
@@ -232,8 +259,7 @@ appointmentSchema.pre("validate", function () {
   }
 
   // Auto duration
-  this.durationMinutes =
-    (this.endTimeUTC - this.startTimeUTC) / 60000;
+  this.durationMinutes = (this.endTimeUTC - this.startTimeUTC) / 60000;
 
   if (this.durationMinutes <= 0) {
     throw new Error("Invalid duration");
@@ -292,10 +318,11 @@ appointmentSchema.pre("save", async function () {
   const nextStatus = this.status;
 
   if (!allowedTransitions[prevStatus]?.includes(nextStatus)) {
-    throw new Error(`Invalid status transition: ${prevStatus} -> ${nextStatus}`);
+    throw new Error(
+      `Invalid status transition: ${prevStatus} -> ${nextStatus}`,
+    );
   }
 });
-
 
 // For availability & calendar queries
 appointmentSchema.index({

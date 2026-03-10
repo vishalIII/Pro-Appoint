@@ -11,6 +11,27 @@ const STORAGE_KEYS = {
   customTo: "provider_custom_to",
 };
 
+const VALID_RANGE_PRESETS = [
+  "today",
+  "tomorrow",
+  "upcoming",
+  "past",
+  "week",
+  "custom",
+];
+
+const normalizeRangePreset = (value) =>
+  VALID_RANGE_PRESETS.includes(value) ? value : "today";
+
+const RANGE_PRESET_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "past", label: "Past" },
+  { value: "week", label: "This Week" },
+  { value: "custom", label: "Custom Range" },
+];
+
 const navigationItems = [
   { to: "/tenant", label: "Dashboard", end: true },
   { to: "/tenant/appointments", label: "Appointments" },
@@ -40,7 +61,7 @@ const ProviderLayout = () => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [selectedShopId, setSelectedShopId] = useState(() => readStorage(STORAGE_KEYS.shopId, ""));
   const [rangePreset, setRangePreset] = useState(() =>
-    readStorage(STORAGE_KEYS.rangePreset, "today") || "today",
+    normalizeRangePreset(readStorage(STORAGE_KEYS.rangePreset, "today")),
   );
   const [customFrom, setCustomFrom] = useState(() =>
     readStorage(STORAGE_KEYS.customFrom, getTodayIsoDate()),
@@ -241,10 +262,11 @@ const ProviderLayout = () => {
                 value={rangePreset}
                 onChange={(event) => setRangePreset(event.target.value)}
               >
-                <option value="today">Today</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-                <option value="custom">Custom</option>
+                {RANGE_PRESET_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
 

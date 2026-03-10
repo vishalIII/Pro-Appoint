@@ -183,7 +183,7 @@ export default function ServiceDetails() {
                     <strong>Price:</strong> INR {service.price ?? "N/A"}
                   </p>
                   <p>
-                    <strong>Duration:</strong> Not provided
+                    <strong>Duration:</strong> {service.durationMinutes ?? 30}
                   </p>
                   <p>
                     <strong>Capacity:</strong> {service.capacity ?? 1}

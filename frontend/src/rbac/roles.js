@@ -7,7 +7,7 @@ export const ROLES = {
 export const ROLE_DASHBOARD_PATHS = {
   [ROLES.ADMIN]: "/admin",
   [ROLES.PROVIDER]: "/tenant",
-  [ROLES.CUSTOMER]: "/customer"
+  [ROLES.CUSTOMER]: "/"
 };
 
 export const getDashboardPathForRole = (role) => ROLE_DASHBOARD_PATHS[role] || "/";

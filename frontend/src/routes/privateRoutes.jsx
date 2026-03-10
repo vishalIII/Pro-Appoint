@@ -31,7 +31,7 @@ export const privateRoutes = [
     guard: { roles: [ROLES.CUSTOMER] }
   },
   {
-    path: "customer",
+    path: "",
     element: <CustomerLayout />,
     guard: { roles: [ROLES.CUSTOMER] },
     children: [

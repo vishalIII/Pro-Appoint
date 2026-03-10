@@ -12,6 +12,8 @@ const paymentRoutes = require("./routes/payment/payment.routes.js")
 const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
 const publicShopRoutes = require("./routes/public/public.shop.routes.js");
 const publicAppointmentRoutes = require('./routes/public/public.appointment.routes.js');
+
+
 /* -------- Middleware -------- */
 app.use(cors({
   origin: 'http://127.0.0.1:5173', 
@@ -32,6 +34,11 @@ app.use((req, res, next) => {
 const authMiddleware = require("./middlewares/auth.middleware.js")
 const adminAuthMiddleware=require("./middlewares/admin/adminAuth.middleware.js")
 const tenantAuthMiddleware=require("./middlewares/tenant/tenantAuth.middleware.js")
+
+
+// ----------Auto Job -----------
+const { startAppointmentLifecycleJob } = require("./jobs/appointmentLifecycle.job.js");
+startAppointmentLifecycleJob();
 
 /* -------- app.get routes -------- */
 
@@ -76,6 +83,22 @@ app.get("/health", (req, res) => {
 app.get("/hello", (req, res) => {
   res.send("Hello from Node.js 🚀");
 });
+
+
+//------------------------------------------------ JUST Testing
+app.get("/test-notification", (req,res)=>{
+ const { getIO } = require("./socket/socket")
+
+ const io = getIO()
+
+ io.emit("notification",{
+   title:"Test",
+   message:"Socket working"
+ })
+
+ res.send("sent")
+})
+//------------------------------------------------
 
 app.use(errorHandler)
 
