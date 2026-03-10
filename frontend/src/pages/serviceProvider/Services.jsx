@@ -225,6 +225,12 @@ export default function ProviderServicesPage() {
   const [editingService, setEditingService] = useState(null);
   //------------------------------------------
   const [resources, setResources] = useState([]);
+  const [isAddingResource, setIsAddingResource] = useState(false);
+  const [pendingResource, setPendingResource] = useState({
+    resourceId: "",
+    quantity: "1",
+  });
+  const [pendingResourceError, setPendingResourceError] = useState("");
 
   // useEffect(() => {
   //   if (!editingService || resources.length === 0) return;
@@ -360,6 +366,14 @@ export default function ProviderServicesPage() {
       setShowCreateForm(false);
     }
   }, [isCreateServiceEnabled, showCreateForm]);
+
+  useEffect(() => {
+    if (!showCreateForm) {
+      setIsAddingResource(false);
+      setPendingResource({ resourceId: "", quantity: "1" });
+      setPendingResourceError("");
+    }
+  }, [showCreateForm]);
 
   const loadServices = useCallback(async () => {
     if (!token || !effectiveShopId) {
@@ -620,6 +634,9 @@ export default function ProviderServicesPage() {
       setForm(createInitialForm());
       setEditingService(null);
       setShowCreateForm(false);
+      setIsAddingResource(false);
+      setPendingResource({ resourceId: "", quantity: "1" });
+      setPendingResourceError("");
 
       await loadServices();
     } catch (err) {
@@ -685,14 +702,58 @@ export default function ProviderServicesPage() {
     }));
   };
 
-  const addRequiredResource = () => {
+  const startAddingResource = () => {
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setPendingResourceError("");
+    setIsAddingResource(true);
+  };
+
+  const cancelAddingResource = () => {
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setPendingResourceError("");
+    setIsAddingResource(false);
+  };
+
+  const finishAddingResource = () => {
+    setPendingResourceError("");
+
+    const resourceId = String(pendingResource.resourceId || "").trim();
+    const quantity = Number(pendingResource.quantity);
+
+    if (!resourceId) {
+      setPendingResourceError("Please select a resource");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setPendingResourceError("Resource quantity must be at least 1");
+      return;
+    }
+
+    if (form.requiredResources.some((item) => String(item.resourceId) === resourceId)) {
+      setPendingResourceError("Duplicate resources are not allowed");
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       requiredResources: [
         ...prev.requiredResources,
-        { resourceId: "", quantity: "1" },
+        { resourceId, quantity: String(quantity) },
       ],
     }));
+
+    setPendingResource({
+      resourceId: "",
+      quantity: "1",
+    });
+    setIsAddingResource(false);
   };
 
   const updateRequiredResource = (index, key, value) => {
@@ -1040,25 +1101,78 @@ export default function ProviderServicesPage() {
             <div className="form-field">
               Required Resources
 
-              {form.requiredResources.map((resource, index) => (
-                <div className="service-meta" key={index}>
+              {form.requiredResources.length === 0 ? (
+                <p className="muted-text">No resources added yet.</p>
+              ) : (
+                form.requiredResources.map((resource, index) => {
+                  const detail = resources.find(
+                    (r) => String(r._id) === String(resource.resourceId),
+                  );
 
+                  return (
+                    <div className="service-meta" key={`required-resource-${resource.resourceId}`}>
+                      <div>
+                        <strong>{detail?.name || resource.resourceId}</strong>
+                        <p className="muted-text">
+                          {detail?.type
+                            ? `${detail?.type}${detail?.capacity ? ` • capacity ${detail.capacity}` : ""}`
+                            : "Resource"}
+                        </p>
+                      </div>
+
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="1"
+                          value={resource.quantity}
+                          onChange={(e) =>
+                            updateRequiredResource(index, "quantity", e.target.value)
+                          }
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => removeRequiredResource(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+
+              {!isAddingResource ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={startAddingResource}
+                  disabled={!resources.length}
+                  title={!resources.length ? "Add resources first" : undefined}
+                >
+                  Add Resource
+                </button>
+              ) : (
+                <div className="service-meta">
                   <label>
                     Resource
                     <select
-                      value={String(resource.resourceId || "")}
-                      onChange={(e) =>
-                        updateRequiredResource(index, "resourceId", e.target.value)
+                      value={pendingResource.resourceId}
+                      onChange={(event) =>
+                        setPendingResource((prev) => ({
+                          ...prev,
+                          resourceId: event.target.value,
+                        }))
                       }
                     >
                       <option value="">Select resource</option>
-
-                      {resources.map((r) => (
-                        <option key={r._id} value={r._id}>
-                          {r.name} ({r.category})
+                      {resources.map((resource) => (
+                        <option key={resource._id} value={resource._id}>
+                          {resource.name} ({resource.type})
                         </option>
                       ))}
-
                     </select>
                   </label>
 
@@ -1067,32 +1181,38 @@ export default function ProviderServicesPage() {
                     <input
                       type="number"
                       min="1"
-                      value={resource.quantity}
-                      onChange={(e) =>
-                        updateRequiredResource(index, "quantity", e.target.value)
+                      value={pendingResource.quantity}
+                      onChange={(event) =>
+                        setPendingResource((prev) => ({
+                          ...prev,
+                          quantity: event.target.value,
+                        }))
                       }
                     />
                   </label>
 
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-small"
-                    onClick={() => removeRequiredResource(index)}
-                  >
-                    Remove
-                  </button>
+                  <div className="provider-action-row">
+                    <button type="button" className="btn" onClick={finishAddingResource}>
+                      Done
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      onClick={cancelAddingResource}
+                    >
+                      Cancel
+                    </button>
+                  </div>
 
+                  {pendingResourceError ? (
+                    <span className="error-text">{pendingResourceError}</span>
+                  ) : null}
                 </div>
-              ))}
+              )}
 
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                onClick={addRequiredResource}
-              >
-                Add Resource
-              </button>
-
+              <p className="muted-text">
+                Select a resource and quantity, then click Done to add it to the list.
+              </p>
             </div>
 
             <button className="btn" type="submit" disabled={isSubmitting}>

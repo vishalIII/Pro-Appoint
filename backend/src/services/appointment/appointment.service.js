@@ -43,23 +43,9 @@ const CUSTOMER_REFUND_WINDOW_HOURS = readNonNegativeIntFromEnv(
   DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS,
 );
 
-const HUMAN_RESOURCE_TYPE_CANONICAL_MAP = {
-  instructor: "staff",
-};
-
-const RESOURCE_TYPE_ALIASES = {
-  staff: ["staff", "instructor"],
-};
-
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
   typeof id === "string" ? id.trim().replace(/^:/, "") : id;
-const normalizeResourceType = (type) => {
-  const normalized = typeof type === "string" ? type.trim().toLowerCase() : "";
-  return HUMAN_RESOURCE_TYPE_CANONICAL_MAP[normalized] || normalized;
-};
-const getResourceTypeAliases = (normalizedType) =>
-  RESOURCE_TYPE_ALIASES[normalizedType] || [normalizedType];
 
 const addMinutes = (value, minutes) =>
   new Date(value.getTime() + minutes * 60 * 1000);
@@ -351,46 +337,43 @@ const normalizeRequiredResources = (requiredResources) => {
   const aggregated = new Map();
 
   for (const item of requiredResources) {
-    const type = normalizeResourceType(item?.type);
-    const quantity = Number(item?.quantity);
+    const normalizeId = (value) => {
+      if (!value) return "";
+      if (typeof value === "string") return value.trim();
+      if (value instanceof mongoose.Types.ObjectId) return value.toString();
+      if (typeof value === "object") {
+        if (value._id) return String(value._id);
+        if (value.id) return String(value.id);
+      }
+      return "";
+    };
 
-    if (!type) {
-      throw new AppError("Service has invalid required resource type", 400);
+    const normalizedId = normalizeId(item?.resourceId);
+
+    if (!mongoose.Types.ObjectId.isValid(normalizedId)) {
+      throw new AppError("Service has invalid required resource", 400);
     }
+
+    const quantity = Number(item?.quantity);
 
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new AppError(
-        `Service has invalid required resource quantity for type ${type}`,
+        `Service has invalid required resource quantity for resource ${normalizedId}`,
         400,
       );
     }
 
-    aggregated.set(type, (aggregated.get(type) || 0) + quantity);
+    aggregated.set(
+      normalizedId,
+      (aggregated.get(normalizedId) || 0) + quantity,
+    );
   }
 
-  return [...aggregated.entries()].map(([type, quantity]) => ({
-    type,
+  return [...aggregated.entries()].map(([resourceId, quantity]) => ({
+    resourceId,
     quantity,
   }));
 };
-
-const normalizeServiceCapacity = (capacity) => {
-  const parsed = Number(capacity);
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return 1;
-  }
-  return Math.floor(parsed);
-};
-
-const getPerBookingRequiredResources = ({
-  requiredResources,
-  serviceCapacity,
-}) =>
-  requiredResources.map((required) => ({
-    type: required.type,
-    // For multi-capacity services, convert full-session quantity to per-booking units.
-    quantity: Math.max(1, Math.ceil(required.quantity / serviceCapacity)),
-  }));
 
 const getActiveConflictFilter = (now) => ({
   status: { $in: BLOCKING_STATUSES },
@@ -400,6 +383,40 @@ const getActiveConflictFilter = (now) => ({
     { status: "pending", expiresAt: { $exists: false } },
   ],
 });
+
+const getRequiredResourceIds = (requiredResources) => [
+  ...new Set(requiredResources.map((item) => String(item.resourceId))),
+];
+
+const loadRequiredResourceDetails = async ({
+  shopId,
+  requiredResources,
+  session,
+}) => {
+  const resourceIds = getRequiredResourceIds(requiredResources);
+
+  if (resourceIds.length === 0) {
+    throw new AppError("Service requiredResources is missing", 400);
+  }
+
+  let query = Resource.find({
+    _id: { $in: resourceIds },
+    shopId,
+    isActive: true,
+  }).select("_id capacity name type");
+
+  if (session) {
+    query = query.session(session);
+  }
+
+  const resources = await query.lean();
+
+  if (resources.length !== resourceIds.length) {
+    throw new AppError("Service references invalid resources", 400);
+  }
+
+  return new Map(resources.map((resource) => [String(resource._id), resource]));
+};
 
 const ensureBookableShopAndService = async ({ shopId, serviceId, session }) => {
   if (!shopId) throw new AppError("shopId is required", 400);
@@ -438,44 +455,12 @@ const ensureBookableShopAndService = async ({ shopId, serviceId, session }) => {
   const requiredResources = normalizeRequiredResources(
     service.requiredResources,
   );
-  const serviceCapacity = normalizeServiceCapacity(service.capacity);
-  const perBookingRequiredResources = getPerBookingRequiredResources({
-    requiredResources,
-    serviceCapacity,
-  });
 
   return {
     shop,
     service,
-    requiredResources: perBookingRequiredResources,
-    serviceCapacity,
+    requiredResources,
   };
-};
-
-const getResourcesByType = async ({
-  shopId,
-  tenantId,
-  requiredResources,
-  session,
-}) => {
-  const entries = await Promise.all(
-    requiredResources.map(async (required) => {
-      const typeAliases = getResourceTypeAliases(required.type);
-      const resources = await Resource.find({
-        shopId,
-        type: typeAliases.length === 1 ? typeAliases[0] : { $in: typeAliases },
-        isActive: true,
-      })
-        .sort({ _id: 1 })
-        .select("_id type name capacity")
-        .session(session)
-        .lean();
-
-      return [required.type, resources];
-    }),
-  );
-
-  return new Map(entries);
 };
 
 const normalizeResourceCapacity = (resource) => {
@@ -559,63 +544,6 @@ const getAllocatedUnitsByResource = (allocatedResources) => {
   return counts;
 };
 
-const getTotalFreeUnitsForType = ({ resources, usedUnitsByResource }) => {
-  let totalFreeUnits = 0;
-
-  for (const resource of resources || []) {
-    const key = String(resource._id);
-    const usedUnits = usedUnitsByResource.get(key) || 0;
-    const freeUnits = Math.max(
-      0,
-      normalizeResourceCapacity(resource) - usedUnits,
-    );
-    totalFreeUnits += freeUnits;
-  }
-
-  return totalFreeUnits;
-};
-
-const pickResourceUnits = ({
-  resources,
-  requiredQuantity,
-  usedUnitsByResource,
-}) => {
-  let remaining = requiredQuantity;
-  const selectedAllocations = [];
-
-  const resourcesWithFreeUnits = (resources || [])
-    .map((resource) => {
-      const key = String(resource._id);
-      const usedUnits = usedUnitsByResource.get(key) || 0;
-      const freeUnits = Math.max(
-        0,
-        normalizeResourceCapacity(resource) - usedUnits,
-      );
-
-      return { resource, freeUnits };
-    })
-    .filter((entry) => entry.freeUnits > 0)
-    .sort((a, b) => b.freeUnits - a.freeUnits);
-
-  for (const entry of resourcesWithFreeUnits) {
-    if (remaining <= 0) break;
-
-    const take = Math.min(remaining, entry.freeUnits);
-    if (take > 0) {
-      selectedAllocations.push({
-        resourceId: entry.resource._id,
-        units: take,
-      });
-    }
-    remaining -= take;
-  }
-
-  return {
-    selectedAllocations,
-    fulfilled: remaining === 0,
-  };
-};
-
 const findBlockingAppointments = async ({
   shopId,
   resourceIds,
@@ -683,24 +611,17 @@ const findAttendeeOverlappingAppointments = async ({
 const getFreeResourcesForWindow = async ({
   shopId,
   requiredResources,
-  resourcesByType,
+  resourceMap,
   startTimeUTC,
   endTimeUTC,
   session,
   now,
   excludeAppointmentId,
 }) => {
-  const allResourceIds = [];
-  for (const required of requiredResources) {
-    const resources = resourcesByType.get(required.type) || [];
-    for (const resource of resources) {
-      allResourceIds.push(resource._id);
-    }
-  }
-
+  const resourceIds = getRequiredResourceIds(requiredResources);
   const conflicts = await findBlockingAppointments({
     shopId,
-    resourceIds: allResourceIds,
+    resourceIds,
     startTimeUTC,
     endTimeUTC,
     session,
@@ -709,47 +630,44 @@ const getFreeResourcesForWindow = async ({
   });
 
   const usedUnitsByResource = buildResourceUnitUsageMap(conflicts);
-
   const selectedAllocations = [];
-  const freeCountsByType = {};
+  const freeCountsByResource = {};
 
   for (const required of requiredResources) {
-    const resources = resourcesByType.get(required.type) || [];
+    const resourceId = String(required.resourceId);
+    const resource = resourceMap.get(resourceId);
 
-    const totalFreeUnits = getTotalFreeUnitsForType({
-      resources,
-      usedUnitsByResource,
-    });
-    freeCountsByType[required.type] = totalFreeUnits;
-
-    if (totalFreeUnits < required.quantity) {
+    if (!resource) {
       return {
         isAvailable: false,
-        freeCountsByType,
+        freeCountsByResource,
         selectedAllocations: [],
       };
     }
 
-    const picked = pickResourceUnits({
-      resources,
-      requiredQuantity: required.quantity,
-      usedUnitsByResource,
-    });
+    const capacity = normalizeResourceCapacity(resource);
+    const usedUnits = usedUnitsByResource.get(resourceId) || 0;
+    const availableUnits = Math.max(0, capacity - usedUnits);
 
-    if (!picked.fulfilled) {
+    freeCountsByResource[resourceId] = availableUnits;
+
+    if (availableUnits < required.quantity) {
       return {
         isAvailable: false,
-        freeCountsByType,
+        freeCountsByResource,
         selectedAllocations: [],
       };
     }
 
-    selectedAllocations.push(...picked.selectedAllocations);
+    selectedAllocations.push({
+      resourceId: resource._id,
+      units: required.quantity,
+    });
   }
 
   return {
     isAvailable: true,
-    freeCountsByType,
+    freeCountsByResource,
     selectedAllocations,
   };
 };
@@ -840,6 +758,11 @@ exports.getAvailableSlots = async ({
         serviceId,
       });
 
+    const resourceMap = await loadRequiredResourceDetails({
+      shopId: shop._id,
+      requiredResources,
+    });
+
     const dayStart = selectedDate;
     const dayEnd = addMinutes(dayStart, 24 * 60);
     const dayName = getDayNameUTC(selectedDate);
@@ -927,20 +850,20 @@ exports.getAvailableSlots = async ({
       };
     }
 
-    const resourcesByType = await getResourcesByType({
-      shopId: shop._id,
-      tenantId: shop.tenantId,
-      requiredResources,
-    });
-
     for (const required of requiredResources) {
-      const resources = resourcesByType.get(required.type) || [];
-      const totalTypeCapacity = resources.reduce(
-        (sum, resource) => sum + normalizeResourceCapacity(resource),
-        0,
-      );
+      const resourceId = String(required.resourceId);
+      const resource = resourceMap.get(resourceId);
+      if (!resource) {
+        return {
+          date,
+          durationMinutes: service.durationMinutes,
+          requiredResources,
+          slots: [],
+        };
+      }
 
-      if (totalTypeCapacity < required.quantity) {
+      const totalCapacity = normalizeResourceCapacity(resource);
+      if (totalCapacity < required.quantity) {
         return {
           date,
           durationMinutes: service.durationMinutes,
@@ -950,12 +873,7 @@ exports.getAvailableSlots = async ({
       }
     }
 
-    const allResourceIds = [];
-    for (const resources of resourcesByType.values()) {
-      for (const resource of resources) {
-        allResourceIds.push(resource._id);
-      }
-    }
+    const resourceIds = getRequiredResourceIds(requiredResources);
 
     const earliest = candidateSlots[0].startTimeUTC;
     const latest = candidateSlots[candidateSlots.length - 1].endTimeUTC;
@@ -963,7 +881,7 @@ exports.getAvailableSlots = async ({
 
     const conflicts = await findBlockingAppointments({
       shopId: shop._id,
-      resourceIds: allResourceIds,
+      resourceIds,
       startTimeUTC: earliest,
       endTimeUTC: latest,
       now,
@@ -989,17 +907,23 @@ exports.getAvailableSlots = async ({
         buildResourceUnitUsageMap(overlappingConflicts);
 
       let canAllocate = true;
-      const freeResourcesByType = {};
+      const freeResourcesById = {};
 
       for (const required of requiredResources) {
-        const freeCount = getTotalFreeUnitsForType({
-          resources: resourcesByType.get(required.type) || [],
-          usedUnitsByResource,
-        });
+        const resourceId = String(required.resourceId);
+        const resource = resourceMap.get(resourceId);
+        if (!resource) {
+          canAllocate = false;
+          break;
+        }
 
-        freeResourcesByType[required.type] = freeCount;
+        const capacity = normalizeResourceCapacity(resource);
+        const usedUnits = usedUnitsByResource.get(resourceId) || 0;
+        const freeUnits = Math.max(0, capacity - usedUnits);
 
-        if (freeCount < required.quantity) {
+        freeResourcesById[resourceId] = freeUnits;
+
+        if (freeUnits < required.quantity) {
           canAllocate = false;
           break;
         }
@@ -1009,7 +933,7 @@ exports.getAvailableSlots = async ({
         availableSlots.push({
           startTimeUTC: candidate.startTimeUTC,
           endTimeUTC: candidate.endTimeUTC,
-          freeResourcesByType,
+          freeResourcesById,
         });
       }
     }
@@ -1129,9 +1053,8 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         throw new AppError("Time slot already booked.", 409);
       }
 
-      const resourcesByType = await getResourcesByType({
+      const resourceMap = await loadRequiredResourceDetails({
         shopId: shop._id,
-        tenantId: shop.tenantId,
         requiredResources,
         session,
       });
@@ -1139,7 +1062,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       const allocation = await getFreeResourcesForWindow({
         shopId: shop._id,
         requiredResources,
-        resourcesByType,
+        resourceMap,
         startTimeUTC: requestedStart,
         endTimeUTC: computedEnd,
         session,

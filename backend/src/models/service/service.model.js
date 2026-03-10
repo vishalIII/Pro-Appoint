@@ -3,23 +3,6 @@ const {
   serviceWeeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
 
-const requiredResourceSchema = new mongoose.Schema(
-  {
-    type: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-  },
-  { _id: false },
-);
-
 const serviceSchema = new mongoose.Schema(
   {
     shopId: {
@@ -86,20 +69,20 @@ const serviceSchema = new mongoose.Schema(
     },
 
     requiredResources: [
-  { 
-    _id: false,
-    resourceId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "resource",
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-  },
-],
+      {
+        _id: false,
+        resourceId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "resource",
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+      },
+    ],
 
     isActive: {
       type: Boolean,
