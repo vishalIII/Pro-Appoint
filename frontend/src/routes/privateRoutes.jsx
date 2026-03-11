@@ -17,6 +17,8 @@ import ProviderReviewsPage from "../pages/serviceProvider/Reviews";
 import ProviderSubscriptionPage from "../pages/serviceProvider/Subscription";
 import ProviderSettingsPage from "../pages/serviceProvider/Settings";
 import ProviderCreateShopPage from "../pages/serviceProvider/CreateShop";
+import ProviderNotificationsPage from "../pages/serviceProvider/Notifications";
+import NotificationsPage from "../pages/NotificationsPage";
 import { ROLES } from "../rbac";
 
 export const privateRoutes = [
@@ -36,7 +38,8 @@ export const privateRoutes = [
     guard: { roles: [ROLES.CUSTOMER] },
     children: [
       { index: true, element: <CustomerDashboard /> },
-      { path: "bookings", element: <MyBookings /> }
+      { path: "bookings", element: <MyBookings /> },
+      { path: "notifications", element: <NotificationsPage /> },
     ]
   },
   {
@@ -46,6 +49,7 @@ export const privateRoutes = [
     children: [
       { index: true, element: <ProviderDashboard /> },
       { path: "appointments", element: <ProviderAppointmentsPage /> },
+      { path: "notifications", element: <ProviderNotificationsPage /> },
       { path: "shops/create", element: <ProviderCreateShopPage /> },
       { path: "shops/:shopId/services", element: <ProviderServicesPage /> },
       { path: "shops/:shopId/resources", element: <ProviderResourcesPage /> },

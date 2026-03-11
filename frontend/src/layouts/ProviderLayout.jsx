@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
-import { fetchTenantAppointments, fetchTenantShops } from "../pages/serviceProvider/api/providerApi";
+import { fetchTenantShops } from "../pages/serviceProvider/api/providerApi";
 import { getRangeFromPreset, getTodayIsoDate } from "../pages/serviceProvider/utils/dateRange";
+import NotificationBell from "../components/NotificationBell";
 
 const STORAGE_KEYS = {
   shopId: "provider_shop_id",
@@ -35,6 +36,7 @@ const RANGE_PRESET_OPTIONS = [
 const navigationItems = [
   { to: "/tenant", label: "Dashboard", end: true },
   { to: "/tenant/appointments", label: "Appointments" },
+  { to: "/tenant/notifications", label: "Notifications" },
   { to: "/tenant/shops", label: "Shops" },
   { to: "/tenant/services", label: "Services" },
   { to: "/tenant/resources", label: "Resources" },
@@ -58,7 +60,6 @@ const ProviderLayout = () => {
   const [shops, setShops] = useState([]);
   const [shopsLoading, setShopsLoading] = useState(true);
   const [shopsError, setShopsError] = useState("");
-  const [notificationCount, setNotificationCount] = useState(0);
   const [selectedShopId, setSelectedShopId] = useState(() => readStorage(STORAGE_KEYS.shopId, ""));
   const [rangePreset, setRangePreset] = useState(() =>
     normalizeRangePreset(readStorage(STORAGE_KEYS.rangePreset, "today")),
@@ -129,36 +130,6 @@ const ProviderLayout = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.customTo, customTo || "");
   }, [customTo]);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const loadNotifications = async () => {
-      if (!token) return;
-      try {
-        const payload = await fetchTenantAppointments({
-          token,
-          status: "pending",
-          from: effectiveRange.from,
-          to: effectiveRange.to,
-        });
-
-        if (!isCancelled) {
-          setNotificationCount(Number(payload?.count || 0));
-        }
-      } catch {
-        if (!isCancelled) {
-          setNotificationCount(0);
-        }
-      }
-    };
-
-    loadNotifications();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [effectiveRange.from, effectiveRange.to, token]);
 
   const activeShop = useMemo(
     () => shops.find((shop) => String(shop._id) === String(selectedShopId)) || null,
@@ -295,10 +266,7 @@ const ProviderLayout = () => {
           </div>
 
           <div className="provider-top-actions">
-            <button type="button" className="provider-icon-btn" title="Notifications">
-              <span aria-hidden="true">Bell</span>
-              {notificationCount > 0 ? <span className="provider-badge">{notificationCount}</span> : null}
-            </button>
+            <NotificationBell to="/tenant/notifications" />
             <span className="provider-profile-name">{user?.name || "Provider"}</span>
           </div>
         </header>

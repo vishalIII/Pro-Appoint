@@ -12,6 +12,7 @@ const paymentRoutes = require("./routes/payment/payment.routes.js")
 const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
 const publicShopRoutes = require("./routes/public/public.shop.routes.js");
 const publicAppointmentRoutes = require('./routes/public/public.appointment.routes.js');
+const notificationRoutes = require("./routes/notification/notification.routes.js");
 
 
 /* -------- Middleware -------- */
@@ -62,6 +63,8 @@ app.use(
   authMiddleware,
   publicAppointmentRoutes
 );
+
+app.use("/api/notifications", authMiddleware, notificationRoutes);
 
 // // Public-facing appointment routes (customers can book without being a tenant)
 // // example: POST /api/shops/:shopId/appointments 

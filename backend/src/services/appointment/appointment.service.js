@@ -5,6 +5,7 @@ const Shop = require("../../models/shop/shop.model");
 const Resource = require("../../models/resource/resource.model");
 const AppError = require("../../utils/appError");
 const generateRoomId = require("../../utils/meeting/generateRoomId");
+const { sendAppointmentConfirmedNotification } = require("../../utils/appointmentNotifications");
 
 const BLOCKING_STATUSES = ["pending", "confirmed"];
 const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
@@ -1243,6 +1244,10 @@ exports.confirmAppointmentPayment = async ({
       updatedAppointment = appointment;
     });
 
+    if (updatedAppointment && !paymentConflict) {
+      await sendAppointmentConfirmedNotification(updatedAppointment);
+    }
+
     return {
       appointment: updatedAppointment,
       paymentConflict,
@@ -1381,6 +1386,7 @@ exports.updateAppointment = async ({
 
     const appointment = await Appointment.findOne(findQ);
     if (!appointment) throw new AppError("Appointment not found", 404);
+    const previousStatus = appointment.status;
 
     const allowedFields = [
       "startTimeUTC",
