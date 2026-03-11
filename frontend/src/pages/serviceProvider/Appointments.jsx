@@ -4,7 +4,7 @@ import StatusPill from "./components/StatusPill";
 import { fetchTenantAppointments, runAppointmentAction } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getDateTimeLabel } from "./utils/dateRange";
-import {RefreshButton} from "../../components/RefreshButton"
+import RefreshButton from "../../components/RefreshButton"
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },

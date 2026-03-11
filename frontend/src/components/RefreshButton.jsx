@@ -25,7 +25,6 @@ export default function RefreshButton({ onRefresh, disabled }) {
       <RotateCw
         className={`w-4 h-4 transition-transform duration-500 ${isRefreshing ? "animate-spin" : ""}`}
       />
-      Refresh
     </button>
   );
 }
