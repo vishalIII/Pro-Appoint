@@ -1,4 +1,10 @@
 const appointmentService = require("../../services/appointment/appointment.service");
+const {
+  sendAppointmentConfirmedNotification,
+  sendAppointmentCancellationNotifications,
+  sendAppointmentCompletedNotifications,
+  sendAppointmentNoShowNotifications,
+} = require("../../utils/appointmentNotifications");
 
 // GET /api/tenant/appointments
 exports.getAppointments = async (req, res, next) => {
@@ -70,6 +76,8 @@ exports.acceptAppointment = async (req, res, next) => {
       },
     });
 
+    await sendAppointmentConfirmedNotification(appointment);
+
     return res.status(200).json({
       message: "Appointment accepted",
       appointment,
@@ -111,6 +119,8 @@ exports.completeAppointment = async (req, res, next) => {
       },
     });
 
+    await sendAppointmentCompletedNotifications(appointment);
+
     return res.status(200).json({
       message: "Appointment completed",
       appointment,
@@ -128,6 +138,8 @@ exports.markAppointmentNoShow = async (req, res, next) => {
       tenantId: req.user.tenantId,
       markedByUserId: req.user.userId,
     });
+
+    await sendAppointmentNoShowNotifications(appointment);
 
     return res.status(200).json({
       message: "Appointment marked as no-show",
@@ -177,6 +189,10 @@ exports.cancelAppointment = async (req, res, next) => {
       actorUserId: req.user.userId,
       actorTenantId: req.user.tenantId,
       reason: req.body?.reason,
+    });
+
+    await sendAppointmentCancellationNotifications(result.appointment, {
+      initiator: "provider",
     });
 
     return res.status(200).json({

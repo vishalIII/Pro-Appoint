@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { ROLES } from "../rbac";
+import NotificationBell from "./NotificationBell";
 
 export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -79,6 +80,7 @@ export default function Layout() {
             </nav>
 
             <div className="header-actions">
+              {isAuthenticated && <NotificationBell />}
               {isAuthenticated ? (
                 <button style={{color:"red"}} type="button" className="auth-action" onClick={handleLogout}>
                   Log out

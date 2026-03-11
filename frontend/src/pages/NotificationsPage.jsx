@@ -1,37 +1,94 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useNotifications } from "../notifications/useNotifications";
+
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const NotificationsPage = () => {
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
 
-  const [notifications, setNotifications] = useState([]);
+  const sorted = useMemo(
+    () =>
+      [...notifications].sort(
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      ),
+    [notifications]
+  );
 
-  useEffect(() => {
+  const handleOpen = (notification) => {
+    if (!notification) return;
+    markAsRead(notification._id);
+    if (notification.data?.route) {
+      navigate(notification.data.route);
+    }
+  };
 
-    const fetchNotifications = async () => {
-
-      const res = await axios.get(
-        "http://localhost:5000/api/notifications"
-      );
-
-      setNotifications(res.data);
-    };
-
-    fetchNotifications();
-
-  }, []);
+  const hasUnread = notifications.some((n) => !n.isRead);
 
   return (
-    <div>
-      <h2>Notifications</h2>
-
-      {notifications.map((n) => (
-        <div key={n._id}>
-          <h4>{n.title}</h4>
-          <p>{n.message}</p>
+    <section className="page-block">
+      <div className="card">
+        <div className="page-title-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1>Notifications</h1>
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={markAllAsRead}
+              disabled={!hasUnread}
+            >
+              Mark all read
+            </button>
+          )}
         </div>
-      ))}
 
-    </div>
+        {sorted.length === 0 ? (
+          <p className="muted-text">No notifications yet.</p>
+        ) : (
+          <div className="customer-notification-list">
+            {sorted.map((notification) => (
+              <article
+                key={notification._id}
+                className={`customer-notification-card${notification.isRead ? "" : " is-unread"}`}
+                onClick={() => handleOpen(notification)}
+              >
+                <div>
+                  <strong>{notification.title}</strong>
+                  <p className="muted-text">{notification.message}</p>
+                </div>
+                <div className="customer-notification-meta">
+                  <span>{formatDateTime(notification.createdAt)}</span>
+                  {notification.data?.route ? (
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleOpen(notification);
+                      }}
+                    >
+                      View
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 

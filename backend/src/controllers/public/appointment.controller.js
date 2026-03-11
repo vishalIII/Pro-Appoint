@@ -1,5 +1,9 @@
 const appointmentService = require('../../services/appointment/appointment.service');
 const reviewService = require('../../services/review/review.service');
+const {
+  sendAppointmentCreatedNotifications,
+  sendAppointmentCancellationNotifications,
+} = require("../../utils/appointmentNotifications");
 
 exports.createAppointment = async (req, res, next) => {
   try {
@@ -13,6 +17,8 @@ exports.createAppointment = async (req, res, next) => {
       tenantId: undefined, // public flow derives tenant from shop
       payload,
     });
+
+    await sendAppointmentCreatedNotifications(appointment);
 
     return res.status(201).json({ message: 'Appointment created', appointment });
   } catch (error) {
@@ -66,6 +72,10 @@ exports.deleteAppointment = async (req, res, next) => {
       reason: req.body?.reason,
     });
 
+    await sendAppointmentCancellationNotifications(result.appointment, {
+      initiator: "customer",
+    });
+
     return res.status(200).json({
       message: "Appointment cancelled",
       refundEligible: result.refundEligible,
@@ -84,6 +94,10 @@ exports.cancelAppointment = async (req, res, next) => {
       actorType: "customer",
       actorUserId: req.user.userId,
       reason: req.body?.reason,
+    });
+
+    await sendAppointmentCancellationNotifications(result.appointment, {
+      initiator: "customer",
     });
 
     return res.status(200).json({

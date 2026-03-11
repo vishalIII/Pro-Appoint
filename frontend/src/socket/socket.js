@@ -1,9 +1,34 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000", {
-  auth: {
-    userId: localStorage.getItem("userId") // or from your auth state
-  }
-});
+const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_BASE_URL || "http://localhost:5000";
 
-export default socket;
+let socketInstance = null;
+let connectedUserId = null;
+
+export const connectNotificationSocket = ({ userId }) => {
+  if (!userId) {
+    return null;
+  }
+
+  if (socketInstance && connectedUserId === userId) {
+    return socketInstance;
+  }
+
+  disconnectNotificationSocket();
+
+  socketInstance = io(SOCKET_BASE_URL, {
+    auth: { userId },
+    transports: ["websocket", "polling"],
+  });
+
+  connectedUserId = userId;
+  return socketInstance;
+};
+
+export const disconnectNotificationSocket = () => {
+  if (socketInstance) {
+    socketInstance.disconnect();
+    socketInstance = null;
+    connectedUserId = null;
+  }
+};

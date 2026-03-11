@@ -257,4 +257,46 @@
 .service-thumbnail:hover {
   opacity: 1;
   transform: scale(1.05);
+}.customer-notification-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.customer-notification-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.customer-notification-card.is-unread {
+  border-color: #5f8c2a;
+  background: rgba(95, 140, 42, 0.08);
+}
+
+.customer-notification-card strong {
+  display: block;
+  font-size: 16px;
+  color: #1d2814;
+}
+
+.customer-notification-card .muted-text {
+  margin: 6px 0 0;
+  color: #2f3626;
+}
+
+.customer-notification-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
 }

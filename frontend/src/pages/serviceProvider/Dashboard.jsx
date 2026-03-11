@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import StatusPill from "./components/StatusPill";
 import LineTrendChart from "./components/LineTrendChart";
@@ -19,6 +19,7 @@ import {
   runAppointmentAction,
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
+import { useNotifications } from "../../notifications/useNotifications";
 import {
   getDateLabel,
   getDateTimeLabel,
@@ -149,6 +150,8 @@ export default function ProviderDashboard() {
   const { token } = useAuth();
   const { shops, shopsLoading, selectedShopId, effectiveRange, rangePreset } =
     useProviderWorkspace();
+  const navigate = useNavigate();
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [runningActionId, setRunningActionId] = useState("");
@@ -169,6 +172,29 @@ export default function ProviderDashboard() {
     () => selectedShopId || shops?.[0]?._id || "",
     [selectedShopId, shops],
   );
+
+  const latestNotifications = useMemo(() => {
+    const sorted = [...notifications].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    );
+    return sorted.slice(0, 4);
+  }, [notifications]);
+
+  const hasUnreadNotifications = notifications.some((notification) => !notification.isRead);
+
+  const handleOpenNotification = useCallback(
+    (notification) => {
+      if (!notification) return;
+      markAsRead(notification._id);
+      const route = notification.data?.route || "/tenant/appointments";
+      navigate(route);
+    },
+    [markAsRead, navigate],
+  );
+
+  const handleMarkAllRead = useCallback(() => {
+    markAllAsRead();
+  }, [markAllAsRead]);
 
   const loadDashboard = useCallback(async () => {
     if (!token || shopsLoading) return;
@@ -537,6 +563,71 @@ export default function ProviderDashboard() {
           </div>
         )}
       </article>
+
+      {/* <article className="card provider-notifications-card">
+        <div className="provider-section-header">
+          <h2>Recent Notifications</h2>
+          <div className="provider-section-header-actions">
+            <Link to="/tenant/notifications" className="muted-link">
+              View all
+            </Link>
+            {notifications.length > 0 ? (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={handleMarkAllRead}
+                disabled={!hasUnreadNotifications}
+              >
+                Mark all read
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {latestNotifications.length === 0 ? (
+          <p className="muted-text">No notifications yet.</p>
+        ) : (
+          <div className="provider-notification-list">
+            {latestNotifications.map((notification) => {
+              const startLabel =
+                notification.data?.appointmentStart || new Date(notification.createdAt).toLocaleString();
+              return (
+                <article
+                  key={notification._id}
+                  className={`provider-notification-card${notification.isRead ? "" : " is-unread"}`}
+                  onClick={() => handleOpenNotification(notification)}
+                >
+                  <div className="provider-notification-left">
+                    <span className="provider-notification-meta">{startLabel}</span>
+                    <p className="provider-notification-title">{notification.title}</p>
+                    <p className="provider-notification-message">{notification.message}</p>
+                    <p className="provider-notification-detail">
+                      <strong>Service:</strong> {notification.data?.serviceName || "Service"}
+                    </p>
+                    <p className="provider-notification-detail">
+                      <strong>Customer:</strong> {notification.data?.customerName || "Customer"}
+                    </p>
+                  </div>
+                  <div className="provider-notification-right">
+                    <StatusPill value={notification.data?.status || notification.type} />
+                    {notification.data?.route ? (
+                      <button
+                        type="button"
+                        className="btn btn-small"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleOpenNotification(notification);
+                        }}
+                      >
+                        View
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </article> */}
 
       <div className="provider-two-col">
         <article className="card">
