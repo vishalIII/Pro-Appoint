@@ -17,7 +17,7 @@ const formatDateTime = (value) => {
 };
 
 export default function ProviderNotificationsPage() {
-  const { notifications, markAsRead } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
 
   const sorted = useMemo(
@@ -37,11 +37,21 @@ export default function ProviderNotificationsPage() {
 
   return (
     <section className="provider-page">
+      
       <article className="card">
         <div className="provider-section-header">
-          <h1>Notifications</h1>
-        </div>
-
+  <h1>Notifications</h1>
+  {notifications.length > 0 && (
+    <button
+      type="button"
+      className="btn btn-small"
+      onClick={markAllAsRead}
+      disabled={!notifications.some(n => !n.isRead)}
+    >
+      Mark all read
+    </button>
+  )}
+</div>
         {sorted.length === 0 ? (
           <p className="muted-text">No notifications yet.</p>
         ) : (

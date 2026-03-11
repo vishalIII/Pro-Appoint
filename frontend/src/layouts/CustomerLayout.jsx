@@ -13,9 +13,9 @@ const CustomerLayout = () => {
             <Link to="/notifications">Notifications</Link>
           </nav>
         </div>
-        <div className="dashboard-header-actions">
+        {/* <div className="dashboard-header-actions">
           <NotificationBell />
-        </div>
+        </div> */}
       </header>
       <Outlet />
     </section>

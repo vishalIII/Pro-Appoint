@@ -16,15 +16,15 @@ const formatDateTime = (value) => {
 };
 
 const NotificationsPage = () => {
-  const { notifications, markAsRead } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
 
   const sorted = useMemo(
     () =>
       [...notifications].sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
       ),
-    [notifications],
+    [notifications]
   );
 
   const handleOpen = (notification) => {
@@ -35,11 +35,23 @@ const NotificationsPage = () => {
     }
   };
 
+  const hasUnread = notifications.some((n) => !n.isRead);
+
   return (
     <section className="page-block">
       <div className="card">
-        <div className="page-title-row">
+        <div className="page-title-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1>Notifications</h1>
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={markAllAsRead}
+              disabled={!hasUnread}
+            >
+              Mark all read
+            </button>
+          )}
         </div>
 
         {sorted.length === 0 ? (

@@ -5,13 +5,57 @@ const Shop = require("../../models/shop/shop.model");
 const Resource = require("../../models/resource/resource.model");
 const AppError = require("../../utils/appError");
 const generateRoomId = require("../../utils/meeting/generateRoomId");
-const { sendAppointmentConfirmedNotification } = require("../../utils/appointmentNotifications");
+const {
+  sendPaymentSuccessNotifications,
+} = require("../../utils/appointmentNotifications");
 
 const BLOCKING_STATUSES = ["pending", "confirmed"];
 const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_LATE_CANCELLATION_WINDOW_HOURS = 2;
 const DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS = 24;
+
+// -------------------------------------------------------------------
+const validateAppointmentAction = ({ appointment, action, updates }) => {
+  const status = appointment.status;
+  const paymentStatus = appointment.paymentStatus;
+
+  // Prevent repeating same action
+  if (action === "complete" && status === "completed") {
+    throw new AppError("Appointment already completed", 400);
+  }
+
+  if (action === "cancel" && ["cancelled", "cancelled_late"].includes(status)) {
+    throw new AppError("Appointment already cancelled", 400);
+  }
+
+  if (action === "no_show" && status === "no_show") {
+    throw new AppError("Appointment already marked as no-show", 400);
+  }
+
+  if (action === "mark_paid" && paymentStatus === "paid") {
+    throw new AppError("Payment already marked as paid", 400);
+  }
+
+  // Prevent invalid actions
+  const validActionsByStatus = {
+    pending: ["confirm", "cancel"],
+    confirmed: ["cancel", "complete", "no_show"],
+    completed: [],
+    cancelled: [],
+    cancelled_late: [],
+    rejected: [],
+    no_show: [],
+  };
+
+  if (!validActionsByStatus[status]?.includes(action)) {
+    throw new AppError(
+      `Action "${action}" is not allowed when appointment status is "${status}"`,
+      400,
+    );
+  }
+};
+// -------------------------------------------------------------------
 
 const readNonNegativeIntFromEnv = (key, fallback) => {
   const raw = process.env[key];
@@ -1149,6 +1193,13 @@ exports.confirmAppointmentPayment = async ({
         throw new AppError("Unauthorized access to this appointment", 403);
       }
 
+      if (appointment.paymentStatus === "paid") {
+        throw new AppError(
+          "Payment already confirmed for this appointment",
+          400,
+        );
+      }
+
       if (
         appointment.status === "confirmed" &&
         appointment.paymentStatus === "paid"
@@ -1244,8 +1295,15 @@ exports.confirmAppointmentPayment = async ({
       updatedAppointment = appointment;
     });
 
+    // if (updatedAppointment && !paymentConflict) {
+    //   await sendAppointmentConfirmedNotification(updatedAppointment);
+    // }
+
     if (updatedAppointment && !paymentConflict) {
-      await sendAppointmentConfirmedNotification(updatedAppointment);
+      // Instead of confirming appointment notification, send payment success notification
+      // const { sendPaymentSuccessNotifications } = require("../services/notification.service");
+
+      await sendPaymentSuccessNotifications(updatedAppointment);
     }
 
     return {
@@ -1425,15 +1483,23 @@ exports.updateAppointment = async ({
     }
 
     if (updates.status) {
-      const allowedTransitions = {
-        pending: ["confirmed", "rejected", "cancelled"],
-        confirmed: ["cancelled", "cancelled_late", "completed", "no_show"],
-        rejected: [],
-        cancelled: [],
-        cancelled_late: [],
-        completed: [],
-        no_show: [],
+      const actionMap = {
+        confirmed: "confirm",
+        cancelled: "cancel",
+        cancelled_late: "cancel",
+        completed: "complete",
+        no_show: "no_show",
       };
+
+      const action = actionMap[updates.status];
+
+      if (action) {
+        validateAppointmentAction({
+          appointment,
+          action,
+          updates,
+        });
+      }
 
       const currentStatus = appointment.status;
       let nextStatus = updates.status;

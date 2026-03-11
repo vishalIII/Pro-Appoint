@@ -564,7 +564,7 @@ export default function ProviderDashboard() {
         )}
       </article>
 
-      <article className="card provider-notifications-card">
+      {/* <article className="card provider-notifications-card">
         <div className="provider-section-header">
           <h2>Recent Notifications</h2>
           <div className="provider-section-header-actions">
@@ -627,7 +627,7 @@ export default function ProviderDashboard() {
             })}
           </div>
         )}
-      </article>
+      </article> */}
 
       <div className="provider-two-col">
         <article className="card">

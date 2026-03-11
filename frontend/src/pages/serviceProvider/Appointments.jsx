@@ -4,6 +4,7 @@ import StatusPill from "./components/StatusPill";
 import { fetchTenantAppointments, runAppointmentAction } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getDateTimeLabel } from "./utils/dateRange";
+import {RefreshButton} from "../../components/RefreshButton"
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -121,6 +122,7 @@ export default function ProviderAppointmentsPage() {
                 </option>
               ))}
             </select>
+            <RefreshButton onRefresh={loadAppointments} disabled={isLoading} />
           </label>
         </div>
 
@@ -146,7 +148,7 @@ export default function ProviderAppointmentsPage() {
               </thead>
               <tbody>
                 {appointments.map((appointment) => {
-                  
+
                   const actions = ACTIONS_BY_STATUS[appointment.status] || [];
                   return (
                     <tr key={appointment._id}>
@@ -155,9 +157,9 @@ export default function ProviderAppointmentsPage() {
                       <td>{getDateTimeLabel(appointment.startTimeUTC)}</td>
 
 
-                     
+
                       {/* <StatusPill value={appointment.status} /> */}
-                    
+
                       {/* <td>
                         <div
                           title={appointment?.cancellation?.reason || ""}
@@ -172,8 +174,8 @@ export default function ProviderAppointmentsPage() {
                       </td> */}
 
                       <td title={appointment?.status === "cancelled" ? appointment?.cancellation?.reason : ""}>
-  <StatusPill value={appointment.status} />
-</td>
+                        <StatusPill value={appointment.status} />
+                      </td>
 
 
 
@@ -185,19 +187,34 @@ export default function ProviderAppointmentsPage() {
                           {actions.length === 0 ? (
                             <span className="muted-text">No actions</span>
                           ) : (
-                            actions.map((action) => (
-                              <button
-                                key={action}
-                                type="button"
-                                className="btn btn-small"
-                                onClick={() => onAction(appointment._id, action)}
-                                disabled={Boolean(runningActionId)}
-                              >
-                                {runningActionId === `${appointment._id}:${action}`
-                                  ? "..."
-                                  : actionLabel(action)}
-                              </button>
-                            ))
+                            actions.map((action) => {
+                              // Disable if:
+                              // 1. Another action is running
+                              // 2. The current action is running
+                              // 3. Action is no longer valid for status
+                              // 4. Special case: mark-paid already done
+                              const isPaid = appointment.paymentStatus === "paid";
+                              const isInvalidAction =
+                                (appointment.status === "completed" && action === "complete") ||
+                                (appointment.status === "cancelled" && action === "cancel") ||
+                                (appointment.status === "no_show" && action === "no-show") ||
+                                (action === "mark-paid" && isPaid);
+
+                              const isRunning = runningActionId === `${appointment._id}:${action}`;
+
+                              return (
+                                <button
+                                  key={action}
+                                  type="button"
+                                  className="btn btn-small"
+                                  onClick={() => onAction(appointment._id, action)}
+                                  disabled={isInvalidAction || isRunning || Boolean(runningActionId)}
+                                  title={isInvalidAction ? "Action not allowed for current status" : ""}
+                                >
+                                  {isRunning ? "..." : actionLabel(action)}
+                                </button>
+                              );
+                            })
                           )}
                         </div>
                       </td>

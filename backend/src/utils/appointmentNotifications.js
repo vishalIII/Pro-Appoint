@@ -18,7 +18,38 @@ const formatAppointmentLabel = (appointment) => {
   const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   return `${day} at ${time}`;
 };
+//-------------------------------------------------------
 
+const sendPaymentSuccessNotifications = async (appointment) => {
+  if (!appointment) return Promise.resolve(null);
+
+  const providerUserId = await resolveProviderUserId(appointment);
+  const providerData = buildNotificationData(appointment, "provider");
+  const customerData = buildNotificationData(appointment, "customer");
+  const startLabel = providerData.appointmentStart;
+
+  const payloads = [
+    // Customer notification
+    {
+      userId: appointment.attendeeId,
+      type: "payment_success",
+      title: "Payment successful",
+      message: `Your payment for ${customerData.serviceName} on ${startLabel} was successful.`,
+      data: customerData,
+    },
+    // Provider notification
+    providerUserId && {
+      userId: providerUserId,
+      type: "payment_success",
+      title: "Payment received",
+      message: `${customerData.customerName} has paid for ${providerData.serviceName} scheduled on ${startLabel}.`,
+      data: providerData,
+    },
+  ].filter(Boolean);
+
+  return batchSendNotifications(payloads);
+};
+//----------------------------------------------------------
 const buildNotificationData = (appointment, role) => {
   const appointmentId = appointment && appointment._id ? safeToString(appointment._id) : null;
   const serviceName =
@@ -231,4 +262,5 @@ module.exports = {
   sendAppointmentCancellationNotifications,
   sendAppointmentCompletedNotifications,
   sendAppointmentNoShowNotifications,
+  sendPaymentSuccessNotifications,
 };
