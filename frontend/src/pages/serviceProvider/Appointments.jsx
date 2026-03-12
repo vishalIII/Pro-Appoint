@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../auth/useAuth";
 import StatusPill from "./components/StatusPill";
-import { fetchTenantAppointments, runAppointmentAction } from "./api/providerApi";
+import {
+  fetchJoinCredentials,
+  fetchTenantAppointments,
+  runAppointmentAction,
+  endMeeting,
+} from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getDateTimeLabel } from "./utils/dateRange";
 import RefreshButton from "../../components/RefreshButton"
@@ -39,6 +44,29 @@ const getServiceName = (appointment) => {
   return raw ? `Service #${String(raw).slice(-6)}` : "Unknown";
 };
 
+const getAttendeeCount = (appointment) => {
+  if (Array.isArray(appointment?.attendees)) {
+    return appointment.attendees.length;
+  }
+  return appointment?.attendeeId ? 1 : 0;
+};
+
+const getCapacity = (appointment) => {
+  return (
+    appointment?.capacitySnapshot ||
+    appointment?.serviceId?.onlineCapacity ||
+    appointment?.serviceId?.capacity ||
+    1
+  );
+};
+
+const meetingStatusLabel = (status) => {
+  if (!status) return "Waiting";
+  if (status === "live") return "Live";
+  if (status === "ended") return "Ended";
+  return "Waiting";
+};
+
 export default function ProviderAppointmentsPage() {
   const { token } = useAuth();
   const { selectedShopId, effectiveRange } = useProviderWorkspace();
@@ -47,6 +75,9 @@ export default function ProviderAppointmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [runningActionId, setRunningActionId] = useState("");
+  const [joiningId, setJoiningId] = useState("");
+  const [joinInfo, setJoinInfo] = useState(null);
+  const [expandedAttendees, setExpandedAttendees] = useState({});
 
   const loadAppointments = useCallback(async () => {
     if (!token) return;
@@ -104,6 +135,52 @@ export default function ProviderAppointmentsPage() {
     }
   };
 
+  const handleJoinMeeting = async (appointment) => {
+    if (!token) return;
+    setJoiningId(appointment._id);
+    setError("");
+    try {
+      const payload = await fetchJoinCredentials({
+        token,
+        appointmentId: appointment._id,
+      });
+      setJoinInfo({
+        appointmentId: appointment._id,
+        roomId: payload.roomId,
+        token: payload.token,
+        appId: payload.appID || payload.appId,
+        role: payload.role,
+        meetingStatus: payload.meetingStatus,
+        expireAt: payload.expireAt,
+      });
+    } catch (joinError) {
+      setError(joinError.message || "Failed to join meeting");
+    } finally {
+      setJoiningId("");
+    }
+  };
+
+  const handleEndMeeting = async (appointmentId) => {
+    if (!token) return;
+    setJoiningId(appointmentId);
+    setError("");
+    try {
+      await endMeeting({ token, appointmentId });
+      await loadAppointments();
+    } catch (endError) {
+      setError(endError.message || "Failed to end meeting");
+    } finally {
+      setJoiningId("");
+    }
+  };
+
+  const toggleAttendees = (appointmentId) => {
+    setExpandedAttendees((prev) => ({
+      ...prev,
+      [appointmentId]: !prev[appointmentId],
+    }));
+  };
+
   return (
     <section className="provider-page">
       <article className="card">
@@ -141,6 +218,8 @@ export default function ProviderAppointmentsPage() {
                   <th>Customer</th>
                   <th>Service</th>
                   <th>Start</th>
+                  <th>Attendees</th>
+                  <th>Meeting</th>
                   <th>Status</th>
                   <th>Payment</th>
                   <th>Actions</th>
@@ -148,81 +227,159 @@ export default function ProviderAppointmentsPage() {
               </thead>
               <tbody>
                 {appointments.map((appointment) => {
-
                   const actions = ACTIONS_BY_STATUS[appointment.status] || [];
+                  const attendeeCount = getAttendeeCount(appointment);
+                  const capacity = getCapacity(appointment);
+                  const meetingStatus =
+                    appointment.mode === "online"
+                      ? meetingStatusLabel(appointment.meeting?.status)
+                      : "Offline";
+                  const isOnlineConfirmed =
+                    appointment.mode === "online" &&
+                    appointment.status === "confirmed";
                   return (
-                    <tr key={appointment._id}>
-                      <td>{getCustomerName(appointment)}</td>
-                      <td>{getServiceName(appointment)}</td>
-                      <td>{getDateTimeLabel(appointment.startTimeUTC)}</td>
-
-
-
-                      {/* <StatusPill value={appointment.status} /> */}
-
-                      {/* <td>
-                        <div
-                          title={appointment?.cancellation?.reason || ""}
-                          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    <React.Fragment key={appointment._id}>
+                      <tr>
+                        <td>{getCustomerName(appointment)}</td>
+                        <td>{getServiceName(appointment)}</td>
+                        <td>{getDateTimeLabel(appointment.startTimeUTC)}</td>
+                        <td>
+                          {attendeeCount}/{capacity}
+                          {appointment.isGroup ? (
+                            <span className="badge badge-info" style={{ marginLeft: 6 }}>
+                              Group
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>
+                          {appointment.mode === "online" ? (
+                            <div className="meeting-cell">
+                              <StatusPill value={meetingStatus.toLowerCase()} />
+                              <div className="muted-text">
+                                {meetingStatus}
+                                {appointment.meeting?.startedAt
+                                  ? ` · since ${getDateTimeLabel(appointment.meeting.startedAt)}`
+                                  : ""}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="muted-text">Offline</span>
+                          )}
+                        </td>
+                        <td
+                          title={
+                            appointment?.status === "cancelled"
+                              ? appointment?.cancellation?.reason
+                              : ""
+                          }
                         >
                           <StatusPill value={appointment.status} />
+                        </td>
 
-                          {appointment?.cancellation?.reason?.includes("Auto-cancelled") && (
-                            <span className="badge badge-warning">Auto</span>
-                          )}
-                        </div>
-                      </td> */}
-
-                      <td title={appointment?.status === "cancelled" ? appointment?.cancellation?.reason : ""}>
-                        <StatusPill value={appointment.status} />
-                      </td>
-
-
-
-                      <td>
-                        <StatusPill value={appointment.paymentStatus} />
-                      </td>
-                      <td>
-                        <div className="provider-action-row">
-                          {actions.length === 0 ? (
-                            <span className="muted-text">No actions</span>
-                          ) : (
-                            actions.map((action) => {
-                              // Disable if:
-                              // 1. Another action is running
-                              // 2. The current action is running
-                              // 3. Action is no longer valid for status
-                              // 4. Special case: mark-paid already done
-                              const isPaid = appointment.paymentStatus === "paid";
-                              const isInvalidAction =
-                                (appointment.status === "completed" && action === "complete") ||
-                                (appointment.status === "cancelled" && action === "cancel") ||
-                                (appointment.status === "no_show" && action === "no-show") ||
-                                (action === "mark-paid" && isPaid);
-
-                              const isRunning = runningActionId === `${appointment._id}:${action}`;
-
-                              return (
+                        <td>
+                          <StatusPill value={appointment.paymentStatus} />
+                        </td>
+                        <td>
+                          <div className="provider-action-row" style={{ gap: "6px", flexWrap: "wrap" }}>
+                            {isOnlineConfirmed ? (
+                              <>
                                 <button
-                                  key={action}
                                   type="button"
                                   className="btn btn-small"
-                                  onClick={() => onAction(appointment._id, action)}
-                                  disabled={isInvalidAction || isRunning || Boolean(runningActionId)}
-                                  title={isInvalidAction ? "Action not allowed for current status" : ""}
+                                  onClick={() => handleJoinMeeting(appointment)}
+                                  disabled={joiningId === appointment._id}
                                 >
-                                  {isRunning ? "..." : actionLabel(action)}
+                                  {joiningId === appointment._id ? "Joining..." : "Start / Join"}
                                 </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  onClick={() => toggleAttendees(appointment._id)}
+                                >
+                                  View Attendees
+                                </button>
+                                {appointment.meeting?.status === "live" ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-small btn-danger"
+                                    onClick={() => handleEndMeeting(appointment._id)}
+                                    disabled={joiningId === appointment._id}
+                                  >
+                                    End Meeting
+                                  </button>
+                                ) : null}
+                              </>
+                            ) : null}
+
+                            {actions.length === 0 ? (
+                              <span className="muted-text">No actions</span>
+                            ) : (
+                              actions.map((action) => {
+                                const isPaid = appointment.paymentStatus === "paid";
+                                const isInvalidAction =
+                                  (appointment.status === "completed" && action === "complete") ||
+                                  (appointment.status === "cancelled" && action === "cancel") ||
+                                  (appointment.status === "no_show" && action === "no-show") ||
+                                  (action === "mark-paid" && isPaid);
+
+                                const isRunning = runningActionId === `${appointment._id}:${action}`;
+
+                                return (
+                                  <button
+                                    key={action}
+                                    type="button"
+                                    className="btn btn-small"
+                                    onClick={() => onAction(appointment._id, action)}
+                                    disabled={
+                                      isInvalidAction ||
+                                      isRunning ||
+                                      Boolean(runningActionId) ||
+                                      joiningId === appointment._id
+                                    }
+                                    title={isInvalidAction ? "Action not allowed for current status" : ""}
+                                  >
+                                    {isRunning ? "..." : actionLabel(action)}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedAttendees[appointment._id] ? (
+                        <tr>
+                          <td colSpan={8}>
+                            <strong>Attendees:</strong>{" "}
+                            {Array.isArray(appointment.attendees) && appointment.attendees.length > 0 ? (
+                              appointment.attendees.map((a) => (
+                                <span key={a.userId?._id || a.userId} style={{ marginRight: 12 }}>
+                                  {a.userId?.name || a.userId?.email || `User #${String(a.userId).slice(-6)}`}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="muted-text">No attendees yet</span>
+                            )}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+        ) : null}
+
+        {joinInfo ? (
+          <div className="muted-panel" style={{ marginTop: 16 }}>
+            <p>
+              <strong>Join details ready for appointment #{joinInfo.appointmentId?.slice(-6)}:</strong>
+            </p>
+            <p>Room ID: <code>{joinInfo.roomId}</code></p>
+            <p>Role: {joinInfo.role || "attendee"} | App ID: {joinInfo.appId}</p>
+            <p className="muted-text">
+              Token (keep private): <code style={{ wordBreak: "break-all" }}>{joinInfo.token}</code>
+            </p>
           </div>
         ) : null}
       </article>

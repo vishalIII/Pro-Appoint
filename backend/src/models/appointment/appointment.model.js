@@ -35,6 +35,38 @@ const appointmentSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Additional attendees for group / class style appointments (online only)
+    attendees: [
+      {
+        _id: false,
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "user",
+          index: true,
+        },
+        paymentStatus: {
+          type: String,
+          enum: ["unpaid", "pending", "paid"],
+          default: "unpaid",
+        },
+        joinedAt: Date,
+        leftAt: Date,
+      },
+    ],
+
+    // Flags a shared-slot booking (e.g. online class)
+    isGroup: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    // Capacity captured from service at booking time to prevent drift
+    capacitySnapshot: {
+      type: Number,
+      min: 1,
+    },
+
     shopId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "shop",
@@ -196,6 +228,13 @@ const appointmentSchema = new mongoose.Schema(
         ref: "user",
       },
 
+      status: {
+        type: String,
+        enum: ["waiting", "live", "ended"],
+      },
+
+      createdAt: Date,
+
       participants: [
         {
           userId: {
@@ -207,6 +246,16 @@ const appointmentSchema = new mongoose.Schema(
             enum: ["host", "guest", "observer"],
             default: "guest",
           },
+          joinEvents: [
+            {
+              _id: false,
+              at: Date,
+              action: {
+                type: String,
+                enum: ["join", "leave"],
+              },
+            },
+          ],
         },
       ],
 
@@ -267,9 +316,7 @@ appointmentSchema.pre("validate", function () {
 
   // Online validation
   if (this.mode === "online") {
-    if (!this.meeting || !this.meeting.link) {
-      throw new Error("Meeting link is required for online appointments");
-    }
+    // Meeting is created when appointment is confirmed; no validation needed at creation time
   }
 
   // Offline validation
@@ -346,6 +393,36 @@ appointmentSchema.index({
   endTimeUTC: 1,
   status: 1,
 });
+
+appointmentSchema.index({
+  "attendees.userId": 1,
+  status: 1,
+  startTimeUTC: 1,
+  endTimeUTC: 1,
+  expiresAt: 1,
+});
+
+appointmentSchema.index({
+  serviceId: 1,
+  startTimeUTC: 1,
+  endTimeUTC: 1,
+  mode: 1,
+  isGroup: 1,
+});
+
+appointmentSchema.index(
+  {
+    serviceId: 1,
+    startTimeUTC: 1,
+    endTimeUTC: 1,
+    mode: 1,
+    isGroup: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: { isGroup: true },
+  },
+);
 
 // Auto expiry queries
 appointmentSchema.index({ expiresAt: 1 });

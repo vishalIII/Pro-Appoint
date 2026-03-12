@@ -1,9 +1,8 @@
 const Appointment = require("../models/appointment/appointment.model");
 
-console.log("Running lifecycle job at", new Date());
-
 const DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS = 60;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
+const DEFAULT_ONLINE_END_BUFFER_MINUTES = 30;
 
 const readPositiveIntFromEnv = (key, fallback) => {
   const raw = process.env[key];
@@ -23,12 +22,17 @@ const readPositiveIntFromEnv = (key, fallback) => {
 
 const AUTO_CANCEL_INTERVAL_SECONDS = readPositiveIntFromEnv(
   "AUTO_CANCEL_PENDING_APPOINTMENTS_INTERVAL_SECONDS",
-  DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS
+  DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS,
 );
 
 const NO_SHOW_GRACE_MINUTES = readPositiveIntFromEnv(
   "NO_SHOW_GRACE_MINUTES",
-  DEFAULT_NO_SHOW_GRACE_MINUTES
+  DEFAULT_NO_SHOW_GRACE_MINUTES,
+);
+
+const ONLINE_END_BUFFER_MINUTES = readPositiveIntFromEnv(
+  "ONLINE_JOIN_BUFFER_AFTER_END_MINUTES",
+  DEFAULT_ONLINE_END_BUFFER_MINUTES,
 );
 
 let autoCancelTimer = null;
@@ -50,25 +54,24 @@ const autoCancelPendingAppointmentsPastStart = async () => {
         "cancellation.reason":
           "Auto-cancelled because appointment start time passed while still pending",
       },
-    }
+    },
   );
 
   if (result.modifiedCount > 0) {
     console.log(
-      `[AppointmentLifecycleJob] Auto-cancelled ${result.modifiedCount} pending appointments`
+      `[AppointmentLifecycleJob] Auto-cancelled ${result.modifiedCount} pending appointments`,
     );
   }
 };
 
-const autoMarkNoShowAppointments = async () => {
+// Offline: mark no-show shortly after start if still confirmed
+const autoMarkOfflineNoShow = async () => {
   const now = new Date();
-
-  const cutoff = new Date(
-    now.getTime() - NO_SHOW_GRACE_MINUTES * 60 * 1000
-  );
+  const cutoff = new Date(now.getTime() - NO_SHOW_GRACE_MINUTES * 60 * 1000);
 
   const result = await Appointment.updateMany(
     {
+      mode: "offline",
       status: "confirmed",
       startTimeUTC: { $lte: cutoff },
     },
@@ -78,12 +81,79 @@ const autoMarkNoShowAppointments = async () => {
         noShowMarkedAt: now,
         noShowMarkedBySystem: true,
       },
-    }
+    },
   );
 
   if (result.modifiedCount > 0) {
     console.log(
-      `[AppointmentLifecycleJob] Auto-marked ${result.modifiedCount} appointments as no_show`
+      `[AppointmentLifecycleJob] Auto-marked ${result.modifiedCount} offline appointments as no_show`,
+    );
+  }
+};
+
+// Online: meeting never started and join window expired -> no_show
+const autoMarkOnlineNoShow = async () => {
+  const now = new Date();
+  const cutoff = new Date(
+    now.getTime() - ONLINE_END_BUFFER_MINUTES * 60 * 1000,
+  );
+
+  const result = await Appointment.updateMany(
+    {
+      mode: "online",
+      status: "confirmed",
+      endTimeUTC: { $lte: cutoff },
+      $or: [{ "meeting.startedAt": { $exists: false } }, { "meeting.startedAt": null }],
+    },
+    {
+      $set: {
+        status: "no_show",
+        noShowMarkedAt: now,
+        noShowMarkedBySystem: true,
+        "meeting.status": "ended",
+        "meeting.endedAt": now,
+      },
+    },
+  );
+
+  if (result.modifiedCount > 0) {
+    console.log(
+      `[AppointmentLifecycleJob] Auto-marked ${result.modifiedCount} online appointments as no_show`,
+    );
+  }
+};
+
+// Online: meeting started but not closed after buffer -> complete & end
+const autoCompleteOnlineMeetings = async () => {
+  const now = new Date();
+  const cutoff = new Date(
+    now.getTime() - ONLINE_END_BUFFER_MINUTES * 60 * 1000,
+  );
+
+  const result = await Appointment.updateMany(
+    {
+      mode: "online",
+      status: "confirmed",
+      endTimeUTC: { $lte: cutoff },
+      "meeting.startedAt": { $exists: true, $ne: null },
+      $or: [
+        { "meeting.endedAt": { $exists: false } },
+        { "meeting.endedAt": null },
+      ],
+    },
+    {
+      $set: {
+        status: "completed",
+        completedAt: now,
+        "meeting.status": "ended",
+        "meeting.endedAt": now,
+      },
+    },
+  );
+
+  if (result.modifiedCount > 0) {
+    console.log(
+      `[AppointmentLifecycleJob] Auto-completed ${result.modifiedCount} online meetings`,
     );
   }
 };
@@ -97,14 +167,28 @@ const startAppointmentLifecycleJob = () => {
   autoCancelPendingAppointmentsPastStart().catch((error) => {
     console.error(
       "[AppointmentLifecycleJob] Initial pending auto-cancel run failed:",
-      error.message
+      error.message,
     );
   });
 
-  autoMarkNoShowAppointments().catch((error) => {
+  autoMarkOfflineNoShow().catch((error) => {
     console.error(
-      "[AppointmentLifecycleJob] Initial no-show run failed:",
-      error.message
+      "[AppointmentLifecycleJob] Initial offline no-show run failed:",
+      error.message,
+    );
+  });
+
+  autoMarkOnlineNoShow().catch((error) => {
+    console.error(
+      "[AppointmentLifecycleJob] Initial online no-show run failed:",
+      error.message,
+    );
+  });
+
+  autoCompleteOnlineMeetings().catch((error) => {
+    console.error(
+      "[AppointmentLifecycleJob] Initial online completion run failed:",
+      error.message,
     );
   });
 
@@ -112,14 +196,28 @@ const startAppointmentLifecycleJob = () => {
     autoCancelPendingAppointmentsPastStart().catch((error) => {
       console.error(
         "[AppointmentLifecycleJob] Pending auto-cancel run failed:",
-        error.message
+        error.message,
       );
     });
 
-    autoMarkNoShowAppointments().catch((error) => {
+    autoMarkOfflineNoShow().catch((error) => {
       console.error(
-        "[AppointmentLifecycleJob] No-show auto-mark run failed:",
-        error.message
+        "[AppointmentLifecycleJob] Offline no-show run failed:",
+        error.message,
+      );
+    });
+
+    autoMarkOnlineNoShow().catch((error) => {
+      console.error(
+        "[AppointmentLifecycleJob] Online no-show run failed:",
+        error.message,
+      );
+    });
+
+    autoCompleteOnlineMeetings().catch((error) => {
+      console.error(
+        "[AppointmentLifecycleJob] Online completion run failed:",
+        error.message,
       );
     });
   }, AUTO_CANCEL_INTERVAL_SECONDS * 1000);
@@ -129,12 +227,14 @@ const startAppointmentLifecycleJob = () => {
   }
 
   console.log(
-    `[AppointmentLifecycleJob] Started. Interval: ${AUTO_CANCEL_INTERVAL_SECONDS}s`
+    `[AppointmentLifecycleJob] Started. Interval: ${AUTO_CANCEL_INTERVAL_SECONDS}s`,
   );
 };
 
 module.exports = {
   startAppointmentLifecycleJob,
   autoCancelPendingAppointmentsPastStart,
-  autoMarkNoShowAppointments,
+  autoMarkOfflineNoShow,
+  autoMarkOnlineNoShow,
+  autoCompleteOnlineMeetings,
 };

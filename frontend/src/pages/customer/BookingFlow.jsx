@@ -493,11 +493,6 @@ return () => {
       return;
     }
 
-    if (form.mode === "online" && !form.meetingLink.trim()) {
-      setSubmitError("Meeting link is required for online appointments.");
-      return;
-    }
-
     const now = new Date();
     if (startDate < now) {
       showPopupError("Please select current or future date and time.");

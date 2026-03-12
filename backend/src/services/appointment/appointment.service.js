@@ -138,6 +138,17 @@ const parseTimeOnDateUTC = (date, timeText) => {
   );
 };
 
+const getOnlineCapacity = (service) => {
+  if (!service) return 1;
+  if (service.onlineCapacity && Number.isFinite(service.onlineCapacity)) {
+    return service.onlineCapacity;
+  }
+  if (service.capacity && Number.isFinite(service.capacity)) {
+    return service.capacity;
+  }
+  return 1;
+};
+
 const getDayNameUTC = (date) => {
   const dayNames = [
     "sunday",
@@ -637,7 +648,7 @@ const findAttendeeOverlappingAppointments = async ({
   }
 
   const query = {
-    attendeeId,
+    $or: [{ attendeeId }, { "attendees.userId": attendeeId }],
     startTimeUTC: { $lt: endTimeUTC },
     endTimeUTC: { $gt: startTimeUTC },
     ...getActiveConflictFilter(now),
@@ -1010,6 +1021,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       paymentMethod,
       paymentGateway,
       metadata,
+      isGroup: requestedGroup,
       shopId: rawShopId,
       serviceId: rawServiceId,
     } = payload || {};
@@ -1046,6 +1058,13 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       }
 
       const computedEnd = addMinutes(requestedStart, service.durationMinutes);
+      const slotCapacity = getOnlineCapacity(service);
+      const isGroupBooking =
+        mode === "online" &&
+        slotCapacity > 1 &&
+        (service.allowGroupOnline !== false) &&
+        requestedGroup !== false;
+      const capacitySnapshot = slotCapacity || 1;
 
       const availabilityError = getBookingAvailabilityError({
         shop,
@@ -1098,6 +1117,51 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         throw new AppError("Time slot already booked.", 409);
       }
 
+      if (isGroupBooking) {
+        const existingGroup = await Appointment.findOne({
+          tenantId: shop.tenantId,
+          serviceId: service._id,
+          startTimeUTC: requestedStart,
+          endTimeUTC: computedEnd,
+          mode: "online",
+          isGroup: true,
+          status: { $in: ["pending", "confirmed"] },
+        })
+          .session(session)
+          .exec();
+
+        if (existingGroup) {
+          const cap = existingGroup.capacitySnapshot || capacitySnapshot;
+          const currentCount = Array.isArray(existingGroup.attendees)
+            ? existingGroup.attendees.length
+            : 0;
+
+          const alreadyBooked =
+            (existingGroup.attendeeId &&
+              String(existingGroup.attendeeId) === String(finalAttendeeId)) ||
+            existingGroup.attendees?.some(
+              (a) => String(a.userId) === String(finalAttendeeId),
+            );
+
+          if (alreadyBooked) {
+            throw new AppError("You have already booked this class", 409);
+          }
+
+          if (currentCount >= cap) {
+            throw new AppError("Class capacity reached", 409);
+          }
+
+          existingGroup.attendees = [
+            ...(existingGroup.attendees || []),
+            { userId: finalAttendeeId, paymentStatus: "pending" },
+          ];
+
+          await existingGroup.save({ session });
+          createdAppointment = existingGroup;
+          return;
+        }
+      }
+
       const resourceMap = await loadRequiredResourceDetails({
         shopId: shop._id,
         requiredResources,
@@ -1128,13 +1192,19 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
           {
             tenantId: shop.tenantId,
             attendeeId: finalAttendeeId,
+            attendees:
+              mode === "online"
+                ? [{ userId: finalAttendeeId, paymentStatus: "pending" }]
+                : [],
+            isGroup: Boolean(isGroupBooking),
+            capacitySnapshot: capacitySnapshot || 1,
             shopId: shop._id,
             serviceId: service._id,
             allocatedResources: allocation.selectedAllocations,
             startTimeUTC: requestedStart,
             endTimeUTC: computedEnd,
             mode,
-            meeting,
+            meeting: mode === "online" ? undefined : meeting,
             location: finalLocation,
             price: service.price ?? 0,
             currency: currency || "INR",
@@ -1287,6 +1357,31 @@ exports.confirmAppointmentPayment = async ({
       appointment.paidAt = now;
       appointment.expiresAt = undefined;
 
+      if (
+        appointment.mode === "online" &&
+        (!appointment.meeting || !appointment.meeting.roomId)
+      ) {
+        appointment.meeting = {
+          platform: "zegocloud",
+          roomId: generateRoomId(
+            appointment._id,
+            appointment.startTimeUTC,
+          ),
+          hostUserId: appointment.tenantId,
+          status: "waiting",
+          createdAt: now,
+          participants: [
+            { userId: appointment.tenantId, role: "host" },
+            ...(Array.isArray(appointment.attendees) && appointment.attendees.length
+              ? appointment.attendees.map((a) => ({
+                  userId: a.userId,
+                  role: "guest",
+                }))
+              : [{ userId: appointment.attendeeId, role: "guest" }]),
+          ],
+        };
+      }
+
       if (paymentReference) appointment.paymentReference = paymentReference;
       if (paymentGateway) appointment.paymentGateway = paymentGateway;
       if (paymentMethod) appointment.paymentMethod = paymentMethod;
@@ -1376,7 +1471,9 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
   try {
     const query = {};
     if (tenantId) query.tenantId = tenantId;
-    if (attendeeId) query.attendeeId = attendeeId;
+    if (attendeeId) {
+      query.$or = [{ attendeeId }, { "attendees.userId": attendeeId }];
+    }
 
     if (filters) {
       if (filters.status) query.status = filters.status;
@@ -1390,6 +1487,7 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
     return await Appointment.find(query)
       .sort({ startTimeUTC: 1 })
       .populate("attendeeId", "name email")
+      .populate("attendees.userId", "name email")
       .populate("serviceId", "name")
       .populate("shopId", "shopName")
       .populate("allocatedResources.resourceId", "name type");
@@ -1412,6 +1510,7 @@ exports.getAppointmentById = async ({ appointmentId, tenantId }) => {
 
     const appointment = await Appointment.findOne(q)
       .populate("attendeeId", "name email")
+      .populate("attendees.userId", "name email")
       .populate("serviceId", "name")
       .populate("shopId", "shopName")
       .populate("allocatedResources.resourceId", "name type");
@@ -1612,11 +1711,21 @@ exports.updateAppointment = async ({
     ) {
       updates.meeting = {
         platform: "zegocloud",
-        roomId: generateRoomId(appointment._id),
+        roomId: generateRoomId(
+          appointment._id,
+          updates.startTimeUTC || appointment.startTimeUTC,
+        ),
         hostUserId: appointment.tenantId,
+        status: "waiting",
+        createdAt: new Date(),
         participants: [
           { userId: appointment.tenantId, role: "host" },
-          { userId: appointment.attendeeId, role: "guest" },
+          ...(Array.isArray(appointment.attendees) && appointment.attendees.length
+            ? appointment.attendees.map((a) => ({
+                userId: a.userId,
+                role: "guest",
+              }))
+            : [{ userId: appointment.attendeeId, role: "guest" }]),
         ],
       };
     }

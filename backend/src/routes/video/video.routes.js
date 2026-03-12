@@ -15,4 +15,11 @@ router.get(
   videoController.joinMeeting
 );
 
+router.post(
+  "/end/:appointmentId",
+  auth,
+  meetingAccess,
+  videoController.endMeeting
+);
+
 module.exports = router;

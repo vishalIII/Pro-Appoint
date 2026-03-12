@@ -28,6 +28,17 @@ const serviceSchema = new mongoose.Schema(
       min: 1,
       default: 1,
     },
+
+    // Optional override for online classes; falls back to capacity when absent
+    onlineCapacity: {
+      type: Number,
+      min: 1,
+    },
+
+    allowGroupOnline: {
+      type: Boolean,
+      default: true,
+    },
     
     discountPercentage: {
       type: Number,
