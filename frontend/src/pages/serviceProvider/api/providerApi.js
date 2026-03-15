@@ -84,6 +84,19 @@ export const runAppointmentAction = ({
     body,
   });
 
+export const fetchJoinCredentials = ({ token, appointmentId }) =>
+  authRequest({
+    token,
+    path: `/video/join/${appointmentId}`,
+  });
+
+export const endMeeting = ({ token, appointmentId }) =>
+  authRequest({
+    token,
+    path: `/video/end/${appointmentId}`,
+    method: "POST",
+  });
+
 export const fetchRevenueAnalytics = ({ token, shopId, range }) =>
   authRequest({
     token,
@@ -201,4 +214,3 @@ export const deleteShopResource = ({ token, shopId, resourceId }) =>
     path: `/tenant/shops/${shopId}/resources/${resourceId}`,
     method: "DELETE",
   });
-

@@ -17,18 +17,23 @@ exports.confirmAppointment = async (appointmentId, session) => {
   appointment.paymentStatus = "paid";
 
   // CREATE VIDEO MEETING ONLY IF ONLINE
-  if (appointment.mode === "online") {
-
+  if (appointment.mode === "online" && !appointment.meeting?.roomId) {
     appointment.meeting = {
       platform: "zegocloud",
-      roomId: generateRoomId(appointment._id),
+      roomId: generateRoomId(appointment._id, appointment.startTimeUTC),
       hostUserId: appointment.tenantId,
+      status: "waiting",
+      createdAt: new Date(),
       participants: [
         { userId: appointment.tenantId, role: "host" },
-        { userId: appointment.attendeeId, role: "guest" }
-      ]
+        ...(Array.isArray(appointment.attendees) && appointment.attendees.length > 0
+          ? appointment.attendees.map((a) => ({
+              userId: a.userId,
+              role: "guest",
+            }))
+          : [{ userId: appointment.attendeeId, role: "guest" }]),
+      ],
     };
-
   }
 
   await appointment.save({ session });

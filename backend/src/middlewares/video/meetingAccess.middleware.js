@@ -1,4 +1,4 @@
-const Appointment = require("../models/appointment/appointment.model");
+const Appointment = require("../../models/appointment/appointment.model");
 
 async function meetingAccess(req, res, next) {
 
@@ -22,12 +22,17 @@ async function meetingAccess(req, res, next) {
 
   const isParticipant =
     appointment.attendeeId.toString() === userId ||
-    appointment.tenantId.toString() === userId;
+    appointment.tenantId.toString() === userId ||
+    (Array.isArray(appointment.attendees) &&
+      appointment.attendees.some(
+        (a) => a?.userId && a.userId.toString() === userId,
+      ));
 
   if (!isParticipant) {
     return res.status(403).json({ message: "Not allowed to join meeting" });
   }
 
+  req.meetingRole = appointment.tenantId.toString() === userId ? "host" : "attendee";
   req.appointment = appointment;
 
   next();
