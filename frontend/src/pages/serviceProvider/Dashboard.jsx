@@ -415,7 +415,7 @@ export default function ProviderDashboard() {
     return { bookedMinutes, freeMinutes };
   }, [data.todayAppointments]);
 
-  if (!shopsLoading && shops.length === 0) {
+ if (!shopsLoading && (!Array.isArray(shops) || shops.length === 0)) {
     return (
       <section className="provider-dashboard">
         <article className="card">

@@ -22,13 +22,6 @@ const serviceSchema = new mongoose.Schema(
       trim: true,
     },
 
-    capacity: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1,
-    },
-
     // Optional override for online classes; falls back to capacity when absent
     onlineCapacity: {
       type: Number,

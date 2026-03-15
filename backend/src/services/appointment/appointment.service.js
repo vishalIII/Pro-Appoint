@@ -9,7 +9,16 @@ const {
   sendPaymentSuccessNotifications,
 } = require("../../utils/appointmentNotifications");
 
-const BLOCKING_STATUSES = ["pending", "confirmed"];
+// const BLOCKING_STATUSES = ["confirmed"];
+const allowedTransitions = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["completed", "cancelled", "cancelled_late", "no_show"],
+  completed: [],
+  cancelled: [],
+  cancelled_late: [],
+  rejected: [],
+  no_show: [],
+};
 const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_LATE_CANCELLATION_WINDOW_HOURS = 2;
@@ -431,13 +440,8 @@ const normalizeRequiredResources = (requiredResources) => {
   }));
 };
 
-const getActiveConflictFilter = (now) => ({
-  status: { $in: BLOCKING_STATUSES },
-  $or: [
-    { status: "confirmed" },
-    { status: "pending", expiresAt: { $gt: now } },
-    { status: "pending", expiresAt: { $exists: false } },
-  ],
+const getActiveConflictFilter = () => ({
+  status: "confirmed",
 });
 
 const getRequiredResourceIds = (requiredResources) => [
@@ -535,69 +539,20 @@ const normalizeResourceUnits = (units) => {
   return Math.floor(parsed);
 };
 
-const parseAllocatedResourceEntries = (allocatedResources) => {
-  if (!Array.isArray(allocatedResources)) {
-    return [];
-  }
-
-  const entries = [];
-
-  for (const item of allocatedResources) {
-    if (item === null || item === undefined) {
-      continue;
-    }
-
-    // Backward compatibility: old shape was repeated resource ObjectIds.
-    const isPrimitiveResourceId =
-      typeof item === "string" ||
-      item instanceof mongoose.Types.ObjectId ||
-      item?._bsontype === "ObjectId";
-
-    if (isPrimitiveResourceId) {
-      entries.push({
-        resourceId: String(item),
-        units: 1,
-      });
-      continue;
-    }
-
-    if (typeof item === "object" && item.resourceId) {
-      entries.push({
-        resourceId: String(item.resourceId),
-        units: normalizeResourceUnits(item.units),
-      });
-    }
-  }
-
-  return entries;
-};
-
-const buildResourceUnitUsageMap = (appointments) => {
+// Seats used per resource = seatsTotal stored in appointment snapshot
+const buildResourceUsageMap = (appointments) => {
   const usage = new Map();
 
   for (const appointment of appointments || []) {
-    const allocatedEntries = parseAllocatedResourceEntries(
-      appointment.allocatedResources,
-    );
+    for (const alloc of appointment.allocatedResources || []) {
+      const resourceId = String(alloc.resourceId);
+      const units = normalizeResourceUnits(alloc.unitsRequested);
 
-    for (const allocated of allocatedEntries) {
-      const key = allocated.resourceId;
-      usage.set(key, (usage.get(key) || 0) + allocated.units);
+      usage.set(resourceId, (usage.get(resourceId) || 0) + units);
     }
   }
 
   return usage;
-};
-
-const getAllocatedUnitsByResource = (allocatedResources) => {
-  const counts = new Map();
-
-  for (const entry of parseAllocatedResourceEntries(allocatedResources)) {
-    const key = entry.resourceId;
-    counts.set(key, (counts.get(key) || 0) + entry.units);
-  }
-
-  return counts;
 };
 
 const findBlockingAppointments = async ({
@@ -605,24 +560,28 @@ const findBlockingAppointments = async ({
   resourceIds,
   startTimeUTC,
   endTimeUTC,
+  attendeeId,
   session,
   excludeAppointmentId,
-  now,
 }) => {
-  if (!Array.isArray(resourceIds) || resourceIds.length === 0) {
-    return [];
-  }
+
+  const now = new Date();
 
   const query = {
     shopId,
-    $or: [
-      { "allocatedResources.resourceId": { $in: resourceIds } },
-      // Backward compatibility for legacy array<ObjectId> documents.
-      { allocatedResources: { $in: resourceIds } },
-    ],
+    "allocatedResources.resourceId": { $in: resourceIds },
+
     startTimeUTC: { $lt: endTimeUTC },
     endTimeUTC: { $gt: startTimeUTC },
-    ...getActiveConflictFilter(now),
+
+    $or: [
+      { status: "confirmed" },
+      {
+        status: "pending",
+        attendeeId, // ⭐ only block same user
+        expiresAt: { $gt: now },
+      },
+    ],
   };
 
   if (excludeAppointmentId) {
@@ -641,17 +600,26 @@ const findAttendeeOverlappingAppointments = async ({
   endTimeUTC,
   session,
   excludeAppointmentId,
-  now,
+  now = new Date(),
 }) => {
-  if (!attendeeId) {
-    return [];
-  }
+  if (!attendeeId) return [];
 
   const query = {
-    $or: [{ attendeeId }, { "attendees.userId": attendeeId }],
-    startTimeUTC: { $lt: endTimeUTC },
-    endTimeUTC: { $gt: startTimeUTC },
-    ...getActiveConflictFilter(now),
+    $and: [
+      {
+        startTimeUTC: { $lt: endTimeUTC },
+        endTimeUTC: { $gt: startTimeUTC },
+      },
+      {
+        $or: [{ attendeeId }, { "attendees.userId": attendeeId }],
+      },
+      {
+        $or: [
+          { status: "confirmed" },
+          { status: "pending", expiresAt: { $gt: now } },
+        ],
+      },
+    ],
   };
 
   if (excludeAppointmentId) {
@@ -659,7 +627,7 @@ const findAttendeeOverlappingAppointments = async ({
   }
 
   return Appointment.find(query)
-    .select("_id serviceId startTimeUTC endTimeUTC status expiresAt")
+    .select("_id startTimeUTC endTimeUTC status")
     .session(session)
     .lean();
 };
@@ -670,60 +638,53 @@ const getFreeResourcesForWindow = async ({
   resourceMap,
   startTimeUTC,
   endTimeUTC,
+  attendeeId,
   session,
   now,
   excludeAppointmentId,
 }) => {
   const resourceIds = getRequiredResourceIds(requiredResources);
+
   const conflicts = await findBlockingAppointments({
     shopId,
     resourceIds,
     startTimeUTC,
     endTimeUTC,
+    attendeeId, // pass it here
     session,
     excludeAppointmentId,
     now,
   });
 
-  const usedUnitsByResource = buildResourceUnitUsageMap(conflicts);
-  const selectedAllocations = [];
-  const freeCountsByResource = {};
+  const usedUnitsByResource = buildResourceUsageMap(conflicts);
 
-  for (const required of requiredResources) {
-    const resourceId = String(required.resourceId);
+  const selectedAllocations = [];
+
+  for (const req of requiredResources) {
+    const resourceId = String(req.resourceId);
     const resource = resourceMap.get(resourceId);
 
     if (!resource) {
-      return {
-        isAvailable: false,
-        freeCountsByResource,
-        selectedAllocations: [],
-      };
+      return { isAvailable: false, selectedAllocations: [] };
     }
 
     const capacity = normalizeResourceCapacity(resource);
     const usedUnits = usedUnitsByResource.get(resourceId) || 0;
-    const availableUnits = Math.max(0, capacity - usedUnits);
 
-    freeCountsByResource[resourceId] = availableUnits;
+    const freeUnits = capacity - usedUnits;
 
-    if (availableUnits < required.quantity) {
-      return {
-        isAvailable: false,
-        freeCountsByResource,
-        selectedAllocations: [],
-      };
+    if (freeUnits < req.quantity) {
+      return { isAvailable: false, selectedAllocations: [] };
     }
 
     selectedAllocations.push({
       resourceId: resource._id,
-      units: required.quantity,
+      unitsRequested: req.quantity,
     });
   }
 
   return {
     isAvailable: true,
-    freeCountsByResource,
     selectedAllocations,
   };
 };
@@ -737,10 +698,7 @@ const hasCapacityConflictForAllocatedResources = async ({
   session,
   now,
 }) => {
-  const requiredUnitsByResource =
-    getAllocatedUnitsByResource(allocatedResources);
-  const resourceIds = [...requiredUnitsByResource.keys()];
-  if (resourceIds.length === 0) return true;
+  const resourceIds = allocatedResources.map((r) => String(r.resourceId));
 
   const resources = await Resource.find({
     _id: { $in: resourceIds },
@@ -750,18 +708,9 @@ const hasCapacityConflictForAllocatedResources = async ({
     .session(session)
     .lean();
 
-  const capacityByResource = new Map(
-    resources.map((resource) => [
-      String(resource._id),
-      normalizeResourceCapacity(resource),
-    ]),
+  const capacityMap = new Map(
+    resources.map((r) => [String(r._id), normalizeResourceCapacity(r)]),
   );
-
-  for (const resourceId of resourceIds) {
-    if (!capacityByResource.has(resourceId)) {
-      return true;
-    }
-  }
 
   const conflicts = await findBlockingAppointments({
     shopId,
@@ -769,14 +718,18 @@ const hasCapacityConflictForAllocatedResources = async ({
     startTimeUTC,
     endTimeUTC,
     excludeAppointmentId,
-    session,
+    session, 
+     attendeeId,   // ⭐ FIX
     now,
   });
 
-  const usedUnitsByResource = buildResourceUnitUsageMap(conflicts);
+  const usedUnitsByResource = buildResourceUsageMap(conflicts);
 
-  for (const [resourceId, requiredUnits] of requiredUnitsByResource.entries()) {
-    const capacity = capacityByResource.get(resourceId) || 0;
+  for (const alloc of allocatedResources) {
+    const resourceId = String(alloc.resourceId);
+    const requiredUnits = normalizeResourceUnits(alloc.unitsRequested);
+
+    const capacity = capacityMap.get(resourceId) || 1;
     const usedUnits = usedUnitsByResource.get(resourceId) || 0;
 
     if (usedUnits + requiredUnits > capacity) {
@@ -791,6 +744,7 @@ exports.getAvailableSlots = async ({
   shopId: rawShopId,
   serviceId: rawServiceId,
   date,
+  attendeeId,
   slotIntervalMinutes,
 }) => {
   try {
@@ -919,7 +873,8 @@ exports.getAvailableSlots = async ({
       }
 
       const totalCapacity = normalizeResourceCapacity(resource);
-      if (totalCapacity < required.quantity) {
+
+      if (totalCapacity < 1) {
         return {
           date,
           durationMinutes: service.durationMinutes,
@@ -939,7 +894,7 @@ exports.getAvailableSlots = async ({
       shopId: shop._id,
       resourceIds,
       startTimeUTC: earliest,
-      endTimeUTC: latest,
+      endTimeUTC: latest,  attendeeId,   // ⭐ FIX
       now,
     });
 
@@ -959,11 +914,10 @@ exports.getAvailableSlots = async ({
           endB: candidate.endTimeUTC,
         }),
       );
-      const usedUnitsByResource =
-        buildResourceUnitUsageMap(overlappingConflicts);
+
+      const usedUnitsByResource = buildResourceUsageMap(overlappingConflicts);
 
       let canAllocate = true;
-      const freeResourcesById = {};
 
       for (const required of requiredResources) {
         const resourceId = String(required.resourceId);
@@ -975,13 +929,11 @@ exports.getAvailableSlots = async ({
 
         const capacity = normalizeResourceCapacity(resource);
         const usedUnits = usedUnitsByResource.get(resourceId) || 0;
-        const freeUnits = Math.max(0, capacity - usedUnits);
 
-        freeResourcesById[resourceId] = freeUnits;
+        const freeUnits = Math.max(0, capacity - usedUnits);
 
         if (freeUnits < required.quantity) {
           canAllocate = false;
-          break;
         }
       }
 
@@ -989,7 +941,6 @@ exports.getAvailableSlots = async ({
         availableSlots.push({
           startTimeUTC: candidate.startTimeUTC,
           endTimeUTC: candidate.endTimeUTC,
-          freeResourcesById,
         });
       }
     }
@@ -1021,7 +972,6 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       paymentMethod,
       paymentGateway,
       metadata,
-      isGroup: requestedGroup,
       shopId: rawShopId,
       serviceId: rawServiceId,
     } = payload || {};
@@ -1043,6 +993,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
     }
 
     const requestedStart = toDate(startTimeUTC, "startTimeUTC");
+
     let createdAppointment;
 
     await session.withTransaction(async () => {
@@ -1058,13 +1009,6 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       }
 
       const computedEnd = addMinutes(requestedStart, service.durationMinutes);
-      const slotCapacity = getOnlineCapacity(service);
-      const isGroupBooking =
-        mode === "online" &&
-        slotCapacity > 1 &&
-        (service.allowGroupOnline !== false) &&
-        requestedGroup !== false;
-      const capacitySnapshot = slotCapacity || 1;
 
       const availabilityError = getBookingAvailabilityError({
         shop,
@@ -1079,6 +1023,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
 
       if (endTimeUTC) {
         const requestedEnd = toDate(endTimeUTC, "endTimeUTC");
+
         if (requestedEnd.getTime() !== computedEnd.getTime()) {
           throw new AppError(
             "endTimeUTC does not match service durationMinutes",
@@ -1088,6 +1033,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       }
 
       const now = new Date();
+
       if (requestedStart <= now) {
         throw new AppError("Cannot book an appointment in the past", 400);
       }
@@ -1100,66 +1046,8 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         now,
       });
 
-      const hasExactDuplicate = attendeeConflicts.some((conflict) => {
-        return (
-          String(conflict.serviceId) === String(service._id) &&
-          new Date(conflict.startTimeUTC).getTime() ===
-            requestedStart.getTime() &&
-          new Date(conflict.endTimeUTC).getTime() === computedEnd.getTime()
-        );
-      });
-
-      if (hasExactDuplicate) {
-        throw new AppError("Time slot already booked.", 409);
-      }
-
       if (attendeeConflicts.length > 0) {
-        throw new AppError("Time slot already booked.", 409);
-      }
-
-      if (isGroupBooking) {
-        const existingGroup = await Appointment.findOne({
-          tenantId: shop.tenantId,
-          serviceId: service._id,
-          startTimeUTC: requestedStart,
-          endTimeUTC: computedEnd,
-          mode: "online",
-          isGroup: true,
-          status: { $in: ["pending", "confirmed"] },
-        })
-          .session(session)
-          .exec();
-
-        if (existingGroup) {
-          const cap = existingGroup.capacitySnapshot || capacitySnapshot;
-          const currentCount = Array.isArray(existingGroup.attendees)
-            ? existingGroup.attendees.length
-            : 0;
-
-          const alreadyBooked =
-            (existingGroup.attendeeId &&
-              String(existingGroup.attendeeId) === String(finalAttendeeId)) ||
-            existingGroup.attendees?.some(
-              (a) => String(a.userId) === String(finalAttendeeId),
-            );
-
-          if (alreadyBooked) {
-            throw new AppError("You have already booked this class", 409);
-          }
-
-          if (currentCount >= cap) {
-            throw new AppError("Class capacity reached", 409);
-          }
-
-          existingGroup.attendees = [
-            ...(existingGroup.attendees || []),
-            { userId: finalAttendeeId, paymentStatus: "pending" },
-          ];
-
-          await existingGroup.save({ session });
-          createdAppointment = existingGroup;
-          return;
-        }
+        throw new AppError("You already have an appointment at this time", 409);
       }
 
       const resourceMap = await loadRequiredResourceDetails({
@@ -1174,6 +1062,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         resourceMap,
         startTimeUTC: requestedStart,
         endTimeUTC: computedEnd,
+        attendeeId: finalAttendeeId, // add this
         session,
         now,
       });
@@ -1182,7 +1071,24 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         throw new AppError("Time slot already booked.", 409);
       }
 
+      // ⭐ BUILD RESOURCE SNAPSHOT
+      const allocatedResources = allocation.selectedAllocations.map((alloc) => {
+        const resource = resourceMap.get(String(alloc.resourceId));
+
+        // const seatsPerUnit = resource.capacity || 1;
+        const seatsPerUnit = 1;
+        const unitsRequested = alloc.unitsRequested || 1;
+
+        return {
+          resourceId: alloc.resourceId,
+          unitsRequested,
+          seatsPerUnit,
+          seatsTotal: seatsPerUnit * unitsRequested,
+        };
+      });
+
       let finalLocation = location;
+
       if (mode === "offline") {
         finalLocation = { shopId: shop._id };
       }
@@ -1196,15 +1102,15 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
               mode === "online"
                 ? [{ userId: finalAttendeeId, paymentStatus: "pending" }]
                 : [],
-            isGroup: Boolean(isGroupBooking),
-            capacitySnapshot: capacitySnapshot || 1,
+            isGroup: false,
+            capacitySnapshot: 1,
             shopId: shop._id,
             serviceId: service._id,
-            allocatedResources: allocation.selectedAllocations,
+            allocatedResources,
             startTimeUTC: requestedStart,
             endTimeUTC: computedEnd,
             mode,
-            meeting: mode === "online" ? undefined : meeting,
+            meeting: mode === "online" ? meeting : undefined,
             location: finalLocation,
             price: service.price ?? 0,
             currency: currency || "INR",
@@ -1225,6 +1131,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
     return createdAppointment;
   } catch (error) {
     if (error instanceof AppError) throw error;
+
     throw new AppError(error.message || "Failed to create appointment", 500);
   } finally {
     await session.endSession();
@@ -1363,16 +1270,14 @@ exports.confirmAppointmentPayment = async ({
       ) {
         appointment.meeting = {
           platform: "zegocloud",
-          roomId: generateRoomId(
-            appointment._id,
-            appointment.startTimeUTC,
-          ),
+          roomId: generateRoomId(appointment._id, appointment.startTimeUTC),
           hostUserId: appointment.tenantId,
           status: "waiting",
           createdAt: now,
           participants: [
             { userId: appointment.tenantId, role: "host" },
-            ...(Array.isArray(appointment.attendees) && appointment.attendees.length
+            ...(Array.isArray(appointment.attendees) &&
+            appointment.attendees.length
               ? appointment.attendees.map((a) => ({
                   userId: a.userId,
                   role: "guest",
@@ -1626,6 +1531,11 @@ exports.updateAppointment = async ({
         const appointmentEnd = new Date(
           updates.endTimeUTC || appointment.endTimeUTC,
         );
+
+//         if (nextStart <= new Date()) {
+//   throw new AppError("Cannot move appointment to the past", 400);
+// }
+
         const effectivePaymentStatus =
           updates.paymentStatus || appointment.paymentStatus;
 
@@ -1720,7 +1630,8 @@ exports.updateAppointment = async ({
         createdAt: new Date(),
         participants: [
           { userId: appointment.tenantId, role: "host" },
-          ...(Array.isArray(appointment.attendees) && appointment.attendees.length
+          ...(Array.isArray(appointment.attendees) &&
+          appointment.attendees.length
             ? appointment.attendees.map((a) => ({
                 userId: a.userId,
                 role: "guest",

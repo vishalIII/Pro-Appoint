@@ -33,6 +33,7 @@ exports.getAvailableSlots = async (req, res, next) => {
       serviceId: req.params.serviceId,
       date: req.query.date,
       slotIntervalMinutes: req.query.slotIntervalMinutes,
+      attendeeId: req.user?.userId,
     });
 
     return res.status(200).json(slotData);

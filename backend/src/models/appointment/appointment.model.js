@@ -8,9 +8,25 @@ const allocatedResourceSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    units: {
+
+    // Number of resource units allocated for this service
+    unitsRequested: {
       type: Number,
       required: true,
+      min: 1,
+    },
+
+    // Snapshot of seats each unit could serve at booking time
+    seatsPerUnit: {
+      type: Number,
+      // required: true,
+      min: 1,
+    },
+
+    // Cached total seats (unitsRequested × seatsPerUnit)
+    seatsTotal: {
+      type: Number,
+      // required: true,
       min: 1,
     },
   },
@@ -339,6 +355,13 @@ appointmentSchema.pre("validate", function () {
   }
 });
 
+allocatedResourceSchema.pre("validate", function (next) {
+  if (this.unitsRequested && this.seatsPerUnit) {
+    this.seatsTotal = this.unitsRequested * this.seatsPerUnit;
+  }
+  // next();
+});
+
 //======================================== VALID TRANSITIONS
 const allowedTransitions = {
   pending: ["confirmed", "rejected", "cancelled"],
@@ -372,6 +395,10 @@ appointmentSchema.pre("save", async function () {
 });
 
 // For availability & calendar queries
+
+appointmentSchema.index({ status: 1, expiresAt: 1 });
+appointmentSchema.index({ status: 1, startTimeUTC: 1 });
+
 appointmentSchema.index({
   tenantId: 1,
   status: 1,
@@ -388,11 +415,26 @@ appointmentSchema.index({
 });
 
 appointmentSchema.index({
+  shopId: 1,
   "allocatedResources.resourceId": 1,
   startTimeUTC: 1,
   endTimeUTC: 1,
   status: 1,
 });
+
+appointmentSchema.index(
+  {
+    shopId: 1,
+    "allocatedResources.resourceId": 1,
+    startTimeUTC: 1,
+    endTimeUTC: 1,
+  },
+  {
+    partialFilterExpression: {
+      status: { $in: ["confirmed", "pending"] },
+    },
+  },
+);
 
 appointmentSchema.index({
   "attendees.userId": 1,
@@ -401,6 +443,8 @@ appointmentSchema.index({
   endTimeUTC: 1,
   expiresAt: 1,
 });
+
+
 
 appointmentSchema.index({
   serviceId: 1,
@@ -412,6 +456,7 @@ appointmentSchema.index({
 
 appointmentSchema.index(
   {
+    shopId: 1,
     serviceId: 1,
     startTimeUTC: 1,
     endTimeUTC: 1,

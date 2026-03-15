@@ -936,7 +936,7 @@ export default function ProviderServicesPage() {
                 ) : null}
               </label>
 
-              <label className="form-field" htmlFor="service-capacity">
+              {/* <label className="form-field" htmlFor="service-capacity">
                 Capacity
                 <input
                   id="service-capacity"
@@ -946,7 +946,7 @@ export default function ProviderServicesPage() {
                   onChange={(event) => setForm((prev) => ({ ...prev, capacity: event.target.value }))}
                 />
                 {formErrors.capacity ? <span className="error-text">{formErrors.capacity}</span> : null}
-              </label>
+              </label> */}
 
               <label className="form-field" htmlFor="service-discount">
                 Discount Percentage

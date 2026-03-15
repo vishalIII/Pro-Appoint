@@ -103,7 +103,10 @@ const autoMarkOnlineNoShow = async () => {
       mode: "online",
       status: "confirmed",
       endTimeUTC: { $lte: cutoff },
-      $or: [{ "meeting.startedAt": { $exists: false } }, { "meeting.startedAt": null }],
+      $or: [
+        { "meeting.startedAt": { $exists: false } },
+        { "meeting.startedAt": null },
+      ],
     },
     {
       $set: {
@@ -163,6 +166,13 @@ const startAppointmentLifecycleJob = () => {
     return;
   }
 
+  autoCancelExpiredPendingAppointments().catch((error) => {
+    console.error(
+      "[AppointmentLifecycleJob] Initial expired pending cleanup failed:",
+      error.message,
+    );
+  });
+
   // Run once immediately on startup
   autoCancelPendingAppointmentsPastStart().catch((error) => {
     console.error(
@@ -193,6 +203,13 @@ const startAppointmentLifecycleJob = () => {
   });
 
   autoCancelTimer = setInterval(() => {
+    autoCancelExpiredPendingAppointments().catch((error) => {
+      console.error(
+        "[AppointmentLifecycleJob] Expired pending cleanup failed:",
+        error.message,
+      );
+    });
+
     autoCancelPendingAppointmentsPastStart().catch((error) => {
       console.error(
         "[AppointmentLifecycleJob] Pending auto-cancel run failed:",
@@ -231,10 +248,36 @@ const startAppointmentLifecycleJob = () => {
   );
 };
 
+const autoCancelExpiredPendingAppointments = async () => {
+  const now = new Date();
+
+  const result = await Appointment.updateMany(
+    {
+      status: "pending",
+      expiresAt: { $lte: now },
+    },
+    {
+      $set: {
+        status: "cancelled",
+        paymentStatus: "failed",
+        "cancellation.cancelledAt": now,
+        "cancellation.reason": "Auto-cancelled because payment window expired",
+      },
+    },
+  );
+
+  if (result.modifiedCount > 0) {
+    console.log(
+      `[AppointmentLifecycleJob] Auto-cancelled ${result.modifiedCount} expired pending appointments`,
+    );
+  }
+};
+
 module.exports = {
   startAppointmentLifecycleJob,
   autoCancelPendingAppointmentsPastStart,
   autoMarkOfflineNoShow,
   autoMarkOnlineNoShow,
   autoCompleteOnlineMeetings,
+  autoCancelExpiredPendingAppointments,
 };

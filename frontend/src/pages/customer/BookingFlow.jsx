@@ -54,15 +54,9 @@ const parseTimeOnDateUTC = (date, timeText) => {
 
 const getDayNameUTC = (date) => {
   const dayNames = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday"
+    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
   ];
-  return dayNames[date.getDay()];
+  return dayNames[date.getUTCDay()];
 };
 
 const normalizeShopSchedule = (payload) => ({
@@ -281,22 +275,6 @@ const mapServerErrorToPopupMessage = ({ rawMessage, shopSchedule, serviceSchedul
 };
 
 
-const generateSlots = ({ ranges, duration }) => {
-  const slots = [];
-
-  for (const range of ranges) {
-    let cursor = new Date(range.start);
-
-    while (cursor.getTime() + duration * 60000 <= range.end.getTime()) {
-      slots.push(new Date(cursor));
-      cursor = new Date(cursor.getTime() + 30 * 60000); // 30 min interval
-    }
-  }
-
-  return slots;
-};
-
-
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
   const { token } = useAuth();
@@ -325,76 +303,66 @@ export default function BookingFlow() {
   const [serviceDuration, setServiceDuration] = useState(30);
 
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
-const [availableSlots, setAvailableSlots] = useState([]);
-const [selectedSlot, setSelectedSlot] = useState("");
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState("");
 
 
   useEffect(() => {
-  if (!selectedDate || !shopSchedule || !serviceSchedule) return;
+    if (!shopId || !serviceId || !selectedDate) return;
 
-//  const bookingDate = new Date(selectedDate + "T00:00:00");
-const bookingDate = new Date(selectedDate);
+    const controller = new AbortController();
 
-  const shopDayAvailability = getDayAvailability(shopSchedule, bookingDate);
-  const serviceDayAvailability = getDayAvailability(serviceSchedule, bookingDate);
+    const fetchSlots = async () => {
+      setSubmitError("");   // reset previous error
+      setAvailableSlots([]);
+      setSelectedSlot("");
 
-  if (!isDayOpen(shopDayAvailability) || !isDayOpen(serviceDayAvailability)) {
-    setAvailableSlots([]);
-    return;
-  }
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=30`,
+          { signal: controller.signal }
+        );
 
-  const shopRanges = getDayRangesOnDateUTC({
-    bookingDate,
-    dayAvailability: shopDayAvailability
-  });
+        const payload = await parseJsonSafely(response);
 
-  const serviceRanges = getDayRangesOnDateUTC({
-    bookingDate,
-    dayAvailability: serviceDayAvailability
-  });
+        if (!response.ok || !payload) {
+          throw new Error(payload?.message || "Failed to load available slots");
+        }
+        const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
+        const now = new Date();
+        const today = getTodayDate();
 
-  const validRanges = [];
+        const slots = rawSlots
+          .map((slot) => (slot?.startTimeUTC ? new Date(slot.startTimeUTC) : null))
+          .filter(Boolean)
+          .filter((slot) => {
+            if (selectedDate !== today) return true;
 
-for (const shopRange of shopRanges) {
-  for (const serviceRange of serviceRanges) {
+            // compare timestamps safely
+            return slot.getTime() > now.getTime() + 60 * 1000;
+          });
 
-    const start = new Date(
-      Math.max(shopRange.start.getTime(), serviceRange.start.getTime())
-    );
+        setAvailableSlots(slots);
 
-    const end = new Date(
-      Math.min(shopRange.end.getTime(), serviceRange.end.getTime())
-    );
+        // do not auto-select slot
+        setSelectedSlot("");
 
-    if (start < end) {
-      validRanges.push({ start, end });
-    }
-  }
-}
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          // setAvailableSlots([]);
+          setSelectedSlot("");
+          setSubmitError(error.message || "Failed to load available slots");
+        }
+      }
+    };
 
-  const slots = generateSlots({
-  ranges: validRanges,
-  duration: serviceDuration
-});
+    fetchSlots();
 
-const now = new Date();
+    return () => {
+      controller.abort();
+    };
 
-const filteredSlots = slots.filter((slot) => {
-  if (selectedDate === getTodayDate()) {
-    return slot.getTime() > now.getTime();
-  }
-  
-  return true;
-});
-if (filteredSlots.length > 0) {
-  setSelectedSlot(filteredSlots[0].toISOString());
-} else {
-  setSelectedSlot("");
-}
-setAvailableSlots(filteredSlots);
-
-  
-}, [selectedDate, shopSchedule, serviceSchedule, serviceDuration]);
+  }, [shopId, serviceId, selectedDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -402,50 +370,50 @@ setAvailableSlots(filteredSlots);
     setServiceSchedule(null);
 
     const fetchBookingSchedules = async () => {
-  if (!shopId || !serviceId) return;
+      if (!shopId || !serviceId) return;
 
-  try {
-    const [shopResponse, serviceResponse] = await Promise.all([
-      fetch(`${API_BASE_URL}/shops/${shopId}`),
-      fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
-    ]);
+      try {
+        const [shopResponse, serviceResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/shops/${shopId}`),
+          fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
+        ]);
 
-    const [shopPayload, servicePayload] = await Promise.all([
-      parseJsonSafely(shopResponse),
-      parseJsonSafely(serviceResponse)
-    ]);
+        const [shopPayload, servicePayload] = await Promise.all([
+          parseJsonSafely(shopResponse),
+          parseJsonSafely(serviceResponse)
+        ]);
 
-    // Shop schedule
-    if (!shopResponse.ok || !shopPayload) {
-      if (!cancelled) setShopSchedule(null);
-    } else if (!cancelled) {
-      setShopSchedule(normalizeShopSchedule(shopPayload));
-    }
+        // Shop schedule
+        if (!shopResponse.ok || !shopPayload) {
+          if (!cancelled) setShopSchedule(null);
+        } else if (!cancelled) {
+          setShopSchedule(normalizeShopSchedule(shopPayload));
+        }
 
-    // Service schedule + duration
-    if (!serviceResponse.ok || !servicePayload) {
-      if (!cancelled) {
-        setServiceSchedule(null);
+        // Service schedule + duration
+        if (!serviceResponse.ok || !servicePayload) {
+          if (!cancelled) {
+            setServiceSchedule(null);
+          }
+        } else if (!cancelled) {
+          setServiceSchedule(normalizeServiceSchedule(servicePayload));
+          setServiceDuration(servicePayload.durationMinutes || 30);
+        }
+
+      } catch {
+        if (!cancelled) {
+          setShopSchedule(null);
+          setServiceSchedule(null);
+        }
       }
-    } else if (!cancelled) {
-      setServiceSchedule(normalizeServiceSchedule(servicePayload));
-      setServiceDuration(servicePayload.durationMinutes || 30);
-    }
+    };
 
-  } catch {
-    if (!cancelled) {
-      setShopSchedule(null);
-      setServiceSchedule(null);
-    }
-  }
-};
+    fetchBookingSchedules();
+    return () => {
+      cancelled = true;
+    };
 
-fetchBookingSchedules();
-return () => {
-  cancelled = true;
-};
-
-}, [shopId, serviceId]);
+  }, [shopId, serviceId]);
 
 
   // useEffect(() => {
@@ -479,7 +447,11 @@ return () => {
     setSubmitError("");
     setSuccessMessage("");
     setPopupMessage("");
-
+    if (isSubmitting) return;
+    if (!selectedSlot) {
+      setSubmitError("Please select a slot.");
+      return;
+    }
     const startDate = new Date(selectedSlot);
     const duration = serviceDuration;
 
@@ -602,48 +574,52 @@ return () => {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="form-field">
-  Select Date
-  <input
-  type="date"
-  value={selectedDate}
-  min={getTodayDate()}
-  onChange={(e) => setSelectedDate(e.target.value)}
-  required
-/>
-</label>
-
-<label className="form-field">
-  Available Slots
-
-  {availableSlots.length === 0 ? (
-    <p className="error-text">No slots available</p>
-  ) : (
-    <select
-      value={selectedSlot}
-      onChange={(e) => setSelectedSlot(e.target.value)}
-      required
-    >
-      <option value="">Select slot</option>
-
-      {availableSlots.map((slot) => {
-        const value = slot.toISOString();
-
-        return (
-          <option key={value} value={value}>
-            {slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </option>
-        );
-      })}
-    </select>
-  )}
-</label>
+            Select Date
+            <input
+              type="date"
+              value={selectedDate}
+              min={getTodayDate()}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              required
+            />
+          </label>
 
           <label className="form-field">
-  Duration
-  <div className="readonly-field">
-    {serviceDuration} minutes
-  </div>
-</label>
+            Available Slots
+
+            {availableSlots.length === 0 ? (
+              <p className="muted-text">No available slots for this date.</p>
+            ) : (
+              <select
+                value={selectedSlot}
+                onChange={(e) => setSelectedSlot(e.target.value)}
+                required
+              >
+                <option value="">Select slot</option>
+
+                {availableSlots.map((slot) => {
+                  const value = slot.toISOString();
+
+                  return (
+                    <option key={value} value={value}>
+                      {slot.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </label>
+
+          <label className="form-field">
+            Duration
+            <div className="readonly-field">
+              {serviceDuration} minutes
+            </div>
+          </label>
 
           <label className="form-field" htmlFor="mode">
             Mode

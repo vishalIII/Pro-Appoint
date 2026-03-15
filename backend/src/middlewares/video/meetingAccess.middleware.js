@@ -1,4 +1,4 @@
-const Appointment = require("../models/appointment/appointment.model");
+const Appointment = require("../../models/appointment/appointment.model");
 
 async function meetingAccess(req, res, next) {
 

@@ -62,6 +62,29 @@ const normalizeRequiredResources = async (requiredResources, shopId) => {
     quantity: aggregated.get(resourceId),
   }));
 };
+
+const computeResourceCapacitySum = async ({ shopId, requiredResources }) => {
+  if (!Array.isArray(requiredResources) || requiredResources.length === 0) {
+    return 0;
+  }
+
+  const resourceIds = requiredResources.map((r) => r.resourceId);
+  const resources = await Resource.find({
+    _id: { $in: resourceIds },
+    shopId,
+  })
+    .select("_id capacity")
+    .lean();
+
+  const capacityById = new Map(
+    resources.map((r) => [String(r._id), Number(r.capacity) || 0]),
+  );
+
+  return requiredResources.reduce((sum, rr) => {
+    const cap = capacityById.get(String(rr.resourceId)) || 0;
+    return sum + cap * rr.quantity;
+  }, 0);
+};
 /* --------------------------------------------------
    Helper: Validate Shop Ownership
 -------------------------------------------------- */
@@ -197,6 +220,25 @@ exports.createService = async ({
       shopId,
     );
 
+    const resourceCapacitySum = await computeResourceCapacitySum({
+      shopId,
+      requiredResources: normalizedRequiredResources,
+    });
+
+    const finalCapacity =
+      capacity === undefined ? resourceCapacitySum : Number(capacity);
+
+    if (!Number.isFinite(finalCapacity) || finalCapacity < 1) {
+      throw new AppError("capacity must be at least 1", 400);
+    }
+
+    if (finalCapacity > resourceCapacitySum) {
+      throw new AppError(
+        "Service capacity cannot exceed total resource capacity",
+        400,
+      );
+    }
+
     const normalizedWeeklyAvailability = validateServiceWeeklyAvailability({
       weeklyAvailability,
       shopWeeklyAvailability: shop.weeklyAvailability,
@@ -218,6 +260,7 @@ exports.createService = async ({
       price,
       durationMinutes,
       requiredResources: normalizedRequiredResources,
+      capacity: finalCapacity,
     });
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -314,6 +357,11 @@ exports.updateService = async ({
       actionLabel: "update services",
     });
 
+    const existingService = await Service.findOne({ _id: serviceId, shopId });
+    if (!existingService) {
+      throw new AppError("Service not found", 404);
+    }
+
     const updateData = {};
 
     if (name !== undefined) {
@@ -365,10 +413,28 @@ exports.updateService = async ({
       updateData.durationMinutes = durationMinutes;
     }
 
-    if (requiredResources !== undefined) {
-      updateData.requiredResources = await normalizeRequiredResources(
-        requiredResources,
-        shopId,
+    let normalizedRequiredResources =
+      requiredResources !== undefined
+        ? await normalizeRequiredResources(requiredResources, shopId)
+        : existingService.requiredResources;
+
+    updateData.requiredResources = normalizedRequiredResources;
+
+    // Validate capacity against aggregate resource seats
+    const capacityToCheck =
+      updateData.capacity !== undefined
+        ? updateData.capacity
+        : existingService.capacity;
+
+    const resourceCapacitySum = await computeResourceCapacitySum({
+      shopId,
+      requiredResources: normalizedRequiredResources,
+    });
+
+    if (capacityToCheck > resourceCapacitySum) {
+      throw new AppError(
+        "Service capacity cannot exceed total resource capacity",
+        400,
       );
     }
 
