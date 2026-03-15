@@ -563,25 +563,25 @@ const findBlockingAppointments = async ({
   attendeeId,
   session,
   excludeAppointmentId,
+  now = new Date(),
 }) => {
 
-  const now = new Date();
+  const orConditions = [{ status: "confirmed" }];
+
+  if (attendeeId) {
+    orConditions.push({
+      status: "pending",
+      attendeeId,
+      expiresAt: { $gt: now },
+    });
+  }
 
   const query = {
     shopId,
     "allocatedResources.resourceId": { $in: resourceIds },
-
     startTimeUTC: { $lt: endTimeUTC },
     endTimeUTC: { $gt: startTimeUTC },
-
-    $or: [
-      { status: "confirmed" },
-      {
-        status: "pending",
-        attendeeId, // ⭐ only block same user
-        expiresAt: { $gt: now },
-      },
-    ],
+    $or: orConditions,
   };
 
   if (excludeAppointmentId) {
@@ -589,7 +589,6 @@ const findBlockingAppointments = async ({
   }
 
   return Appointment.find(query)
-    .select("allocatedResources startTimeUTC endTimeUTC status expiresAt")
     .session(session)
     .lean();
 };
@@ -719,7 +718,7 @@ const hasCapacityConflictForAllocatedResources = async ({
     endTimeUTC,
     excludeAppointmentId,
     session, 
-     attendeeId,   // ⭐ FIX
+    //  attendeeId,   // ⭐ FIX
     now,
   });
 
