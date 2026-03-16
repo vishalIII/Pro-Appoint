@@ -520,12 +520,12 @@ export default function BookingFlow() {
       mode: form.mode
     };
 
-    if (form.mode === "online") {
-      payload.meeting = {
-        platform: "google_meet",
-        link: form.meetingLink.trim()
-      };
-    }
+    // if (form.mode === "online") {
+    //   payload.meeting = {
+    //     platform: "google_meet",
+    //     link: form.meetingLink.trim()
+    //   };
+    // }
 
     setIsSubmitting(true);
 
@@ -629,7 +629,7 @@ export default function BookingFlow() {
             </select>
           </label>
 
-          {form.mode === "online" ? (
+          {/* {form.mode === "online" ? (
             <label className="form-field" htmlFor="meetingLink">
               Meeting Link
               <input
@@ -642,7 +642,7 @@ export default function BookingFlow() {
                 required
               />
             </label>
-          ) : null}
+          ) : null} */}
 
           <button className="btn" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Booking..." : "Confirm Booking"}

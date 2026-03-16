@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -23,8 +24,9 @@ export default function MyBookings() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelingId, setCancelingId] = useState("");
-  const [joiningId, setJoiningId] = useState("");
-  const [joinInfo, setJoinInfo] = useState(null);
+  // const [joiningId, setJoiningId] = useState("");
+  // const [joinInfo, setJoinInfo] = useState(null);
+  const navigate = useNavigate();
 
   const loadBookings = useCallback(async () => {
     if (!token) {
@@ -86,37 +88,8 @@ export default function MyBookings() {
       setCancelingId("");
     }
   };
-
   const handleJoin = async (appointment) => {
-    setJoiningId(appointment._id);
-    setError("");
-    setJoinInfo(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/video/join/${appointment._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const payload = await parseJsonSafely(response);
-      if (!response.ok) {
-        throw new Error(payload?.message || "Unable to join meeting");
-      }
-
-      setJoinInfo({
-        appointmentId: appointment._id,
-        roomId: payload.roomId,
-        token: payload.token,
-        appId: payload.appID || payload.appId,
-        role: payload.role,
-        meetingStatus: payload.meetingStatus,
-      });
-    } catch (joinError) {
-      setError(joinError.message || "Failed to join meeting");
-    } finally {
-      setJoiningId("");
-    }
+    navigate(`/meeting/${appointment._id}`);
   };
 
   return (
@@ -145,6 +118,7 @@ export default function MyBookings() {
                 {booking.mode === "online" ? (
                   <p>
                     <strong>Meeting:</strong>{" "}
+
                     <span className="status-badge">
                       {booking.meeting?.status || "waiting"}
                     </span>
@@ -179,10 +153,9 @@ export default function MyBookings() {
                     className="btn btn-primary"
                     type="button"
                     onClick={() => handleJoin(booking)}
-                    disabled={joiningId === booking._id}
                     style={{ marginTop: 8 }}
                   >
-                    {joiningId === booking._id ? "Preparing..." : "Join Meeting"}
+                    Join Meeting
                   </button>
                 ) : null}
               </article>
@@ -190,18 +163,7 @@ export default function MyBookings() {
           </div>
         ) : null}
 
-        {joinInfo ? (
-          <div className="card" style={{ marginTop: 16 }}>
-            <p>
-              <strong>Join details for booking #{joinInfo.appointmentId?.slice(-6)}:</strong>
-            </p>
-            <p>Room: <code>{joinInfo.roomId}</code></p>
-            <p>Role: {joinInfo.role || "attendee"}</p>
-            <p className="muted-text">
-              Token: <code style={{ wordBreak: "break-all" }}>{joinInfo.token}</code>
-            </p>
-          </div>
-        ) : null}
+
       </div>
     </section>
   );

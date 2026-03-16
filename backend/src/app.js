@@ -14,6 +14,7 @@ const publicShopRoutes = require("./routes/public/public.shop.routes.js");
 const publicAppointmentRoutes = require('./routes/public/public.appointment.routes.js');
 const notificationRoutes = require("./routes/notification/notification.routes.js");
 const videoRoutes = require("./routes/video/video.routes.js");
+require("dotenv").config();
 
 
 /* -------- Middleware -------- */
@@ -89,7 +90,8 @@ app.get("/hello", (req, res) => {
   res.send("Hello from Node.js 🚀");
 });
 
-
+// console.log("IIIIIIDDDDD")
+// console.log(process.env.ZEGO_SERVER_SECRET)
 //------------------------------------------------ JUST Testing
 app.get("/test-notification", (req,res)=>{
  const { getIO } = require("./socket/socket")

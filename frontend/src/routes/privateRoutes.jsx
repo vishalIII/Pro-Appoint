@@ -19,6 +19,7 @@ import ProviderSettingsPage from "../pages/serviceProvider/Settings";
 import ProviderCreateShopPage from "../pages/serviceProvider/CreateShop";
 import ProviderNotificationsPage from "../pages/serviceProvider/Notifications";
 import NotificationsPage from "../pages/NotificationsPage";
+import MeetingPage from "../pages/MeetingPage";
 import { ROLES } from "../rbac";
 
 export const privateRoutes = [
@@ -32,6 +33,11 @@ export const privateRoutes = [
     element: <ApplyProvider />,
     guard: { roles: [ROLES.CUSTOMER] }
   },
+  {
+  path: "meeting/:appointmentId",
+  element: <MeetingPage />,
+  guard: { roles: [ROLES.CUSTOMER, ROLES.PROVIDER] }
+},
   {
     path: "",
     element: <CustomerLayout />,
