@@ -23,4 +23,11 @@ router.patch('/:appointmentId/cancel', appointmentController.cancelAppointment);
 // DELETE .../appointments/:appointmentId -> cancel booking
 router.delete('/:appointmentId', appointmentController.deleteAppointment);
 
+
+const onlineAppointmentController = require("../../controllers/appointment/onlineAppointment.controller")
+router.get(
+  '/:appointmentId/join-meeting',
+  onlineAppointmentController.joinOnlineMeeting
+);
+
 module.exports = router;

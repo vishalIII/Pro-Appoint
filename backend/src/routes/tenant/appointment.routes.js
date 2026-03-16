@@ -30,4 +30,21 @@ router.patch("/:appointmentId/no-show", appointmentController.markAppointmentNoS
 // Cancel appointment (tenant initiated)
 router.patch("/:appointmentId/cancel", appointmentController.cancelAppointment);
 
+
+
+
+// const appointmentController = require("../../controllers/provider/appointment.controller");
+const onlineAppointmentController = require("../../controllers/appointment/onlineAppointment.controller");
+// Provider start meeting
+router.post(
+  "/:appointmentId/start-meeting",
+  onlineAppointmentController.startMeeting
+);
+
+// Provider end meeting
+router.post(
+  "/:appointmentId/end-meeting",
+  onlineAppointmentController.endMeeting
+);
+
 module.exports = router;

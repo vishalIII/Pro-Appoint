@@ -227,53 +227,16 @@ const appointmentSchema = new mongoose.Schema(
     /* ---------------- ONLINE MEETING ---------------- */
 
     meeting: {
-      platform: {
-        type: String,
-        enum: ["zegocloud", "zoom", "google_meet", "teams", "in_person"],
-      },
-
       roomId: {
         type: String,
         index: true,
       },
 
-      joinUrl: String,
-
-      hostUserId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "user",
-      },
-
       status: {
         type: String,
         enum: ["waiting", "live", "ended"],
+        default: "waiting",
       },
-
-      createdAt: Date,
-
-      participants: [
-        {
-          userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "user",
-          },
-          role: {
-            type: String,
-            enum: ["host", "guest", "observer"],
-            default: "guest",
-          },
-          joinEvents: [
-            {
-              _id: false,
-              at: Date,
-              action: {
-                type: String,
-                enum: ["join", "leave"],
-              },
-            },
-          ],
-        },
-      ],
 
       startedAt: Date,
       endedAt: Date,
@@ -285,7 +248,9 @@ const appointmentSchema = new mongoose.Schema(
       shopId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "shop",
-        required: true,
+        required: function () {
+          return this.mode === "offline";
+        },
       },
     },
 
@@ -336,10 +301,14 @@ appointmentSchema.pre("validate", function () {
   }
 
   // Offline validation
-  if (this.mode === "offline") {
-    if (!this.location || !this.location.shopId) {
-      throw new Error("Shop reference is required for offline appointments");
-    }
+  // if (this.mode === "offline") {
+  //   if (!this.location || !this.location.shopId) {
+  //     throw new Error("Shop reference is required for offline appointments");
+  //   }
+  // }
+
+  if (this.mode === "offline" && !this.location?.shopId) {
+    throw new Error("Shop reference is required for offline appointments");
   }
 
   // Payment consistency rules
@@ -443,8 +412,6 @@ appointmentSchema.index({
   endTimeUTC: 1,
   expiresAt: 1,
 });
-
-
 
 appointmentSchema.index({
   serviceId: 1,

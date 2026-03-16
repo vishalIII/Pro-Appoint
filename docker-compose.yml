@@ -1,4 +1,17 @@
 services:
+  # backend:
+  #   build: ./backend
+  #   container_name: backend
+  #   ports:
+  #     - "5000:5000"
+  #   env_file:
+  #     - ./backend/.env
+  #   depends_on:
+  #     - mongo
+  #   volumes:
+  #     - ./backend:/app
+  #     - /app/node_modules
+
   backend:
     build: ./backend
     container_name: backend
@@ -10,7 +23,7 @@ services:
       - mongo
     volumes:
       - ./backend:/app
-      - /app/node_modules
+    command: sh -c "npm install && npm run dev"
 
   mongo:
     image: mongo:7
@@ -19,6 +32,17 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+
+  # frontend:
+  #   build: ./frontend
+  #   container_name: frontend
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./frontend:/app
+  #     - frontend_node_modules:/app/node_modules
 
   frontend:
     build: ./frontend
@@ -29,7 +53,7 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
 
 volumes:
   mongo_data:
