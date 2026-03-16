@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useRef } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -7,6 +8,7 @@ const ZEGO_SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET;
 
 export default function MeetingPage() {
   const { appointmentId } = useParams();
+  const zpRef = useRef(null);
 
   const startMeeting = async (element) => {
     if (!element) return;
@@ -28,12 +30,18 @@ export default function MeetingPage() {
       );
 
       const zp = ZegoUIKitPrebuilt.create(kitToken);
+      zpRef.current = zp;
 
       zp.joinRoom({
         container: element,
         scenario: {
           mode: ZegoUIKitPrebuilt.OneONoneCall,
         },
+      });
+
+      // stop camera when tab closes
+      window.addEventListener("beforeunload", () => {
+        zpRef.current?.destroy();
       });
 
     } catch (err) {
