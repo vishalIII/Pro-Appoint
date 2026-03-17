@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import AlertModal from "../../components/AlertModal";
@@ -14,14 +14,14 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-const toLocalDateTimeValue = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
+// const toLocalDateTimeValue = (date) => {
+//   const year = date.getFullYear();
+//   const month = String(date.getMonth() + 1).padStart(2, "0");
+//   const day = String(date.getDate()).padStart(2, "0");
+//   const hours = String(date.getHours()).padStart(2, "0");
+//   const minutes = String(date.getMinutes()).padStart(2, "0");
+//   return `${year}-${month}-${day}T${hours}:${minutes}`;
+// };
 
 const parseJsonSafely = async (response) => {
   const contentType = response.headers.get("content-type") || "";
@@ -273,26 +273,24 @@ const mapServerErrorToPopupMessage = ({ rawMessage, shopSchedule, serviceSchedul
 
   return message || "Failed to create appointment";
 };
-
+ 
 
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
   const { token } = useAuth();
   const navigate = useNavigate();
 
-  const defaultStartTime = useMemo(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 60);
-    now.setSeconds(0, 0);
-    return toLocalDateTimeValue(now);
-  }, []);
+  // const defaultStartTime = useMemo(() => {
+  //   const now = new Date();
+  //   now.setMinutes(now.getMinutes() + 60);
+  //   now.setSeconds(0, 0);
+  //   return toLocalDateTimeValue(now); 
+  // }, []);
 
-  const [form, setForm] = useState({
-    startTimeLocal: defaultStartTime,
-    durationMinutes: 30,
-    mode: "offline",
-    meetingLink: ""
-  });
+//   const [form, setForm] = useState({
+//   startTimeLocal: defaultStartTime,
+//   durationMinutes: 30,
+// });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -308,7 +306,7 @@ export default function BookingFlow() {
 
 
   useEffect(() => {
-    if (!shopId || !serviceId || !selectedDate) return;
+    if (!shopId || !serviceId || !selectedDate || !serviceDuration) return;
 
     const controller = new AbortController();
 
@@ -319,7 +317,7 @@ export default function BookingFlow() {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=30`,
+          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}`,
           { signal: controller.signal }
         );
 
@@ -343,7 +341,7 @@ export default function BookingFlow() {
           });
 
         setAvailableSlots(slots);
-
+    
         // do not auto-select slot
         setSelectedSlot("");
 
@@ -362,7 +360,7 @@ export default function BookingFlow() {
       controller.abort();
     };
 
-  }, [shopId, serviceId, selectedDate]);
+  }, [shopId, serviceId, selectedDate, serviceDuration]);
 
   useEffect(() => {
     let cancelled = false;
@@ -427,20 +425,20 @@ export default function BookingFlow() {
   //   };
   // }, []);
 
-  const showPopupError = (message) => {
-    const text = message || "Failed to create appointment";
-    setSubmitError(text);
-    setPopupMessage(text);
-  };
+ const showPopupError = (message) => {
+  const text = message || "Failed to create appointment";
+  setSubmitError(""); // clear inline error
+  setPopupMessage(text);
+};
 
   const closePopup = () => {
     setPopupMessage("");
   };
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  // const handleChange = (event) => {
+  //   const { name, value } = event.target;
+  //   setForm((prev) => ({ ...prev, [name]: value }));
+  // };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -466,7 +464,7 @@ export default function BookingFlow() {
     }
 
     const now = new Date();
-    if (startDate < now) {
+    if (startDate.getTime() <= now.getTime()) {
       showPopupError("Please select current or future date and time.");
       return;
     }
@@ -514,11 +512,10 @@ export default function BookingFlow() {
       return;
     }
 
-    const payload = {
-      startTimeUTC: startDate.toISOString(),
-      endTimeUTC: endDate.toISOString(),
-      mode: form.mode
-    };
+   const payload = {
+  startTimeUTC: startDate.toISOString(),
+  endTimeUTC: endDate.toISOString(),
+};
 
     // if (form.mode === "online") {
     //   payload.meeting = {
@@ -621,13 +618,13 @@ export default function BookingFlow() {
             </div>
           </label>
 
-          <label className="form-field" htmlFor="mode">
+          {/* <label className="form-field" htmlFor="mode">
             Mode
             <select id="mode" name="mode" value={form.mode} onChange={handleChange}>
               <option value="offline">Offline</option>
               <option value="online">Online</option>
             </select>
-          </label>
+          </label> */}
 
           {/* {form.mode === "online" ? (
             <label className="form-field" htmlFor="meetingLink">

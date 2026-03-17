@@ -67,6 +67,7 @@ app.use(
 );
 
 app.use("/api/notifications", authMiddleware, notificationRoutes);
+
 app.use("/api/video", videoRoutes);
 
 // // Public-facing appointment routes (customers can book without being a tenant)

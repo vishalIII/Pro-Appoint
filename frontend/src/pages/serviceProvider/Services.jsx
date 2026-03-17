@@ -68,6 +68,7 @@ const createInitialForm = () => ({
   capacity: "1",
   discountPercentage: "0",
   imagesText: "",
+  mode: "offline",
   dayHours: DAYS.reduce((acc, day) => {
     acc[day] = { ...defaultDayHours[day] };
     return acc;
@@ -449,10 +450,10 @@ export default function ProviderServicesPage() {
       nextErrors.price = "Price must be 0 or more";
     }
 
-    const capacity = Number(form.capacity);
-    if (!Number.isInteger(capacity) || capacity < 1) {
-      nextErrors.capacity = "Capacity must be at least 1";
-    }
+    // const capacity = Number(form.capacity);
+    // if (!Number.isInteger(capacity) || capacity < 1) {
+    //   nextErrors.capacity = "Capacity must be at least 1";
+    // }
 
     const discountPercentage = Number(form.discountPercentage);
     if (!Number.isFinite(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
@@ -573,6 +574,7 @@ export default function ProviderServicesPage() {
       capacity: service.capacity?.toString() || "1",
       discountPercentage: service.discountPercentage?.toString() || "0",
       imagesText: (service.images || []).join("\n"),
+      mode: service.mode || "offline",
       dayHours,
       closedPeriods: service.closedPeriods || [],
       requiredResources: mappedResources,
@@ -599,7 +601,7 @@ export default function ProviderServicesPage() {
         capacity: Number(form.capacity),
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
-
+        mode: form.mode,
         requiredResources: form.requiredResources.map((item) => ({
           resourceId: String(
             typeof item.resourceId === "object"
@@ -879,6 +881,21 @@ export default function ProviderServicesPage() {
                 required
               />
               {formErrors.name ? <span className="error-text">{formErrors.name}</span> : null}
+            </label>
+
+            <label className="form-field" htmlFor="service-mode">
+              Mode
+              <select
+                id="service-mode"
+                value={form.mode}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, mode: e.target.value }))
+                }
+                required
+              >
+                <option value="offline">Offline</option>
+                <option value="online">Online</option>
+              </select>
             </label>
 
             <label className="form-field" htmlFor="service-description">

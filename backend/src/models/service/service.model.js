@@ -22,6 +22,14 @@ const serviceSchema = new mongoose.Schema(
       trim: true,
     },
 
+    mode: {
+      type: String,
+      enum: ["online", "offline"],
+      required: true,
+      index: true,
+      default: "offline", // ⭐ important
+    },
+
     // Optional override for online classes; falls back to capacity when absent
     onlineCapacity: {
       type: Number,

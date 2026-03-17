@@ -18,7 +18,7 @@ router.get(
 router.post(
   "/start/:appointmentId",
   // auth,
-  // meetingAccess,
+  meetingAccess,
   onlineAppointmentController.startMeeting
 );
 
