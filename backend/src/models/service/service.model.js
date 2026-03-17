@@ -32,7 +32,7 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    
+
     discountPercentage: {
       type: Number,
       default: 0,
@@ -65,6 +65,12 @@ const serviceSchema = new mongoose.Schema(
 
     images: [String],
     price: Number,
+
+    capacity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
 
     durationMinutes: {
       type: Number,
