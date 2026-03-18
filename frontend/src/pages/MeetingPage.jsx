@@ -128,7 +128,17 @@ export default function MeetingPage() {
 
     if (timeLeft <= 0) {
       zpRef.current?.destroy();
-      handleJoinError("Session already ended");
+
+      //  show message FIRST (async to avoid warning)
+      setTimeout(() => {
+        setError("Session already ended");
+      }, 0);
+
+      //  then redirect
+      setTimeout(() => {
+        navigate(-1, { replace: true });
+      }, 1500);
+
       return;
     }
 
