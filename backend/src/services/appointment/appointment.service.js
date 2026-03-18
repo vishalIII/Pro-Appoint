@@ -147,16 +147,16 @@ const parseTimeOnDateUTC = (date, timeText) => {
   );
 };
 
-const getOnlineCapacity = (service) => {
-  if (!service) return 1;
-  if (service.onlineCapacity && Number.isFinite(service.onlineCapacity)) {
-    return service.onlineCapacity;
-  }
-  if (service.capacity && Number.isFinite(service.capacity)) {
-    return service.capacity;
-  }
-  return 1;
-};
+// const getOnlineCapacity = (service) => {
+//   if (!service) return 1;
+//   if (service.onlineCapacity && Number.isFinite(service.onlineCapacity)) {
+//     return service.onlineCapacity;
+//   }
+//   if (service.capacity && Number.isFinite(service.capacity)) {
+//     return service.capacity;
+//   }
+//   return 1;
+// };
 
 const getDayNameUTC = (date) => {
   const dayNames = [
@@ -565,7 +565,6 @@ const findBlockingAppointments = async ({
   excludeAppointmentId,
   now = new Date(),
 }) => {
-
   const orConditions = [{ status: "confirmed" }];
 
   if (attendeeId) {
@@ -588,9 +587,7 @@ const findBlockingAppointments = async ({
     query._id = { $ne: excludeAppointmentId };
   }
 
-  return Appointment.find(query)
-    .session(session)
-    .lean();
+  return Appointment.find(query).session(session).lean();
 };
 
 const findAttendeeOverlappingAppointments = async ({
@@ -717,7 +714,7 @@ const hasCapacityConflictForAllocatedResources = async ({
     startTimeUTC,
     endTimeUTC,
     excludeAppointmentId,
-    session, 
+    session,
     //  attendeeId,   // ⭐ FIX
     now,
   });
@@ -893,7 +890,8 @@ exports.getAvailableSlots = async ({
       shopId: shop._id,
       resourceIds,
       startTimeUTC: earliest,
-      endTimeUTC: latest,  attendeeId,   // ⭐ FIX
+      endTimeUTC: latest,
+      attendeeId, // ⭐ FIX
       now,
     });
 
@@ -964,8 +962,8 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       attendeeId,
       startTimeUTC,
       endTimeUTC,
-      mode,
-      meeting,
+      // mode,
+      // meeting,
       location,
       currency,
       paymentMethod,
@@ -987,9 +985,9 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       throw new AppError("startTimeUTC is required", 400);
     }
 
-    if (!mode) {
-      throw new AppError("mode is required", 400);
-    }
+    // if (!mode) {
+    //   throw new AppError("mode is required", 400);
+    // }
 
     const requestedStart = toDate(startTimeUTC, "startTimeUTC");
 
@@ -1002,6 +1000,14 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
           serviceId,
           session,
         });
+
+      if (!service.mode) {
+        throw new AppError("Service mode is not configured", 500);
+      }
+      const mode = service.mode;
+      if (!["online", "offline"].includes(mode)) {
+        throw new AppError("Invalid service mode", 500);
+      }
 
       if (tenantId && String(shop.tenantId) !== String(tenantId)) {
         throw new AppError("Unauthorized tenant access for this shop", 403);
@@ -1099,7 +1105,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             attendeeId: finalAttendeeId,
             attendees:
               mode === "online"
-                ? [{ userId: finalAttendeeId, paymentStatus: "pending" }]
+                ? [{ userId: finalAttendeeId, paymentStatus: "unpaid" }]
                 : [],
             isGroup: false,
             capacitySnapshot: 1,
@@ -1109,7 +1115,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             startTimeUTC: requestedStart,
             endTimeUTC: computedEnd,
             mode,
-            meeting: mode === "online" ? meeting : undefined,
+            // meeting: undefined, // ✅ no meeting yet
             location: finalLocation,
             price: service.price ?? 0,
             currency: currency || "INR",
@@ -1452,7 +1458,7 @@ exports.updateAppointment = async ({
     const allowedFields = [
       "startTimeUTC",
       "endTimeUTC",
-      "mode",
+      // "mode",
       "meeting",
       "location",
       "status",
@@ -1531,9 +1537,9 @@ exports.updateAppointment = async ({
           updates.endTimeUTC || appointment.endTimeUTC,
         );
 
-//         if (nextStart <= new Date()) {
-//   throw new AppError("Cannot move appointment to the past", 400);
-// }
+        //         if (nextStart <= new Date()) {
+        //   throw new AppError("Cannot move appointment to the past", 400);
+        // }
 
         const effectivePaymentStatus =
           updates.paymentStatus || appointment.paymentStatus;

@@ -22,6 +22,14 @@ const serviceSchema = new mongoose.Schema(
       trim: true,
     },
 
+    mode: {
+      type: String,
+      enum: ["online", "offline"],
+      required: true,
+      index: true,
+      default: "offline", // ⭐ important
+    },
+
     // Optional override for online classes; falls back to capacity when absent
     onlineCapacity: {
       type: Number,
@@ -32,7 +40,7 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    
+
     discountPercentage: {
       type: Number,
       default: 0,
@@ -65,6 +73,12 @@ const serviceSchema = new mongoose.Schema(
 
     images: [String],
     price: Number,
+
+    capacity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
 
     durationMinutes: {
       type: Number,

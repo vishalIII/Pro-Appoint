@@ -26,25 +26,28 @@ const normalizeRequiredResources = async (requiredResources, shopId) => {
 
   const aggregated = new Map();
 
- for (const item of requiredResources) {
-  let resourceId = item?.resourceId;
+  for (const item of requiredResources) {
+    let resourceId = item?.resourceId;
 
-  if (typeof resourceId === "object") {
-    resourceId = resourceId?._id;
+    if (typeof resourceId === "object") {
+      resourceId = resourceId?._id;
+    }
+
+    const quantity = Number(item?.quantity);
+
+    if (!mongoose.Types.ObjectId.isValid(resourceId)) {
+      throw new AppError("Invalid resourceId", 400);
+    }
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new AppError("Invalid resource quantity", 400);
+    }
+
+    aggregated.set(
+      resourceId.toString(),
+      (aggregated.get(resourceId) || 0) + quantity,
+    );
   }
-
-  const quantity = Number(item?.quantity);
-
-  if (!mongoose.Types.ObjectId.isValid(resourceId)) {
-    throw new AppError("Invalid resourceId", 400);
-  }
-
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    throw new AppError("Invalid resource quantity", 400);
-  }
-
-  aggregated.set(resourceId.toString(), (aggregated.get(resourceId) || 0) + quantity);
-}
 
   const resourceIds = [...aggregated.keys()];
 
@@ -134,7 +137,6 @@ const deactivateServicesForShop = async ({ shopId }) => {
 
 exports.deactivateServicesForShop = deactivateServicesForShop;
 
-
 const normalizeClosedPeriods = (closedPeriods) => {
   if (closedPeriods === undefined) return undefined;
   if (!Array.isArray(closedPeriods)) {
@@ -175,6 +177,7 @@ exports.createService = async ({
   shopId,
   name,
   description,
+  mode,
   weeklyAvailability,
   closedPeriods,
   category,
@@ -215,6 +218,13 @@ exports.createService = async ({
       );
     }
 
+    if (!mode || !["online", "offline"].includes(mode)) {
+      throw new AppError(
+        "Service mode must be either 'online' or 'offline'",
+        400,
+      );
+    }
+
     const normalizedRequiredResources = await normalizeRequiredResources(
       requiredResources,
       shopId,
@@ -225,16 +235,23 @@ exports.createService = async ({
       requiredResources: normalizedRequiredResources,
     });
 
-    const finalCapacity =
-      capacity === undefined ? resourceCapacitySum : Number(capacity);
+    // const finalCapacity =
+    //   capacity === undefined ? resourceCapacitySum : Number(capacity);
 
-    if (!Number.isFinite(finalCapacity) || finalCapacity < 1) {
-      throw new AppError("capacity must be at least 1", 400);
-    }
+    // if (!Number.isFinite(finalCapacity) || finalCapacity < 1) {
+    //   throw new AppError("capacity must be at least 1", 400);
+    // }
 
-    if (finalCapacity > resourceCapacitySum) {
+    // if (finalCapacity > resourceCapacitySum) {
+    //   throw new AppError(
+    //     "Service capacity cannot exceed total resource capacity",
+    //     400,
+    //   );
+    // }
+
+    if (resourceCapacitySum < 1) {
       throw new AppError(
-        "Service capacity cannot exceed total resource capacity",
+        "Service must have at least 1 capacity via resources",
         400,
       );
     }
@@ -249,6 +266,7 @@ exports.createService = async ({
       shopId,
       name,
       description,
+      mode,
       weeklyAvailability: normalizedWeeklyAvailability,
       ...(normalizedClosedPeriods !== undefined
         ? { closedPeriods: normalizedClosedPeriods }
@@ -260,7 +278,7 @@ exports.createService = async ({
       price,
       durationMinutes,
       requiredResources: normalizedRequiredResources,
-      capacity: finalCapacity,
+      capacity: resourceCapacitySum,
     });
   } catch (error) {
     if (error instanceof AppError) throw error;

@@ -20,6 +20,8 @@ const STATUS_OPTIONS = [
   { value: "no_show", label: "No-show" },
 ];
 
+
+
 const ACTIONS_BY_STATUS = {
   pending: ["accept", "reject", "cancel", "mark-paid"],
   confirmed: ["complete", "no-show", "cancel", "mark-paid"],
@@ -96,9 +98,9 @@ export default function ProviderAppointmentsPage() {
 
       const filtered = selectedShopId
         ? list.filter((item) => {
-            const shopId = item?.shopId?._id || item?.shopId;
-            return String(shopId) === String(selectedShopId);
-          })
+          const shopId = item?.shopId?._id || item?.shopId;
+          return String(shopId) === String(selectedShopId);
+        })
         : list;
 
       setAppointments(filtered);
@@ -128,9 +130,9 @@ export default function ProviderAppointmentsPage() {
         body:
           action === "mark-paid"
             ? {
-                paymentMethod: "cash",
-                paymentReference: `manual-${Date.now()}`,
-              }
+              paymentMethod: "cash",
+              paymentReference: `manual-${Date.now()}`,
+            }
             : undefined,
       });
 
@@ -163,6 +165,7 @@ export default function ProviderAppointmentsPage() {
       [appointmentId]: !prev[appointmentId],
     }));
   };
+
 
   return (
     <section className="provider-page">
@@ -220,17 +223,26 @@ export default function ProviderAppointmentsPage() {
 
                   const attendeeCount = getAttendeeCount(appointment);
                   const capacity = getCapacity(appointment);
+                  const meetingPillValue =
+                    appointment.mode === "online"
+                      ? appointment.meeting?.status || "waiting"
+                      : "offline";
+                  const meetingStatusRaw = appointment.meeting?.status;
+
+                  const buttonLabel =
+                    meetingStatusRaw === "live" ? "Join" : "Start";
 
                   const meetingStatus =
                     appointment.mode === "online"
-                      ? meetingStatusLabel(
-                          appointment.meeting?.status
-                        )
+                      ? appointment.meeting
+                        ? meetingStatusLabel(appointment.meeting.status)
+                        : "Not created"
                       : "Offline";
 
                   const isOnlineConfirmed =
                     appointment.mode === "online" &&
-                    appointment.status === "confirmed";
+                    appointment.status === "confirmed" &&
+                    appointment.meeting?.roomId;
 
                   return (
                     <React.Fragment key={appointment._id}>
@@ -260,9 +272,7 @@ export default function ProviderAppointmentsPage() {
                         <td>
                           {appointment.mode === "online" ? (
                             <>
-                              <StatusPill
-                                value={meetingStatus.toLowerCase()}
-                              />
+                              <StatusPill value={meetingPillValue} />
                               <div className="muted-text">
                                 {meetingStatus}
                               </div>
@@ -300,7 +310,7 @@ export default function ProviderAppointmentsPage() {
                                     handleJoinMeeting(appointment)
                                   }
                                 >
-                                  Start / Join
+                                  {buttonLabel}
                                 </button>
 
                                 <button
@@ -316,17 +326,17 @@ export default function ProviderAppointmentsPage() {
 
                                 {appointment.meeting?.status ===
                                   "live" && (
-                                  <button
-                                    className="btn btn-small btn-danger"
-                                    onClick={() =>
-                                      handleEndMeeting(
-                                        appointment._id
-                                      )
-                                    }
-                                  >
-                                    End Meeting
-                                  </button>
-                                )}
+                                    <button
+                                      className="btn btn-small btn-danger"
+                                      onClick={() =>
+                                        handleEndMeeting(
+                                          appointment._id
+                                        )
+                                      }
+                                    >
+                                      End Meeting
+                                    </button>
+                                  )}
                               </>
                             )}
 

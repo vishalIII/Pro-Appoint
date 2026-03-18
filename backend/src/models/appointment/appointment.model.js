@@ -227,19 +227,20 @@ const appointmentSchema = new mongoose.Schema(
     /* ---------------- ONLINE MEETING ---------------- */
 
     meeting: {
-      roomId: {
-        type: String,
-        index: true,
+      type: {
+        roomId: {
+          type: String,
+          index: true,
+        },
+        status: {
+          type: String,
+          enum: ["waiting", "live", "ended"],
+          default: "waiting",
+        },
+        startedAt: Date,
+        endedAt: Date,
       },
-
-      status: {
-        type: String,
-        enum: ["waiting", "live", "ended"],
-        default: "waiting",
-      },
-
-      startedAt: Date,
-      endedAt: Date,
+      default: undefined, // ⭐ CRITICAL
     },
 
     /* ---------------- OFFLINE LOCATION ---------------- */

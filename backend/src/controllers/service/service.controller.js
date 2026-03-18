@@ -12,6 +12,7 @@ exports.createService = async (req, res, next) => {
       shopId,
       name: req.body.name,
       description: req.body.description,
+      mode: req.body.mode,
       weeklyAvailability: req.body.weeklyAvailability,
       closedPeriods: req.body.closedPeriods,
       category: req.body.category,

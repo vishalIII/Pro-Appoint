@@ -1,0 +1,46 @@
+/* FORCE EVERYTHING */
+.meeting-theme [class*="zego"] {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Main layout */
+.meeting-theme [class*="zego"] > div {
+  background-color: var(--bg) !important;
+}
+
+/* Video container */
+.meeting-theme video {
+  border-radius: 12px !important;
+}
+
+/* Bottom control bar */
+.meeting-theme [class*="footer"],
+.meeting-theme [class*="controls"],
+.meeting-theme [class*="toolbar"] {
+  background-color: var(--surface) !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* ALL buttons */
+.meeting-theme button {
+  background-color: var(--primary) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+}
+
+/* Hover */
+.meeting-theme button:hover {
+  background-color: var(--primary-dark) !important;
+}
+
+/* Leave button */
+.meeting-theme button[class*="leave"],
+.meeting-theme button[style*="red"] {
+  background-color: var(--danger) !important;
+}
+
+/* Text everywhere */
+.meeting-theme * {
+  color: var(--text) !important;
+}

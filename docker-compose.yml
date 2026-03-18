@@ -24,6 +24,9 @@ services:
     volumes:
       - ./backend:/app
     command: sh -c "npm install && npm run dev"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   mongo:
     image: mongo:7
