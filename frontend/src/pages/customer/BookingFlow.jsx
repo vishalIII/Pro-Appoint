@@ -326,7 +326,7 @@ export default function BookingFlow() {
         }
         const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
 
-        console.log(rawSlots)
+        // console.log(rawSlots)
 
 
 

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useRef, useEffect, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
@@ -8,10 +8,23 @@ const ZEGO_SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET;
 
 export default function MeetingPage() {
   const { appointmentId } = useParams();
+  const navigate = useNavigate();
+
   const containerRef = useRef(null);
   const zpRef = useRef(null);
 
   const [endTime, setEndTime] = useState(null);
+  const [error, setError] = useState(null);
+
+  // 🔥 HANDLE ERRORS CLEANLY
+  const handleJoinError = (message) => {
+    setError(message || "Unable to join meeting");
+
+    // auto redirect after 2 sec
+    setTimeout(() => {
+      navigate(-1); // or navigate(-1)
+    }, 2000);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -31,14 +44,17 @@ export default function MeetingPage() {
 
         const data = await res.json();
 
+        console.log("JOIN RESPONSE:", data);
+
+        // ❌ API ERROR
         if (!res.ok) {
-          alert(data.message);
+          handleJoinError(data.message);
           return;
         }
 
-        // ✅ Ensure backend sent required data
+        // ❌ INVALID DATA
         if (!data.startTime || !data.endTime) {
-          alert("Invalid meeting time data");
+          handleJoinError("Invalid meeting time data");
           return;
         }
 
@@ -48,22 +64,22 @@ export default function MeetingPage() {
 
         const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
 
-        // 🔒 Block early join
+        // 🔒 TOO EARLY
         if (now < windowStart) {
-          alert("You can join only 10 minutes before the session starts");
+          handleJoinError("You can join only 10 minutes before the session starts");
           return;
         }
 
-        // 🔒 Block late join
+        // 🔒 TOO LATE
         if (now > end) {
-          alert("Meeting has already ended");
+          handleJoinError("Meeting has already ended");
           return;
         }
 
-        // ✅ Store endTime for auto-exit
+        // ✅ STORE endTime for auto-exit
         setEndTime(data.endTime);
 
-        // ✅ Generate token AFTER validation
+        // ✅ GENERATE TOKEN
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           ZEGO_APP_ID,
           ZEGO_SERVER_SECRET,
@@ -88,6 +104,7 @@ export default function MeetingPage() {
 
       } catch (err) {
         console.error("Meeting start failed:", err);
+        handleJoinError("Something went wrong while joining meeting");
       }
     };
 
@@ -100,7 +117,7 @@ export default function MeetingPage() {
     };
   }, [appointmentId]);
 
-  // ✅ AUTO END LOGIC
+  // 🔥 AUTO END MEETING
   useEffect(() => {
     if (!endTime || !zpRef.current) return;
 
@@ -111,18 +128,38 @@ export default function MeetingPage() {
 
     if (timeLeft <= 0) {
       zpRef.current?.destroy();
-      alert("Session already ended");
+      handleJoinError("Session already ended");
       return;
     }
 
     const timer = setTimeout(() => {
       zpRef.current?.destroy();
-      alert("Session ended");
+      handleJoinError("Session ended");
     }, timeLeft);
 
     return () => clearTimeout(timer);
   }, [endTime]);
 
+  // 🔥 ERROR UI (NO ALERTS)
+  if (error) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          background: "var(--bg)",
+        }}
+      >
+        <h2 style={{ color: "red", marginBottom: "10px" }}>{error}</h2>
+        <p>Redirecting...</p>
+      </div>
+    );
+  }
+
+  // 🔥 NORMAL MEETING UI
   return (
     <div
       style={{

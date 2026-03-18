@@ -97,7 +97,7 @@ exports.joinMeeting = async (req, res, next) => {
     }
 
     await appointment.save();
-
+    // console.log("JOIN MEETING CONTROLLER HIT");
     return res.json({
       success: true,
       token,
