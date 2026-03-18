@@ -14,21 +14,52 @@ exports.joinMeeting = async (req, res, next) => {
     const end = new Date(appointment.endTimeUTC);
     const now = new Date();
 
+    // ✅ Allow only 10 minutes before start
     const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
-    const windowEnd = new Date(end.getTime() + 30 * 60 * 1000);
 
-    if (now < windowStart || now > windowEnd) {
+    if (now < windowStart) {
       return res.status(400).json({
-        message:
-          "Meeting can be joined from 10 minutes before start until 30 minutes after end",
+        message: "You can join only 10 minutes before the session starts",
       });
     }
 
-    const ttlSeconds = Math.max(
-      300,
-      Math.ceil((windowEnd.getTime() - now.getTime()) / 1000),
+    // ❌ Prevent joining after end time
+    if (now > end) {
+      return res.status(400).json({
+        message: "Meeting has already ended",
+      });
+    }
+
+    // ✅ Token valid only till endTime
+    const ttlSeconds = Math.floor((end.getTime() - now.getTime()) / 1000);
+
+    if (ttlSeconds <= 0) {
+      return res.status(400).json({
+        message: "Session expired",
+      });
+    }
+
+    // ✅ Participant handling
+    appointment.meeting = appointment.meeting || {};
+    appointment.meeting.participants =
+      appointment.meeting.participants || [];
+
+    const existingParticipant = appointment.meeting.participants.find(
+      (p) => p.userId && p.userId.toString() === userId
     );
 
+    // ✅ Optional: limit to 10 users
+    if (
+      !existingParticipant &&
+      appointment.meeting.participants.length >= 10 &&
+      role !== "host"
+    ) {
+      return res.status(400).json({
+        message: "Meeting is full (max 10 participants)",
+      });
+    }
+
+    // ✅ Generate token
     const { token, expireAt } = videoService.generateToken({
       userId,
       roomId: appointment.meeting.roomId,
@@ -36,18 +67,12 @@ exports.joinMeeting = async (req, res, next) => {
       ttlSeconds,
     });
 
-    // Update lifecycle fields
-    let dirty = false;
-    appointment.meeting = appointment.meeting || {};
-    appointment.meeting.participants = appointment.meeting.participants || [];
-
-    const existingParticipant = appointment.meeting.participants.find(
-      (p) => p.userId && p.userId.toString() === userId,
-    );
+    // ✅ Track join
     if (existingParticipant) {
       existingParticipant.role = role;
       existingParticipant.joinEvents =
         existingParticipant.joinEvents || [];
+
       existingParticipant.joinEvents.push({
         at: now,
         action: "join",
@@ -60,31 +85,29 @@ exports.joinMeeting = async (req, res, next) => {
       });
     }
 
+    // ✅ Host starts meeting
     if (role === "host" && !appointment.meeting.startedAt) {
       appointment.meeting.startedAt = now;
       appointment.meeting.status = "live";
-      dirty = true;
     }
 
-    // Ensure meeting status reflects state
+    // ✅ Default status
     if (!appointment.meeting.status) {
       appointment.meeting.status = "waiting";
-      dirty = true;
     }
 
-    if (dirty) {
-      await appointment.save();
-    } else {
-      await appointment.save(); // still persist join log
-    }
+    await appointment.save();
 
-    res.json({
+    return res.json({
+      success: true,
       token,
       roomId: appointment.meeting.roomId,
       appID: Number(process.env.ZEGO_APP_ID),
       role,
       expireAt,
       meetingStatus: appointment.meeting.status,
+      startTime: appointment.startTimeUTC,
+      endTime: appointment.endTimeUTC, // 🔥 required for frontend auto-end
     });
   } catch (err) {
     next(err);
@@ -101,10 +124,12 @@ exports.endMeeting = async (req, res, next) => {
     }
 
     const now = new Date();
+
     appointment.meeting = appointment.meeting || {};
     appointment.meeting.endedAt = now;
     appointment.meeting.status = "ended";
 
+    // ✅ Appointment status update
     if (appointment.meeting.startedAt) {
       appointment.status = "completed";
     } else {
@@ -113,7 +138,8 @@ exports.endMeeting = async (req, res, next) => {
 
     await appointment.save();
 
-    res.json({
+    return res.json({
+      success: true,
       message: "Meeting ended",
       meeting: {
         roomId: appointment.meeting.roomId,
@@ -126,5 +152,4 @@ exports.endMeeting = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-
 };

@@ -3,8 +3,12 @@ const config = require("../../config/zegocloud.config");
 
 const DEFAULT_TTL = config.defaultTtlSeconds || 7200;
 
-// Lightweight token signer (HMAC) kept backend-only. Replace with official ZEGOCLOUD helper when available.
-function generateToken({ userId, roomId, role = "attendee", ttlSeconds = DEFAULT_TTL }) {
+function generateToken({
+  userId,
+  roomId,
+  role = "attendee",
+  ttlSeconds = DEFAULT_TTL,
+}) {
   if (!config.appId || !config.serverSecret) {
     throw new Error("ZEGO_APP_ID or ZEGO_SERVER_SECRET missing");
   }
@@ -13,7 +17,16 @@ function generateToken({ userId, roomId, role = "attendee", ttlSeconds = DEFAULT
     throw new Error("roomId is required for token generation");
   }
 
-  const exp = Math.floor(Date.now() / 1000) + Number(ttlSeconds || DEFAULT_TTL);
+  const now = Math.floor(Date.now() / 1000);
+
+  // ✅ Ensure valid TTL
+  const ttl = Number(ttlSeconds || DEFAULT_TTL);
+  if (!ttl || ttl <= 0) {
+    throw new Error("Invalid ttlSeconds");
+  }
+
+  const exp = now + ttl;
+
   const payload = {
     app_id: Number(config.appId),
     user_id: String(userId),
@@ -21,22 +34,28 @@ function generateToken({ userId, roomId, role = "attendee", ttlSeconds = DEFAULT
     role,
     exp,
     nonce: crypto.randomBytes(8).toString("hex"),
-    ts: Math.floor(Date.now() / 1000),
+    ts: now,
   };
+
+  // ✅ Stable stringify (important for consistent signature)
+  const payloadString = JSON.stringify(payload);
 
   const signature = crypto
     .createHmac("sha256", config.serverSecret)
-    .update(JSON.stringify(payload))
+    .update(payloadString)
     .digest("hex");
 
   const token = Buffer.from(
     JSON.stringify({
       payload,
       signature,
-    }),
+    })
   ).toString("base64url");
 
-  return { token, expireAt: exp * 1000 };
+  return {
+    token,
+    expireAt: exp * 1000, // ms for frontend
+  };
 }
 
 module.exports = {

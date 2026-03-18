@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -10,6 +10,8 @@ export default function MeetingPage() {
   const { appointmentId } = useParams();
   const containerRef = useRef(null);
   const zpRef = useRef(null);
+
+  const [endTime, setEndTime] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -29,6 +31,39 @@ export default function MeetingPage() {
 
         const data = await res.json();
 
+        if (!res.ok) {
+          alert(data.message);
+          return;
+        }
+
+        // ✅ Ensure backend sent required data
+        if (!data.startTime || !data.endTime) {
+          alert("Invalid meeting time data");
+          return;
+        }
+
+        const start = new Date(data.startTime);
+        const end = new Date(data.endTime);
+        const now = new Date();
+
+        const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
+
+        // 🔒 Block early join
+        if (now < windowStart) {
+          alert("You can join only 10 minutes before the session starts");
+          return;
+        }
+
+        // 🔒 Block late join
+        if (now > end) {
+          alert("Meeting has already ended");
+          return;
+        }
+
+        // ✅ Store endTime for auto-exit
+        setEndTime(data.endTime);
+
+        // ✅ Generate token AFTER validation
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           ZEGO_APP_ID,
           ZEGO_SERVER_SECRET,
@@ -49,7 +84,6 @@ export default function MeetingPage() {
           },
         });
 
-        // handle tab/browser close
         window.addEventListener("beforeunload", handleUnload);
 
       } catch (err) {
@@ -61,13 +95,33 @@ export default function MeetingPage() {
 
     return () => {
       mounted = false;
-
-      // cleanup on component unmount
       zpRef.current?.destroy();
-
       window.removeEventListener("beforeunload", handleUnload);
     };
   }, [appointmentId]);
+
+  // ✅ AUTO END LOGIC
+  useEffect(() => {
+    if (!endTime || !zpRef.current) return;
+
+    const now = new Date();
+    const end = new Date(endTime);
+
+    const timeLeft = end.getTime() - now.getTime();
+
+    if (timeLeft <= 0) {
+      zpRef.current?.destroy();
+      alert("Session already ended");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      zpRef.current?.destroy();
+      alert("Session ended");
+    }, timeLeft);
+
+    return () => clearTimeout(timer);
+  }, [endTime]);
 
   return (
     <div
@@ -80,7 +134,6 @@ export default function MeetingPage() {
       }}
     >
       <div
-        // className="meeting-theme"
         ref={containerRef}
         style={{
           width: "80%",

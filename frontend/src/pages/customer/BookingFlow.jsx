@@ -29,20 +29,18 @@ const parseJsonSafely = async (response) => {
   return response.json();
 };
 
-const parseTimeOnDateUTC = (date, timeText) => {
+const parseTimeOnDateLocal = (date, timeText) => {
   const match = typeof timeText === "string" ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/) : null;
   if (!match) return null;
 
   return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      Number(match[1]),
-      Number(match[2]),
-      0,
-      0
-    )
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    Number(match[1]),
+    Number(match[2]),
+    0,
+    0
   );
 };
 
@@ -52,11 +50,11 @@ const parseTimeOnDateUTC = (date, timeText) => {
 //   return toLocalDateTimeValue(now);
 // };
 
-const getDayNameUTC = (date) => {
+const getDayNameLocal = (date) => {
   const dayNames = [
     "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
   ];
-  return dayNames[date.getUTCDay()];
+  return dayNames[date.getDay()];
 };
 
 const normalizeShopSchedule = (payload) => ({
@@ -75,15 +73,13 @@ const isClosedForDateRange = ({ bookingDate, closedPeriods }) => {
   }
 
   const dayStart = new Date(
-    Date.UTC(
-      bookingDate.getUTCFullYear(),
-      bookingDate.getUTCMonth(),
-      bookingDate.getUTCDate(),
-      0,
-      0,
-      0,
-      0
-    )
+    bookingDate.getFullYear(),
+    bookingDate.getMonth(),
+    bookingDate.getDate(),
+    0,
+    0,
+    0,
+    0
   );
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
@@ -99,7 +95,7 @@ const isClosedForDateRange = ({ bookingDate, closedPeriods }) => {
 
 const getDayAvailability = (schedule, bookingDate) => {
   if (!schedule) return null;
-  const dayName = getDayNameUTC(bookingDate);
+  const dayName = getDayNameLocal(bookingDate);
   return (
     schedule.weeklyAvailability.find(
       (entry) =>
@@ -109,10 +105,10 @@ const getDayAvailability = (schedule, bookingDate) => {
   );
 };
 
-const isSameUtcDate = (left, right) =>
-  left.getUTCFullYear() === right.getUTCFullYear() &&
-  left.getUTCMonth() === right.getUTCMonth() &&
-  left.getUTCDate() === right.getUTCDate();
+const isSameLocalDate = (left, right) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
 
 const isDayOpen = (dayAvailability) => {
   if (!dayAvailability) return false;
@@ -125,7 +121,7 @@ const isDayOpen = (dayAvailability) => {
   return false;
 };
 
-const getDayRangesOnDateUTC = ({ bookingDate, dayAvailability }) => {
+const getDayRangesOnDateLocal = ({ bookingDate, dayAvailability }) => {
   if (!dayAvailability) return [];
 
   const ranges = [];
@@ -134,8 +130,8 @@ const getDayRangesOnDateUTC = ({ bookingDate, dayAvailability }) => {
   for (const slot of slotList) {
     const startCandidate = slot?.startTime ?? slot?.start;
     const endCandidate = slot?.endTime ?? slot?.end;
-    const windowStart = parseTimeOnDateUTC(bookingDate, startCandidate);
-    const windowEnd = parseTimeOnDateUTC(bookingDate, endCandidate);
+    const windowStart = parseTimeOnDateLocal(bookingDate, startCandidate);
+    const windowEnd = parseTimeOnDateLocal(bookingDate, endCandidate);
 
     if (!windowStart || !windowEnd || windowStart >= windowEnd) {
       continue;
@@ -155,8 +151,8 @@ const getDayRangesOnDateUTC = ({ bookingDate, dayAvailability }) => {
     typeof dayAvailability.closeTime === "string" ? dayAvailability.closeTime : dayAvailability.endTime;
 
   if (rangeStartText && rangeEndText) {
-    const rangeStart = parseTimeOnDateUTC(bookingDate, rangeStartText);
-    const rangeEnd = parseTimeOnDateUTC(bookingDate, rangeEndText);
+    const rangeStart = parseTimeOnDateLocal(bookingDate, rangeStartText);
+    const rangeEnd = parseTimeOnDateLocal(bookingDate, rangeEndText);
     if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
       return [{ start: rangeStart, end: rangeEnd }];
     }
@@ -180,7 +176,7 @@ const getAvailabilityPopupMessage = ({ shopSchedule, serviceSchedule, bookingSta
     return "";
   }
 
-  if (!isSameUtcDate(bookingStart, bookingEnd)) {
+  if (!isSameLocalDate(bookingStart, bookingEnd)) {
     return "Booking time is outside shop working hours.";
   }
 
@@ -193,7 +189,7 @@ const getAvailabilityPopupMessage = ({ shopSchedule, serviceSchedule, bookingSta
     return "Shop is closed on selected day.";
   }
 
-  const shopRanges = getDayRangesOnDateUTC({
+  const shopRanges = getDayRangesOnDateLocal({
     bookingDate: bookingStart,
     dayAvailability: shopDayAvailability
   });
@@ -218,7 +214,7 @@ const getAvailabilityPopupMessage = ({ shopSchedule, serviceSchedule, bookingSta
     return "Service is not available at selected time.";
   }
 
-  const serviceRanges = getDayRangesOnDateUTC({
+  const serviceRanges = getDayRangesOnDateLocal({
     bookingDate: bookingStart,
     dayAvailability: serviceDayAvailability
   });
@@ -273,7 +269,7 @@ const mapServerErrorToPopupMessage = ({ rawMessage, shopSchedule, serviceSchedul
 
   return message || "Failed to create appointment";
 };
- 
+
 
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
@@ -287,10 +283,10 @@ export default function BookingFlow() {
   //   return toLocalDateTimeValue(now); 
   // }, []);
 
-//   const [form, setForm] = useState({
-//   startTimeLocal: defaultStartTime,
-//   durationMinutes: 30,
-// });
+  //   const [form, setForm] = useState({
+  //   startTimeLocal: defaultStartTime,
+  //   durationMinutes: 30,
+  // });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -315,9 +311,11 @@ export default function BookingFlow() {
       setAvailableSlots([]);
       setSelectedSlot("");
 
+      const tzOffsetMinutes = new Date().getTimezoneOffset();
+
       try {
         const response = await fetch(
-          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}`,
+          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}&tzOffsetMinutes=${tzOffsetMinutes}`,
           { signal: controller.signal }
         );
 
@@ -327,21 +325,35 @@ export default function BookingFlow() {
           throw new Error(payload?.message || "Failed to load available slots");
         }
         const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
-        const now = new Date();
-        const today = getTodayDate();
+
+        console.log(rawSlots)
+
+
 
         const slots = rawSlots
-          .map((slot) => (slot?.startTimeUTC ? new Date(slot.startTimeUTC) : null))
+          .map((slot) => {
+            if (!slot?.startTimeUTC) return null;
+
+            const date = new Date(slot.startTimeUTC);
+            return date;
+          })
           .filter(Boolean)
           .filter((slot) => {
-            if (selectedDate !== today) return true;
+           
+            const localDateStr = slot.toLocaleDateString("en-CA");
+   
+            if (localDateStr !== selectedDate) return false;
 
-            // compare timestamps safely
-            return slot.getTime() > now.getTime() + 60 * 1000;
+            const now = new Date();
+            if (selectedDate === getTodayDate()) {
+              return slot.getTime() > now.getTime();
+            }
+
+            return true;
           });
 
         setAvailableSlots(slots);
-    
+
         // do not auto-select slot
         setSelectedSlot("");
 
@@ -425,11 +437,11 @@ export default function BookingFlow() {
   //   };
   // }, []);
 
- const showPopupError = (message) => {
-  const text = message || "Failed to create appointment";
-  setSubmitError(""); // clear inline error
-  setPopupMessage(text);
-};
+  const showPopupError = (message) => {
+    const text = message || "Failed to create appointment";
+    setSubmitError(""); // clear inline error
+    setPopupMessage(text);
+  };
 
   const closePopup = () => {
     setPopupMessage("");
@@ -512,10 +524,11 @@ export default function BookingFlow() {
       return;
     }
 
-   const payload = {
-  startTimeUTC: startDate.toISOString(),
-  endTimeUTC: endDate.toISOString(),
-};
+    const payload = {
+      startTimeUTC: startDate.toISOString(),
+      endTimeUTC: endDate.toISOString(),
+      tzOffsetMinutes: new Date().getTimezoneOffset(),
+    };
 
     // if (form.mode === "online") {
     //   payload.meeting = {

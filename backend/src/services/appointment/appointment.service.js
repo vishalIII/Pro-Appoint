@@ -104,6 +104,11 @@ const normalizeObjectId = (id) =>
 const addMinutes = (value, minutes) =>
   new Date(value.getTime() + minutes * 60 * 1000);
 
+const normalizeTzOffset = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0; // minutes to add to LOCAL to get UTC (same semantics as Date.getTimezoneOffset)
+};
+
 const toDate = (value, fieldName) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -112,39 +117,53 @@ const toDate = (value, fieldName) => {
   return date;
 };
 
-const parseDateOnlyUTC = (value) => {
+const parseDateParts = (value) => {
   if (!value || typeof value !== "string") {
     throw new AppError("date query param is required (YYYY-MM-DD)", 400);
   }
 
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
     throw new AppError("Invalid date format. Use YYYY-MM-DD", 400);
   }
-  return date;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1; // 0-based
+  const day = Number(match[3]);
+
+  return { year, monthIndex, day };
 };
 
-const parseTimeOnDateUTC = (date, timeText) => {
+const toUtcFromLocalParts = ({
+  year,
+  monthIndex,
+  day,
+  hour = 0,
+  minute = 0,
+  tzOffsetMinutes = 0,
+}) =>
+  new Date(
+    Date.UTC(year, monthIndex, day, hour, minute, 0, 0) +
+      tzOffsetMinutes * 60 * 1000,
+  );
+
+const toLocalFromUtc = ({ utcDate, tzOffsetMinutes = 0 }) =>
+  new Date(utcDate.getTime() - tzOffsetMinutes * 60 * 1000);
+
+const parseTimeOnDateWithOffset = ({ dateParts, timeText, tzOffsetMinutes }) => {
   const match =
     typeof timeText === "string"
       ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
       : null;
 
-  if (!match) {
-    return null;
-  }
+  if (!match) return null;
 
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      Number(match[1]),
-      Number(match[2]),
-      0,
-      0,
-    ),
-  );
+  return toUtcFromLocalParts({
+    ...dateParts,
+    hour: Number(match[1]),
+    minute: Number(match[2]),
+    tzOffsetMinutes,
+  });
 };
 
 // const getOnlineCapacity = (service) => {
@@ -158,7 +177,7 @@ const parseTimeOnDateUTC = (date, timeText) => {
 //   return 1;
 // };
 
-const getDayNameUTC = (date) => {
+const getDayNameFromParts = ({ year, monthIndex, day }) => {
   const dayNames = [
     "sunday",
     "monday",
@@ -168,7 +187,8 @@ const getDayNameUTC = (date) => {
     "friday",
     "saturday",
   ];
-  return dayNames[date.getUTCDay()];
+  const dayIndex = new Date(Date.UTC(year, monthIndex, day)).getUTCDay();
+  return dayNames[dayIndex];
 };
 
 const isOverlapping = ({ startA, endA, startB, endB }) =>
@@ -198,10 +218,16 @@ const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   });
 };
 
-const isSameUtcDate = (left, right) =>
-  left.getUTCFullYear() === right.getUTCFullYear() &&
-  left.getUTCMonth() === right.getUTCMonth() &&
-  left.getUTCDate() === right.getUTCDate();
+const isSameLocalDate = ({ leftUTC, rightUTC, tzOffsetMinutes }) => {
+  const leftLocal = toLocalFromUtc({ utcDate: leftUTC, tzOffsetMinutes });
+  const rightLocal = toLocalFromUtc({ utcDate: rightUTC, tzOffsetMinutes });
+
+  return (
+    leftLocal.getFullYear() === rightLocal.getFullYear() &&
+    leftLocal.getMonth() === rightLocal.getMonth() &&
+    leftLocal.getDate() === rightLocal.getDate()
+  );
+};
 
 const getDayAvailability = (weeklyAvailability, dayName) =>
   (weeklyAvailability || []).find(
@@ -220,7 +246,11 @@ const isDayOpen = (dayAvailability) => {
   return false;
 };
 
-const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
+const getDayRangesOnDateLocal = ({
+  dateParts,
+  dayAvailability,
+  tzOffsetMinutes,
+}) => {
   if (!dayAvailability) return [];
 
   const ranges = [];
@@ -232,8 +262,16 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
   for (const slot of slotList) {
     const startCandidate = slot?.startTime ?? slot?.start;
     const endCandidate = slot?.endTime ?? slot?.end;
-    const slotStart = parseTimeOnDateUTC(date, startCandidate);
-    const slotEnd = parseTimeOnDateUTC(date, endCandidate);
+    const slotStart = parseTimeOnDateWithOffset({
+      dateParts,
+      timeText: startCandidate,
+      tzOffsetMinutes,
+    });
+    const slotEnd = parseTimeOnDateWithOffset({
+      dateParts,
+      timeText: endCandidate,
+      tzOffsetMinutes,
+    });
 
     if (!slotStart || !slotEnd || slotStart >= slotEnd) {
       continue;
@@ -261,8 +299,16 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
       : dayAvailability.endTime;
 
   if (rangeStartText && rangeEndText) {
-    const rangeStart = parseTimeOnDateUTC(date, rangeStartText);
-    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText);
+    const rangeStart = parseTimeOnDateWithOffset({
+      dateParts,
+      timeText: rangeStartText,
+      tzOffsetMinutes,
+    });
+    const rangeEnd = parseTimeOnDateWithOffset({
+      dateParts,
+      timeText: rangeEndText,
+      tzOffsetMinutes,
+    });
     if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
       return [
         {
@@ -303,18 +349,22 @@ const getBookingAvailabilityError = ({
   service,
   startTimeUTC,
   endTimeUTC,
+  tzOffsetMinutes,
 }) => {
-  const dayStart = new Date(
-    Date.UTC(
-      startTimeUTC.getUTCFullYear(),
-      startTimeUTC.getUTCMonth(),
-      startTimeUTC.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
+  const localStart = toLocalFromUtc({ utcDate: startTimeUTC, tzOffsetMinutes });
+
+  const dateParts = {
+    year: localStart.getFullYear(),
+    monthIndex: localStart.getMonth(),
+    day: localStart.getDate(),
+  };
+
+  const dayStart = toUtcFromLocalParts({
+    ...dateParts,
+    hour: 0,
+    minute: 0,
+    tzOffsetMinutes,
+  });
   const dayEnd = addMinutes(dayStart, 24 * 60);
   const isShopClosedByPeriod = isClosedForDateRange({
     dayStart,
@@ -326,11 +376,17 @@ const getBookingAvailabilityError = ({
     return "Shop is closed on selected day.";
   }
 
-  if (!isSameUtcDate(startTimeUTC, endTimeUTC)) {
+  if (
+    !isSameLocalDate({
+      leftUTC: startTimeUTC,
+      rightUTC: endTimeUTC,
+      tzOffsetMinutes,
+    })
+  ) {
     return "Booking time is outside shop working hours.";
   }
 
-  const dayName = getDayNameUTC(startTimeUTC);
+  const dayName = getDayNameFromParts(dateParts);
   const shopDayAvailability = getDayAvailability(
     shop.weeklyAvailability,
     dayName,
@@ -340,9 +396,10 @@ const getBookingAvailabilityError = ({
     return "Shop is closed on selected day.";
   }
 
-  const shopRanges = getDayRangesOnDateUTC({
-    date: startTimeUTC,
+  const shopRanges = getDayRangesOnDateLocal({
+    dateParts,
     dayAvailability: shopDayAvailability,
+    tzOffsetMinutes,
   });
 
   if (
@@ -375,9 +432,10 @@ const getBookingAvailabilityError = ({
     return "Service is not available at selected time.";
   }
 
-  const serviceRanges = getDayRangesOnDateUTC({
-    date: startTimeUTC,
+  const serviceRanges = getDayRangesOnDateLocal({
+    dateParts,
     dayAvailability: serviceDayAvailability,
+    tzOffsetMinutes,
   });
 
   if (
@@ -742,11 +800,13 @@ exports.getAvailableSlots = async ({
   date,
   attendeeId,
   slotIntervalMinutes,
-}) => {
+  tzOffsetMinutes: rawTzOffsetMinutes,
+  }) => {
   try {
     const shopId = normalizeObjectId(rawShopId);
     const serviceId = normalizeObjectId(rawServiceId);
-    const selectedDate = parseDateOnlyUTC(date);
+    const dateParts = parseDateParts(date);
+    const tzOffsetMinutes = normalizeTzOffset(rawTzOffsetMinutes);
 
     const intervalRaw =
       slotIntervalMinutes === undefined ? 15 : Number(slotIntervalMinutes);
@@ -769,9 +829,14 @@ exports.getAvailableSlots = async ({
       requiredResources,
     });
 
-    const dayStart = selectedDate;
+    const dayStart = toUtcFromLocalParts({
+      ...dateParts,
+      hour: 0,
+      minute: 0,
+      tzOffsetMinutes,
+    });
     const dayEnd = addMinutes(dayStart, 24 * 60);
-    const dayName = getDayNameUTC(selectedDate);
+    const dayName = getDayNameFromParts(dateParts);
 
     const shopDayAvailability = getDayAvailability(
       shop.weeklyAvailability,
@@ -804,13 +869,15 @@ exports.getAvailableSlots = async ({
       };
     }
 
-    const shopRanges = getDayRangesOnDateUTC({
-      date: selectedDate,
+    const shopRanges = getDayRangesOnDateLocal({
+      dateParts,
       dayAvailability: shopDayAvailability,
+      tzOffsetMinutes,
     });
-    const serviceRanges = getDayRangesOnDateUTC({
-      date: selectedDate,
+    const serviceRanges = getDayRangesOnDateLocal({
+      dateParts,
       dayAvailability: serviceDayAvailability,
+      tzOffsetMinutes,
     });
     const effectiveRanges = getIntersectedRanges(shopRanges, serviceRanges);
 
@@ -971,10 +1038,12 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       metadata,
       shopId: rawShopId,
       serviceId: rawServiceId,
+      tzOffsetMinutes: rawTzOffsetMinutes,
     } = payload || {};
 
     const shopId = normalizeObjectId(rawShopId);
     const serviceId = normalizeObjectId(rawServiceId);
+    const tzOffsetMinutes = normalizeTzOffset(rawTzOffsetMinutes);
 
     const finalAttendeeId = attendeeId || userId;
     if (!finalAttendeeId) {
@@ -1020,6 +1089,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         service,
         startTimeUTC: requestedStart,
         endTimeUTC: computedEnd,
+        tzOffsetMinutes,
       });
 
       if (availabilityError) {
@@ -1439,6 +1509,7 @@ exports.updateAppointment = async ({
 }) => {
   try {
     appointmentId = normalizeObjectId(appointmentId);
+    const tzOffsetMinutes = normalizeTzOffset(updatePayload?.tzOffsetMinutes);
 
     if (!appointmentId) {
       throw new AppError("Appointment ID is required", 400);
@@ -1590,6 +1661,7 @@ exports.updateAppointment = async ({
         service,
         startTimeUTC: nextStart,
         endTimeUTC: nextEnd,
+        tzOffsetMinutes,
       });
 
       if (availabilityError) {

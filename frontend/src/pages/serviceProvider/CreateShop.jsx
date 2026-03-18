@@ -23,6 +23,13 @@ const defaultOpeningHours = DAYS.reduce((acc, day) => {
   return acc;
 }, {});
 
+const TIME_OPTIONS_30_MIN = Array.from({ length: 48 }, (_, index) => {
+  const totalMinutes = index * 30;
+  const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const minutes = String(totalMinutes % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+});
+
 export default function ProviderCreateShopPage() {
   const { token } = useAuth();
   const { refreshShops, setSelectedShopId } = useProviderWorkspace();
@@ -361,25 +368,35 @@ export default function ProviderCreateShopPage() {
                   </label>
                   <label>
                     Open
-                    <input
-                      type="time"
+                    <select
                       value={value.open}
                       onChange={(event) =>
                         handleOpeningHoursChange(day, "open", event.target.value)
                       }
                       disabled={value.closed}
-                    />
+                    >
+                      {TIME_OPTIONS_30_MIN.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     Close
-                    <input
-                      type="time"
+                    <select
                       value={value.close}
                       onChange={(event) =>
                         handleOpeningHoursChange(day, "close", event.target.value)
                       }
                       disabled={value.closed}
-                    />
+                    >
+                      {TIME_OPTIONS_30_MIN.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               );
