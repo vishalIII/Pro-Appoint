@@ -1,10 +1,19 @@
 const crypto = require("crypto");
 const config = require("../../config/zegocloud.config");
 
-const DEFAULT_TTL = config.defaultTtlSeconds || 7200;
+const DEFAULT_TTL = 3600; // 1 hour as required
 
-// Lightweight token signer (HMAC) kept backend-only. Replace with official ZEGOCLOUD helper when available.
-function generateToken({ userId, roomId, role = "attendee", ttlSeconds = DEFAULT_TTL }) {
+function getAesKey(secret) {
+  const raw = Buffer.from(secret, "utf8");
+  if ([16, 24, 32].includes(raw.length)) {
+    return raw;
+  }
+  // Normalize to 32 bytes
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
+// Backend-only kit token generator (mirrors generateKitTokenForTest but keeps secret off the client)
+function generateToken({ userId, userName, roomId, role = "attendee", ttlSeconds = DEFAULT_TTL }) {
   if (!config.appId || !config.serverSecret) {
     throw new Error("ZEGO_APP_ID or ZEGO_SERVER_SECRET missing");
   }
@@ -14,27 +23,51 @@ function generateToken({ userId, roomId, role = "attendee", ttlSeconds = DEFAULT
   }
 
   const exp = Math.floor(Date.now() / 1000) + Number(ttlSeconds || DEFAULT_TTL);
+  const ctime = Math.floor(Date.now() / 1000);
   const payload = {
     app_id: Number(config.appId),
     user_id: String(userId),
-    room_id: String(roomId),
-    role,
-    exp,
-    nonce: crypto.randomBytes(8).toString("hex"),
-    ts: Math.floor(Date.now() / 1000),
+    nonce: Math.floor(Math.random() * 2147483647),
+    ctime,
+    expire: exp,
   };
 
-  const signature = crypto
-    .createHmac("sha256", config.serverSecret)
-    .update(JSON.stringify(payload))
-    .digest("hex");
+  let iv = Math.random().toString().substring(2, 18);
+  if (iv.length < 16) {
+    iv = (iv + iv).substring(0, 16);
+  }
 
-  const token = Buffer.from(
+  const key = getAesKey(config.serverSecret);
+  const algo =
+    key.length === 16 ? "aes-128-cbc" : key.length === 24 ? "aes-192-cbc" : "aes-256-cbc";
+  const keyLength = algo === "aes-128-cbc" ? 16 : algo === "aes-192-cbc" ? 24 : 32;
+
+  const cipher = crypto.createCipheriv(algo, key.slice(0, keyLength), Buffer.from(iv, "utf8"));
+  let encrypted = cipher.update(JSON.stringify(payload), "utf8", "base64");
+  encrypted += cipher.final("base64");
+
+  const encryptedBytes = Buffer.from(encrypted, "base64");
+  const buffer = Buffer.alloc(28 + encryptedBytes.length);
+
+  buffer.writeUInt32BE(0, 0); // reserved
+  buffer.writeUInt32BE(exp, 4);
+  buffer.writeUInt16BE(iv.length, 8);
+  buffer.write(iv, 10, "utf8");
+  buffer.writeUInt16BE(encryptedBytes.length, 26);
+  encryptedBytes.copy(buffer, 28);
+
+  const tokenPrefix = `04${buffer.toString("base64")}`;
+  const info = Buffer.from(
     JSON.stringify({
-      payload,
-      signature,
+      userID: String(userId),
+      roomID: String(roomId),
+      userName: encodeURIComponent(userName || ""),
+      appID: Number(config.appId),
+      role,
     }),
-  ).toString("base64url");
+  ).toString("base64");
+
+  const token = `${tokenPrefix}#${info}`;
 
   return { token, expireAt: exp * 1000 };
 }

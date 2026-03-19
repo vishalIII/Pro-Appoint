@@ -18,11 +18,15 @@ async function meetingAccess(req, res, next) {
     return res.status(400).json({ message: "Appointment not confirmed" });
   }
 
-  const userId = req.user._id.toString();
+  const userId = String(req.user?.userId || req.user?._id || req.user?.id);
+  const tenantClaim = req.user?.tenantId ? String(req.user.tenantId) : null;
 
   const isParticipant =
-    appointment.attendeeId.toString() === userId ||
-    appointment.tenantId.toString() === userId ||
+    (appointment.attendeeId && appointment.attendeeId.toString() === userId) ||
+    (appointment.tenantId && appointment.tenantId.toString() === userId) ||
+    (appointment.tenantId &&
+      tenantClaim &&
+      appointment.tenantId.toString() === tenantClaim) ||
     (Array.isArray(appointment.attendees) &&
       appointment.attendees.some(
         (a) => a?.userId && a.userId.toString() === userId,

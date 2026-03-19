@@ -1,49 +1,71 @@
 import { useParams } from "react-router-dom";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
+import { useAuth } from "../auth/useAuth";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const ZEGO_APP_ID = Number(import.meta.env.VITE_ZEGO_APP_ID);
-const ZEGO_SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export default function MeetingPage() {
+  const { token } = useAuth();
   const { appointmentId } = useParams();
   const containerRef = useRef(null);
   const zpRef = useRef(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
+    const sendLeave = async () => {
+      try {
+        if (!token || !appointmentId) return;
+        await fetch(`${API_BASE_URL}/meeting/leave/${appointmentId}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch {
+        // ignore cleanup errors
+      }
+    };
+
     const handleUnload = () => {
       zpRef.current?.destroy();
+      sendLeave();
     };
 
     const startMeeting = async () => {
       if (!containerRef.current) return;
 
       try {
+        setError("");
+        setLoading(true);
+
         const res = await fetch(
-          `${API_BASE_URL}/video/join/${appointmentId}`,
-          { credentials: "include" }
+          `${API_BASE_URL}/meeting/token/${appointmentId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
         );
 
         const data = await res.json();
 
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          ZEGO_APP_ID,
-          ZEGO_SERVER_SECRET,
-          data.roomId,
-          data.userId,
-          data.userName
-        );
+        if (!res.ok) {
+          throw new Error(data?.message || "Failed to fetch meeting token");
+        }
 
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        const zp = ZegoUIKitPrebuilt.create(data.token);
         zpRef.current = zp;
 
         if (!mounted) return;
 
         zp.joinRoom({
           container: containerRef.current,
+          userID: data.userId,
+          userName: data.userName,
           scenario: {
             mode: ZegoUIKitPrebuilt.GroupCall,
           },
@@ -54,20 +76,30 @@ export default function MeetingPage() {
 
       } catch (err) {
         console.error("Meeting start failed:", err);
+        if (mounted) {
+          setError(err.message || "Unable to join meeting");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    startMeeting();
+    if (token) {
+      startMeeting();
+    }
 
     return () => {
       mounted = false;
 
       // cleanup on component unmount
       zpRef.current?.destroy();
+      sendLeave();
 
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [appointmentId]);
+  }, [appointmentId, token]);
 
   return (
     <div
@@ -77,19 +109,42 @@ export default function MeetingPage() {
         alignItems: "center",
         height: "100vh",
         background: "var(--bg)",
+        padding: "24px",
       }}
     >
-      <div
-        // className="meeting-theme"
-        ref={containerRef}
-        style={{
-          width: "80%",
-          height: "80vh",
-          borderRadius: "16px",
-          overflow: "hidden",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
-        }}
-      />
+      {error ? (
+        <div
+          style={{
+            maxWidth: 520,
+            width: "100%",
+            padding: "20px",
+            borderRadius: "12px",
+            background: "#fff7f7",
+            color: "#b42318",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+            textAlign: "center",
+          }}
+        >
+          <h3 style={{ marginBottom: 8 }}>Unable to join meeting</h3>
+          <p style={{ marginBottom: 16 }}>{error}</p>
+          <p style={{ fontSize: 14, color: "#5f5f5f" }}>
+            If the meeting has not started yet, please try again closer to the scheduled time.
+          </p>
+        </div>
+      ) : (
+        <div
+          // className="meeting-theme"
+          ref={containerRef}
+          style={{
+            width: "80%",
+            height: "80vh",
+            borderRadius: "16px",
+            overflow: "hidden",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+            background: loading ? "#f7f7f7" : "transparent",
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,60 +1,99 @@
 const videoService = require("../../services/video/video.service");
+const Service = require("../../models/service/service.model");
+const User = require("../../models/user/user.model");
+const participantTracker = require("../../services/video/participantTracker");
+
+const deriveMaxParticipants = async (appointment) => {
+  if (appointment.maxParticipants) return appointment.maxParticipants;
+  if (appointment.meeting?.maxParticipants) return appointment.meeting.maxParticipants;
+  if (appointment.capacitySnapshot) return appointment.capacitySnapshot;
+
+  // Fallback to service capacity/onlineCapacity
+  const service = await Service.findById(appointment.serviceId).select("onlineCapacity capacity").lean();
+  return (
+    service?.onlineCapacity ||
+    service?.capacity ||
+    2 // safe floor to avoid unlimited joins
+  );
+};
+
+const getUserId = (req) => String(req.user?.userId || req.user?._id || req.user?.id);
 
 exports.joinMeeting = async (req, res, next) => {
   try {
     const appointment = req.appointment;
-    const userId = req.user._id.toString();
-    const role = req.meetingRole || "attendee";
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
 
     if (!appointment.meeting?.roomId) {
       return res.status(400).json({ message: "Meeting not initialized" });
     }
 
+    if (appointment.meeting?.status === "ended") {
+      return res.status(400).json({ message: "Meeting already ended" });
+    }
+
+    const userId = getUserId(req);
+    const user = await User.findById(userId).select("name");
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
     const start = new Date(appointment.startTimeUTC);
     const end = new Date(appointment.endTimeUTC);
     const now = new Date();
-
-    const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
-    const windowEnd = new Date(end.getTime() + 30 * 60 * 1000);
+    const earlyMs =
+      Number(process.env.MEETING_EARLY_MINUTES || 0) * 60 * 1000;
+    const lateMs = Number(process.env.MEETING_LATE_MINUTES || 0) * 60 * 1000;
+    const windowStart = new Date(start.getTime() - earlyMs);
+    const windowEnd = new Date(end.getTime() + lateMs);
 
     if (now < windowStart || now > windowEnd) {
-      return res.status(400).json({
-        message:
-          "Meeting can be joined from 10 minutes before start until 30 minutes after end",
+      return res.status(403).json({
+        message: "Meeting not active right now",
+        windowStart,
+        windowEnd,
       });
     }
 
-    const ttlSeconds = Math.max(
-      300,
-      Math.ceil((windowEnd.getTime() - now.getTime()) / 1000),
-    );
+    const roomId = appointment.meeting.roomId;
+    const maxParticipants = await deriveMaxParticipants(appointment);
+    const alreadyActive = participantTracker.hasUser(roomId, userId);
+    const activeCount = participantTracker.count(roomId);
+
+    if (!alreadyActive && activeCount >= maxParticipants) {
+      return res.status(403).json({ message: "Room is full" });
+    }
+
+    const role =
+      appointment.tenantId?.toString() === userId ? "host" : "participant";
 
     const { token, expireAt } = videoService.generateToken({
       userId,
-      roomId: appointment.meeting.roomId,
+      userName: user.name,
+      roomId,
       role,
-      ttlSeconds,
+      ttlSeconds: 3600,
     });
 
     // Update lifecycle fields
-    let dirty = false;
     appointment.meeting = appointment.meeting || {};
     appointment.meeting.participants = appointment.meeting.participants || [];
 
     const existingParticipant = appointment.meeting.participants.find(
       (p) => p.userId && p.userId.toString() === userId,
     );
+
     if (existingParticipant) {
       existingParticipant.role = role;
-      existingParticipant.joinEvents =
-        existingParticipant.joinEvents || [];
-      existingParticipant.joinEvents.push({
-        at: now,
-        action: "join",
-      });
+      existingParticipant.userName = user.name;
+      existingParticipant.joinEvents = existingParticipant.joinEvents || [];
+      existingParticipant.joinEvents.push({ at: now, action: "join" });
     } else {
       appointment.meeting.participants.push({
         userId,
+        userName: user.name,
         role,
         joinEvents: [{ at: now, action: "join" }],
       });
@@ -63,28 +102,59 @@ exports.joinMeeting = async (req, res, next) => {
     if (role === "host" && !appointment.meeting.startedAt) {
       appointment.meeting.startedAt = now;
       appointment.meeting.status = "live";
-      dirty = true;
     }
 
-    // Ensure meeting status reflects state
     if (!appointment.meeting.status) {
       appointment.meeting.status = "waiting";
-      dirty = true;
     }
 
-    if (dirty) {
-      await appointment.save();
-    } else {
-      await appointment.save(); // still persist join log
+    await appointment.save();
+
+    if (!alreadyActive) {
+      participantTracker.addUser(roomId, userId, { userName: user.name, role });
     }
 
-    res.json({
+    return res.json({
       token,
-      roomId: appointment.meeting.roomId,
-      appID: Number(process.env.ZEGO_APP_ID),
+      roomId,
+      userId,
+      userName: user.name,
       role,
       expireAt,
-      meetingStatus: appointment.meeting.status,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.leaveMeeting = async (req, res, next) => {
+  try {
+    const appointment = req.appointment;
+    if (!appointment?.meeting?.roomId) {
+      return res.status(400).json({ message: "Meeting not initialized" });
+    }
+
+    const userId = getUserId(req);
+    const now = new Date();
+    const roomId = appointment.meeting.roomId;
+
+    participantTracker.removeUser(roomId, userId);
+
+    if (Array.isArray(appointment.meeting.participants)) {
+      const participant = appointment.meeting.participants.find(
+        (p) => p.userId && p.userId.toString() === userId,
+      );
+      if (participant) {
+        participant.joinEvents = participant.joinEvents || [];
+        participant.joinEvents.push({ at: now, action: "leave" });
+      }
+    }
+
+    await appointment.save();
+
+    return res.json({
+      success: true,
+      activeCount: participantTracker.count(roomId),
     });
   } catch (err) {
     next(err);
@@ -112,6 +182,7 @@ exports.endMeeting = async (req, res, next) => {
     }
 
     await appointment.save();
+    participantTracker.clearRoom(appointment.meeting.roomId);
 
     res.json({
       message: "Meeting ended",
@@ -126,5 +197,4 @@ exports.endMeeting = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-
 };
