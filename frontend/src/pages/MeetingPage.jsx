@@ -1,14 +1,14 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useRef, useEffect, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
+import { useAuth } from "../auth/useAuth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const ZEGO_APP_ID = Number(import.meta.env.VITE_ZEGO_APP_ID);
-const ZEGO_SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET;
 
 export default function MeetingPage() {
   const { appointmentId } = useParams();
   const navigate = useNavigate();
+  const { token: authToken } = useAuth();
 
   const containerRef = useRef(null);
   const zpRef = useRef(null);
@@ -39,7 +39,12 @@ export default function MeetingPage() {
       try {
         const res = await fetch(
           `${API_BASE_URL}/video/join/${appointmentId}`,
-          { credentials: "include" }
+          {
+            credentials: "include",
+            headers: authToken
+              ? { Authorization: `Bearer ${authToken}` }
+              : undefined,
+          },
         );
 
         const data = await res.json();
@@ -79,16 +84,12 @@ export default function MeetingPage() {
         // ✅ STORE endTime for auto-exit
         setEndTime(data.endTime);
 
-        // ✅ GENERATE TOKEN
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          ZEGO_APP_ID,
-          ZEGO_SERVER_SECRET,
-          data.roomId,
-          data.userId,
-          data.userName
-        );
+        if (!data.token) {
+          handleJoinError("Missing meeting token");
+          return;
+        }
 
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        const zp = ZegoUIKitPrebuilt.create(data.token);
         zpRef.current = zp;
 
         if (!mounted) return;
@@ -115,7 +116,7 @@ export default function MeetingPage() {
       zpRef.current?.destroy();
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [appointmentId]);
+  }, [appointmentId, authToken]);
 
   // 🔥 AUTO END MEETING
   useEffect(() => {

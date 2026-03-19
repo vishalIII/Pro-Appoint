@@ -226,6 +226,16 @@ const appointmentSchema = new mongoose.Schema(
 
     /* ---------------- ONLINE MEETING ---------------- */
 
+    attendance: {
+      customerJoined: { type: Boolean, default: false },
+      providerJoined: { type: Boolean, default: false },
+    },
+
+    noShowType: {
+      type: String,
+      enum: ["customer", "provider", "both"],
+    },
+
     meeting: {
       type: {
         roomId: {
@@ -239,6 +249,15 @@ const appointmentSchema = new mongoose.Schema(
         },
         startedAt: Date,
         endedAt: Date,
+        participants: [
+          {
+            userId: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "user",
+            },
+            role: String,
+          },
+        ],
       },
       default: undefined, // ⭐ CRITICAL
     },

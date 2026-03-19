@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const onlineAppointmentController = require("../../controllers/appointment/onlineAppointment.controller");
+const videoController = require("../../controllers/video/video.controller");
 
 const auth = require("../../middlewares/auth.middleware");
 const meetingAccess = require("../../middlewares/video/meetingAccess.middleware");
@@ -9,25 +9,25 @@ const meetingAccess = require("../../middlewares/video/meetingAccess.middleware"
 // Join meeting (user or provider)
 router.get(
   "/join/:appointmentId",
-  // auth,
-  // meetingAccess,
-  onlineAppointmentController.joinOnlineMeeting
+  auth,
+  meetingAccess,
+  videoController.joinMeeting
 );
 
 // Provider starts meeting
 router.post(
   "/start/:appointmentId",
-  // auth,
+  auth,
   meetingAccess,
-  onlineAppointmentController.startMeeting
+  videoController.startMeeting
 );
 
 // Provider ends meeting
 router.post(
   "/end/:appointmentId",
-  // auth,
-  // meetingAccess,
-  onlineAppointmentController.endMeeting
+  auth,
+  meetingAccess,
+  videoController.endMeeting
 );
 
 module.exports = router;

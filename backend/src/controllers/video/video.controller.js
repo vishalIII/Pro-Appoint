@@ -4,62 +4,80 @@ exports.joinMeeting = async (req, res, next) => {
   try {
     const appointment = req.appointment;
     const userId = req.user._id.toString();
-    const role = req.meetingRole || "attendee";
+    const userName = req.user.name;
 
     if (!appointment.meeting?.roomId) {
       return res.status(400).json({ message: "Meeting not initialized" });
     }
 
+    // ✅ Authorization (provider or customer only)
+    const isProvider = appointment.tenantId.toString() === userId;
+    const isCustomer = appointment.attendeeId.toString() === userId;
+
+    if (!isProvider && !isCustomer) {
+      return res.status(403).json({
+        message: "You are not authorized to join this meeting",
+      });
+    }
+
+    // ✅ Require paid & confirmed
+    if (appointment.paymentStatus !== "paid") {
+      return res
+        .status(400)
+        .json({ message: "Payment is required before joining the meeting" });
+    }
+    if (appointment.status !== "confirmed") {
+      return res.status(400).json({ message: "Appointment not confirmed" });
+    }
+
+    const role = isProvider ? "host" : "attendee";
+
+    // ✅ Time window (−10m to end)
     const start = new Date(appointment.startTimeUTC);
     const end = new Date(appointment.endTimeUTC);
     const now = new Date();
-
-    // ✅ Allow only 10 minutes before start
     const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
 
     if (now < windowStart) {
       return res.status(400).json({
-        message: "You can join only 10 minutes before the session starts",
+        message: "You can join only 10 minutes before start",
       });
     }
 
-    // ❌ Prevent joining after end time
     if (now > end) {
       return res.status(400).json({
-        message: "Meeting has already ended",
+        message: "Meeting already ended",
       });
     }
 
-    // ✅ Token valid only till endTime
-    const ttlSeconds = Math.floor((end.getTime() - now.getTime()) / 1000);
+    // ✅ Participant limit (max 2 unique users)
+    appointment.meeting.participants =
+      appointment.meeting.participants || [];
 
+    const existing = appointment.meeting.participants.find(
+      (p) => p.userId && p.userId.toString() === userId,
+    );
+
+    const uniqueUsers = new Set(
+      appointment.meeting.participants
+        .filter((p) => p?.userId)
+        .map((p) => p.userId.toString()),
+    );
+
+    if (!existing && uniqueUsers.size >= 2) {
+      return res.status(400).json({
+        message: "Meeting is full",
+      });
+    }
+
+    // ✅ Token TTL not beyond end time
+    const ttlSeconds = Math.floor((end.getTime() - now.getTime()) / 1000);
     if (ttlSeconds <= 0) {
       return res.status(400).json({
         message: "Session expired",
       });
     }
 
-    // ✅ Participant handling
-    appointment.meeting = appointment.meeting || {};
-    appointment.meeting.participants =
-      appointment.meeting.participants || [];
-
-    const existingParticipant = appointment.meeting.participants.find(
-      (p) => p.userId && p.userId.toString() === userId
-    );
-
-    // ✅ Optional: limit to 10 users
-    if (
-      !existingParticipant &&
-      appointment.meeting.participants.length >= 10 &&
-      role !== "host"
-    ) {
-      return res.status(400).json({
-        message: "Meeting is full (max 10 participants)",
-      });
-    }
-
-    // ✅ Generate token
     const { token, expireAt } = videoService.generateToken({
       userId,
       roomId: appointment.meeting.roomId,
@@ -67,47 +85,78 @@ exports.joinMeeting = async (req, res, next) => {
       ttlSeconds,
     });
 
-    // ✅ Track join
-    if (existingParticipant) {
-      existingParticipant.role = role;
-      existingParticipant.joinEvents =
-        existingParticipant.joinEvents || [];
-
-      existingParticipant.joinEvents.push({
-        at: now,
-        action: "join",
-      });
-    } else {
+    // ✅ Track participant & attendance
+    if (!existing) {
       appointment.meeting.participants.push({
         userId,
         role,
-        joinEvents: [{ at: now, action: "join" }],
       });
     }
 
-    // ✅ Host starts meeting
-    if (role === "host" && !appointment.meeting.startedAt) {
+    appointment.attendance = appointment.attendance || {};
+    if (isProvider) {
+      appointment.attendance.providerJoined = true;
+    } else {
+      appointment.attendance.customerJoined = true;
+    }
+
+    // ✅ Start meeting when provider joins
+    if (isProvider && !appointment.meeting.startedAt) {
       appointment.meeting.startedAt = now;
       appointment.meeting.status = "live";
     }
 
-    // ✅ Default status
     if (!appointment.meeting.status) {
       appointment.meeting.status = "waiting";
     }
 
     await appointment.save();
-    // console.log("JOIN MEETING CONTROLLER HIT");
+
     return res.json({
       success: true,
       token,
       roomId: appointment.meeting.roomId,
       appID: Number(process.env.ZEGO_APP_ID),
+      userId,
+      userName,
       role,
       expireAt,
-      meetingStatus: appointment.meeting.status,
       startTime: appointment.startTimeUTC,
-      endTime: appointment.endTimeUTC, // 🔥 required for frontend auto-end
+      endTime: appointment.endTimeUTC,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.startMeeting = async (req, res, next) => {
+  try {
+    const appointment = req.appointment;
+    const role = req.meetingRole || "attendee";
+
+    if (role !== "host") {
+      return res.status(403).json({ message: "Only host can start meeting" });
+    }
+
+    const now = new Date();
+    appointment.meeting = appointment.meeting || {};
+
+    if (!appointment.meeting.startedAt) {
+      appointment.meeting.startedAt = now;
+    }
+    appointment.meeting.status = "live";
+
+    await appointment.save();
+
+    return res.json({
+      success: true,
+      message: "Meeting started",
+      meeting: {
+        roomId: appointment.meeting.roomId,
+        status: appointment.meeting.status,
+        startedAt: appointment.meeting.startedAt,
+        endedAt: appointment.meeting.endedAt,
+      },
     });
   } catch (err) {
     next(err);

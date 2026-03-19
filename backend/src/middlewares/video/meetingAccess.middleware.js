@@ -18,6 +18,12 @@ async function meetingAccess(req, res, next) {
     return res.status(400).json({ message: "Appointment not confirmed" });
   }
 
+  if (appointment.paymentStatus !== "paid") {
+    return res
+      .status(400)
+      .json({ message: "Payment is required before joining the meeting" });
+  }
+
   const userId = req.user._id.toString();
 
   const isParticipant =

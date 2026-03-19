@@ -83,6 +83,12 @@ exports.joinOnlineMeeting = async (req, res, next) => {
       return res.status(400).json({ message: "Meeting not available yet" });
     }
 
+    // if (appointment.paymentStatus !== "paid") {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Payment is required before joining the meeting" });
+    // }
+
     const start = new Date(appointment.startTimeUTC);
     const end = new Date(appointment.endTimeUTC);
     const now = new Date();

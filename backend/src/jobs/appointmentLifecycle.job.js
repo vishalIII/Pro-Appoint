@@ -161,6 +161,84 @@ const autoCompleteOnlineMeetings = async () => {
   }
 };
 
+// -------------------- FINALIZER (attendance-driven) --------------------
+const finalizeAppointments = async () => {
+  const now = new Date();
+  const offlineCutoff = new Date(
+    now.getTime() - NO_SHOW_GRACE_MINUTES * 60 * 1000,
+  );
+
+  // ONLINE: finalize at/after endTime
+  const onlineAppointments = await Appointment.find({
+    status: "confirmed",
+    mode: "online",
+    endTimeUTC: { $lte: now },
+  }).lean();
+
+  for (const appt of onlineAppointments) {
+    const customerJoined = Boolean(appt.attendance?.customerJoined);
+    const providerJoined = Boolean(appt.attendance?.providerJoined);
+
+    let status = "no_show";
+    let noShowType = "both";
+    let completedAt = undefined;
+
+    if (customerJoined && providerJoined) {
+      status = "completed";
+      noShowType = undefined;
+      completedAt = now;
+    } else if (customerJoined && !providerJoined) {
+      status = "no_show";
+      noShowType = "provider";
+    } else if (!customerJoined && providerJoined) {
+      status = "no_show";
+      noShowType = "customer";
+    } else {
+      status = "no_show";
+      noShowType = "both";
+    }
+
+    await Appointment.updateOne(
+      { _id: appt._id, status: "confirmed" },
+      {
+        $set: {
+          status,
+          noShowType,
+          completedAt,
+          "meeting.status": "ended",
+          "meeting.endedAt": now,
+        },
+      },
+    );
+  }
+
+  // OFFLINE: evaluate after 15-minute grace from start
+  const offlineAppointments = await Appointment.find({
+    status: "confirmed",
+    mode: "offline",
+    startTimeUTC: { $lte: offlineCutoff },
+  }).lean();
+
+  for (const appt of offlineAppointments) {
+    const customerJoined = Boolean(appt.attendance?.customerJoined);
+
+    const status = customerJoined ? "completed" : "no_show";
+    const noShowType = customerJoined ? undefined : "customer";
+    const completedAt = customerJoined ? now : undefined;
+
+    await Appointment.updateOne(
+      { _id: appt._id, status: "confirmed" },
+      {
+        $set: {
+          status,
+          noShowType,
+          completedAt,
+        },
+      },
+    );
+  }
+};
+
 const startAppointmentLifecycleJob = () => {
   if (autoCancelTimer) {
     return;
@@ -181,23 +259,9 @@ const startAppointmentLifecycleJob = () => {
     );
   });
 
-  autoMarkOfflineNoShow().catch((error) => {
+  finalizeAppointments().catch((error) => {
     console.error(
-      "[AppointmentLifecycleJob] Initial offline no-show run failed:",
-      error.message,
-    );
-  });
-
-  autoMarkOnlineNoShow().catch((error) => {
-    console.error(
-      "[AppointmentLifecycleJob] Initial online no-show run failed:",
-      error.message,
-    );
-  });
-
-  autoCompleteOnlineMeetings().catch((error) => {
-    console.error(
-      "[AppointmentLifecycleJob] Initial online completion run failed:",
+      "[AppointmentLifecycleJob] Initial finalize run failed:",
       error.message,
     );
   });
@@ -217,23 +281,9 @@ const startAppointmentLifecycleJob = () => {
       );
     });
 
-    autoMarkOfflineNoShow().catch((error) => {
+    finalizeAppointments().catch((error) => {
       console.error(
-        "[AppointmentLifecycleJob] Offline no-show run failed:",
-        error.message,
-      );
-    });
-
-    autoMarkOnlineNoShow().catch((error) => {
-      console.error(
-        "[AppointmentLifecycleJob] Online no-show run failed:",
-        error.message,
-      );
-    });
-
-    autoCompleteOnlineMeetings().catch((error) => {
-      console.error(
-        "[AppointmentLifecycleJob] Online completion run failed:",
+        "[AppointmentLifecycleJob] Finalize run failed:",
         error.message,
       );
     });
@@ -280,4 +330,5 @@ module.exports = {
   autoMarkOnlineNoShow,
   autoCompleteOnlineMeetings,
   autoCancelExpiredPendingAppointments,
+  finalizeAppointments,
 };
