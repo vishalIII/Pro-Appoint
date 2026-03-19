@@ -11,13 +11,34 @@ const {
 
 // const BLOCKING_STATUSES = ["confirmed"];
 const allowedTransitions = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["completed", "cancelled", "cancelled_late", "no_show"],
+  pending: ["confirmed", "cancelled", "customer_cancelled", "provider_cancelled", "system_cancelled"],
+  confirmed: [
+    "completed",
+    "manual_completed",
+    "auto_completed",
+    "cancelled",
+    "cancelled_late",
+    "customer_cancelled",
+    "provider_cancelled",
+    "system_cancelled",
+    "no_show",
+    "customer_no_show",
+    "provider_no_show",
+    "both_no_show",
+  ],
   completed: [],
+  manual_completed: [],
+  auto_completed: [],
   cancelled: [],
   cancelled_late: [],
+  customer_cancelled: [],
+  provider_cancelled: [],
+  system_cancelled: [],
   rejected: [],
   no_show: [],
+  customer_no_show: [],
+  provider_no_show: [],
+  both_no_show: [],
 };
 const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
@@ -34,7 +55,7 @@ const validateAppointmentAction = ({ appointment, action, updates }) => {
     throw new AppError("Appointment already completed", 400);
   }
 
-  if (action === "cancel" && ["cancelled", "cancelled_late"].includes(status)) {
+  if (action === "cancel" && ["cancelled", "cancelled_late", "customer_cancelled", "provider_cancelled", "system_cancelled"].includes(status)) {
     throw new AppError("Appointment already cancelled", 400);
   }
 
@@ -51,10 +72,18 @@ const validateAppointmentAction = ({ appointment, action, updates }) => {
     pending: ["confirm", "cancel"],
     confirmed: ["cancel", "complete", "no_show"],
     completed: [],
+    manual_completed: [],
+    auto_completed: [],
     cancelled: [],
+    customer_cancelled: [],
+    provider_cancelled: [],
+    system_cancelled: [],
     cancelled_late: [],
     rejected: [],
     no_show: [],
+    customer_no_show: [],
+    provider_no_show: [],
+    both_no_show: [],
   };
 
   if (!validActionsByStatus[status]?.includes(action)) {
@@ -1706,7 +1735,7 @@ exports.markAppointmentNoShow = async ({
       );
     }
 
-    appointment.status = "no_show";
+    appointment.status = "provider_no_show";
     appointment.noShowMarkedBy = markedByUserId;
     appointment.noShowMarkedAt = now;
 
@@ -1777,14 +1806,14 @@ exports.cancelAppointment = async ({
       hoursBeforeStart >= CUSTOMER_REFUND_WINDOW_HOURS;
     const refundEligible = actorType === "tenant" || customerRefundEligible;
 
-    if (
-      actorType === "customer" &&
-      !customerRefundEligible &&
-      appointment.status === "confirmed"
-    ) {
-      appointment.status = "cancelled_late";
+    if (actorType === "customer") {
+      appointment.status = "customer_cancelled";
+      if (!customerRefundEligible && appointment.status === "confirmed") {
+        // Preserve late info via reason; status uses customer_cancelled
+        appointment.status = "customer_cancelled";
+      }
     } else {
-      appointment.status = "cancelled";
+      appointment.status = "provider_cancelled";
     }
 
     appointment.cancellation = {

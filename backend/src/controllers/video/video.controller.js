@@ -183,11 +183,9 @@ exports.endMeeting = async (req, res, next) => {
     appointment.meeting.endedAt = now;
     appointment.meeting.status = "ended";
 
-    if (appointment.meeting.startedAt) {
-      appointment.status = "completed";
-    } else {
-      appointment.status = "no_show";
-    }
+    appointment.status = appointment.meeting.startedAt
+      ? "manual_completed"
+      : "no_show";
 
     await appointment.save();
     participantTracker.clearRoom(appointment.meeting.roomId);

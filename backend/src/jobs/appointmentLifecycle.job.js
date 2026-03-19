@@ -198,7 +198,7 @@ const autoMarkOnlineNoShow = async () => {
     },
     {
       $set: {
-        status: "no_show",
+        status: "both_no_show",
         noShowMarkedAt: now,
         noShowMarkedBySystem: true,
         "meeting.status": "ended",
@@ -242,7 +242,8 @@ const autoGraceNoShowOnline = async () => {
 
     // Host never showed by host grace window
     if (now >= hostGraceCutoff && hostDuration === 0) {
-      appt.status = "no_show";
+      appt.status =
+        maxAttendeeDuration === 0 ? "both_no_show" : "provider_no_show";
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
       appt.meeting.endedAt = now;
@@ -256,7 +257,7 @@ const autoGraceNoShowOnline = async () => {
       now >= attendeeGraceCutoff &&
       maxAttendeeDuration === 0
     ) {
-      appt.status = "no_show";
+      appt.status = "customer_no_show";
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
       appt.meeting.endedAt = now;
@@ -302,11 +303,21 @@ const autoCompleteOnlineMeetings = async () => {
     appt.meeting.endedAt = now;
 
     if (hostOk && attendeeOk) {
-      appt.status = "completed";
+      appt.status = "auto_completed";
       appt.completedAt = now;
       completed += 1;
+    } else if (hostOk && !attendeeOk) {
+      appt.status = "customer_no_show";
+      appt.noShowMarkedAt = now;
+      appt.noShowMarkedBySystem = true;
+      noShows += 1;
+    } else if (!hostOk && attendeeOk) {
+      appt.status = "provider_no_show";
+      appt.noShowMarkedAt = now;
+      appt.noShowMarkedBySystem = true;
+      noShows += 1;
     } else {
-      appt.status = "no_show";
+      appt.status = "both_no_show";
       appt.noShowMarkedAt = now;
       appt.noShowMarkedBySystem = true;
       noShows += 1;
