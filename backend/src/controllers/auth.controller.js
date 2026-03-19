@@ -3,7 +3,7 @@ const authService = require("../services/auth/auth.service");
 // =======================================================
 // Register
 // =======================================================
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
   try {
     const result = await authService.register(req.body);
 
@@ -19,7 +19,7 @@ exports.register = async (req, res) => {
 // =======================================================
 // Login
 // =======================================================
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
 

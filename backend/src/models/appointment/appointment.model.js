@@ -247,6 +247,21 @@ const appointmentSchema = new mongoose.Schema(
         },
         startedAt: Date,
         endedAt: Date,
+        participants: [
+          {
+            _id: false,
+            userId: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+            userName: String,
+            role: String,
+            joinEvents: [
+              {
+                _id: false,
+                at: { type: Date, default: Date.now },
+                action: { type: String, enum: ["join", "leave"] },
+              },
+            ],
+          },
+        ],
       },
       default: undefined, // ⭐ CRITICAL
     },

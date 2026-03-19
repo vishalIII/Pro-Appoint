@@ -44,6 +44,7 @@ const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_LATE_CANCELLATION_WINDOW_HOURS = 2;
 const DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS = 24;
+const DEFAULT_SLOT_TZ_OFFSET_MINUTES = 0;
 
 // -------------------------------------------------------------------
 const validateAppointmentAction = ({ appointment, action, updates }) => {
@@ -125,6 +126,10 @@ const CUSTOMER_REFUND_WINDOW_HOURS = readNonNegativeIntFromEnv(
   "CUSTOMER_REFUND_WINDOW_HOURS",
   DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS,
 );
+const SLOT_TIMEZONE_OFFSET_MINUTES = readNonNegativeIntFromEnv(
+  "SLOT_TIMEZONE_OFFSET_MINUTES",
+  DEFAULT_SLOT_TZ_OFFSET_MINUTES,
+);
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
@@ -163,17 +168,18 @@ const parseTimeOnDateUTC = (date, timeText) => {
     return null;
   }
 
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      Number(match[1]),
-      Number(match[2]),
-      0,
-      0,
-    ),
+  const utcBase = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    Number(match[1]),
+    Number(match[2]),
+    0,
+    0,
   );
+
+  // Adjust to local/business timezone by applying configured offset (minutes from UTC).
+  return new Date(utcBase - SLOT_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
 };
 
 // const getOnlineCapacity = (service) => {

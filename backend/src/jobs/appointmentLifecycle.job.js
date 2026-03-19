@@ -239,11 +239,12 @@ const autoGraceNoShowOnline = async () => {
       appt,
       now,
     );
+    const hostJoined = Boolean(appt.meeting?.startedAt) || hostDuration > 0;
+    const attendeeJoined = maxAttendeeDuration > 0;
 
     // Host never showed by host grace window
-    if (now >= hostGraceCutoff && hostDuration === 0) {
-      appt.status =
-        maxAttendeeDuration === 0 ? "both_no_show" : "provider_no_show";
+    if (now >= hostGraceCutoff && !hostJoined) {
+      appt.status = attendeeJoined ? "provider_no_show" : "both_no_show";
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
       appt.meeting.endedAt = now;
@@ -252,11 +253,7 @@ const autoGraceNoShowOnline = async () => {
     }
 
     // Host showed but attendee never showed by attendee grace window
-    if (
-      hostDuration > 0 &&
-      now >= attendeeGraceCutoff &&
-      maxAttendeeDuration === 0
-    ) {
+    if (hostJoined && now >= attendeeGraceCutoff && !attendeeJoined) {
       appt.status = "customer_no_show";
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
