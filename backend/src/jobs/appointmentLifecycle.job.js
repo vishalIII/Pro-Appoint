@@ -3,6 +3,10 @@ const Appointment = require("../models/appointment/appointment.model");
 const DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS = 60;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_ONLINE_END_BUFFER_MINUTES = 30;
+const DEFAULT_HOST_GRACE_MINUTES = 5;
+const DEFAULT_ATTENDEE_GRACE_MINUTES = 5;
+const DEFAULT_MIN_HOST_SECONDS = 60;
+const DEFAULT_MIN_ATTENDEE_SECONDS = 60;
 
 const readPositiveIntFromEnv = (key, fallback) => {
   const raw = process.env[key];
@@ -35,7 +39,91 @@ const ONLINE_END_BUFFER_MINUTES = readPositiveIntFromEnv(
   DEFAULT_ONLINE_END_BUFFER_MINUTES,
 );
 
+const HOST_GRACE_MINUTES = readPositiveIntFromEnv(
+  "HOST_GRACE_MINUTES",
+  DEFAULT_HOST_GRACE_MINUTES,
+);
+
+const ATTENDEE_GRACE_MINUTES = readPositiveIntFromEnv(
+  "ATTENDEE_GRACE_MINUTES",
+  DEFAULT_ATTENDEE_GRACE_MINUTES,
+);
+
+const MIN_HOST_SECONDS = readPositiveIntFromEnv(
+  "MIN_HOST_SECONDS",
+  DEFAULT_MIN_HOST_SECONDS,
+);
+
+const MIN_ATTENDEE_SECONDS = readPositiveIntFromEnv(
+  "MIN_ATTENDEE_SECONDS",
+  DEFAULT_MIN_ATTENDEE_SECONDS,
+);
+
 let autoCancelTimer = null;
+
+const computeDurationSeconds = (participant, now) => {
+  if (!participant || !Array.isArray(participant.joinEvents)) return 0;
+
+  const events = [...participant.joinEvents].sort(
+    (a, b) => new Date(a.at) - new Date(b.at),
+  );
+
+  let openJoin = null;
+  let durationMs = 0;
+
+  for (const ev of events) {
+    if (ev.action === "join") {
+      openJoin = new Date(ev.at);
+    } else if (ev.action === "leave" && openJoin) {
+      durationMs += new Date(ev.at) - openJoin;
+      openJoin = null;
+    }
+  }
+
+  if (openJoin) {
+    durationMs += now - openJoin;
+  }
+
+  return durationMs / 1000;
+};
+
+const getParticipantDurations = (appointment, now) => {
+  const hostId = appointment.tenantId?.toString();
+  const attendeeId = appointment.attendeeId?.toString();
+  const extraAttendees =
+    Array.isArray(appointment.attendees) && appointment.attendees.length > 0
+      ? appointment.attendees.map((a) => a?.userId?.toString()).filter(Boolean)
+      : [];
+
+  const participants = Array.isArray(appointment.meeting?.participants)
+    ? appointment.meeting.participants
+    : [];
+
+  const findParticipant = (id) =>
+    participants.find((p) => p.userId && p.userId.toString() === id);
+
+  const hostDuration = hostId
+    ? computeDurationSeconds(findParticipant(hostId), now)
+    : 0;
+
+  const attendeeDurations = [];
+  if (attendeeId) {
+    attendeeDurations.push(
+      computeDurationSeconds(findParticipant(attendeeId), now),
+    );
+  }
+
+  for (const extraId of extraAttendees) {
+    attendeeDurations.push(
+      computeDurationSeconds(findParticipant(extraId), now),
+    );
+  }
+
+  const maxAttendeeDuration =
+    attendeeDurations.length > 0 ? Math.max(...attendeeDurations) : 0;
+
+  return { hostDuration, maxAttendeeDuration };
+};
 
 const autoCancelPendingAppointmentsPastStart = async () => {
   const now = new Date();
@@ -126,37 +214,115 @@ const autoMarkOnlineNoShow = async () => {
   }
 };
 
-// Online: meeting started but not closed after buffer -> complete & end
+// Grace-based early no-show: host or attendee never showed within grace window
+const autoGraceNoShowOnline = async () => {
+  const now = new Date();
+
+  const candidates = await Appointment.find({
+    mode: "online",
+    status: "confirmed",
+    startTimeUTC: { $lte: now },
+  })
+    .limit(500)
+    .lean(false);
+
+  for (const appt of candidates) {
+    const hostGraceCutoff = new Date(
+      new Date(appt.startTimeUTC).getTime() + HOST_GRACE_MINUTES * 60 * 1000,
+    );
+    const attendeeGraceCutoff = new Date(
+      new Date(appt.startTimeUTC).getTime() +
+        ATTENDEE_GRACE_MINUTES * 60 * 1000,
+    );
+
+    const { hostDuration, maxAttendeeDuration } = getParticipantDurations(
+      appt,
+      now,
+    );
+
+    // Host never showed by host grace window
+    if (now >= hostGraceCutoff && hostDuration === 0) {
+      appt.status = "no_show";
+      appt.meeting = appt.meeting || {};
+      appt.meeting.status = "ended";
+      appt.meeting.endedAt = now;
+      await appt.save();
+      continue;
+    }
+
+    // Host showed but attendee never showed by attendee grace window
+    if (
+      hostDuration > 0 &&
+      now >= attendeeGraceCutoff &&
+      maxAttendeeDuration === 0
+    ) {
+      appt.status = "no_show";
+      appt.meeting = appt.meeting || {};
+      appt.meeting.status = "ended";
+      appt.meeting.endedAt = now;
+      await appt.save();
+    }
+  }
+};
+
+// Online: meeting started but not closed after buffer -> complete & end, based on attendance
 const autoCompleteOnlineMeetings = async () => {
   const now = new Date();
   const cutoff = new Date(
     now.getTime() - ONLINE_END_BUFFER_MINUTES * 60 * 1000,
   );
 
-  const result = await Appointment.updateMany(
-    {
-      mode: "online",
-      status: "confirmed",
-      endTimeUTC: { $lte: cutoff },
-      "meeting.startedAt": { $exists: true, $ne: null },
-      $or: [
-        { "meeting.endedAt": { $exists: false } },
-        { "meeting.endedAt": null },
-      ],
-    },
-    {
-      $set: {
-        status: "completed",
-        completedAt: now,
-        "meeting.status": "ended",
-        "meeting.endedAt": now,
-      },
-    },
-  );
+  const candidates = await Appointment.find({
+    mode: "online",
+    status: "confirmed",
+    endTimeUTC: { $lte: cutoff },
+    "meeting.startedAt": { $exists: true, $ne: null },
+    $or: [
+      { "meeting.endedAt": { $exists: false } },
+      { "meeting.endedAt": null },
+    ],
+  })
+    .limit(500)
+    .lean(false);
 
-  if (result.modifiedCount > 0) {
+  let completed = 0;
+  let noShows = 0;
+
+  for (const appt of candidates) {
+    const { hostDuration, maxAttendeeDuration } = getParticipantDurations(
+      appt,
+      now,
+    );
+
+    const hostOk = hostDuration >= MIN_HOST_SECONDS;
+    const attendeeOk = maxAttendeeDuration >= MIN_ATTENDEE_SECONDS;
+
+    appt.meeting = appt.meeting || {};
+    appt.meeting.status = "ended";
+    appt.meeting.endedAt = now;
+
+    if (hostOk && attendeeOk) {
+      appt.status = "completed";
+      appt.completedAt = now;
+      completed += 1;
+    } else {
+      appt.status = "no_show";
+      appt.noShowMarkedAt = now;
+      appt.noShowMarkedBySystem = true;
+      noShows += 1;
+    }
+
+    await appt.save();
+  }
+
+  if (completed > 0) {
     console.log(
-      `[AppointmentLifecycleJob] Auto-completed ${result.modifiedCount} online meetings`,
+      `[AppointmentLifecycleJob] Auto-completed ${completed} online meetings`,
+    );
+  }
+  if (noShows > 0) {
+    console.log(
+      `[AppointmentLifecycleJob] Auto-marked ${noShows} online meetings as no_show (insufficient attendance)`,
     );
   }
 };
@@ -202,6 +368,13 @@ const startAppointmentLifecycleJob = () => {
     );
   });
 
+  autoGraceNoShowOnline().catch((error) => {
+    console.error(
+      "[AppointmentLifecycleJob] Initial grace no-show run failed:",
+      error.message,
+    );
+  });
+
   autoCancelTimer = setInterval(() => {
     autoCancelExpiredPendingAppointments().catch((error) => {
       console.error(
@@ -234,6 +407,13 @@ const startAppointmentLifecycleJob = () => {
     autoCompleteOnlineMeetings().catch((error) => {
       console.error(
         "[AppointmentLifecycleJob] Online completion run failed:",
+        error.message,
+      );
+    });
+
+    autoGraceNoShowOnline().catch((error) => {
+      console.error(
+        "[AppointmentLifecycleJob] Grace no-show run failed:",
         error.message,
       );
     });
@@ -279,5 +459,6 @@ module.exports = {
   autoMarkOfflineNoShow,
   autoMarkOnlineNoShow,
   autoCompleteOnlineMeetings,
+  autoGraceNoShowOnline,
   autoCancelExpiredPendingAppointments,
 };

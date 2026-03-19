@@ -4,17 +4,25 @@ const User = require("../../models/user/user.model");
 const participantTracker = require("../../services/video/participantTracker");
 
 const deriveMaxParticipants = async (appointment) => {
-  if (appointment.maxParticipants) return appointment.maxParticipants;
-  if (appointment.meeting?.maxParticipants) return appointment.meeting.maxParticipants;
-  if (appointment.capacitySnapshot) return appointment.capacitySnapshot;
+  // Treat configured capacities as attendee seats and always include host seat.
+  const service =
+    (appointment.serviceId &&
+      (await Service.findById(appointment.serviceId)
+        .select("onlineCapacity capacity")
+        .lean())) ||
+    null;
 
-  // Fallback to service capacity/onlineCapacity
-  const service = await Service.findById(appointment.serviceId).select("onlineCapacity capacity").lean();
-  return (
+  const attendeeSeats =
+    appointment.maxParticipants ||
+    appointment.meeting?.maxParticipants ||
+    appointment.capacitySnapshot ||
     service?.onlineCapacity ||
     service?.capacity ||
-    2 // safe floor to avoid unlimited joins
-  );
+    1;
+
+  // +1 for host seat; ensure at least 2 total (host + one attendee).
+  const totalSeats = Math.max(2, attendeeSeats + 1);
+  return totalSeats;
 };
 
 const getUserId = (req) => String(req.user?.userId || req.user?._id || req.user?.id);
