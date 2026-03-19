@@ -80,6 +80,11 @@ export default function Layout() {
             </nav>
 
             <div className="header-actions">
+                {isAuthenticated && user?.role === ROLES.CUSTOMER ? (
+                <Link to="/bookings" className="auth-action">
+                  My appointments
+                </Link>
+              ) : null}
               {isAuthenticated && <NotificationBell />}
               {isAuthenticated ? (
                 <button style={{color:"red"}} type="button" className="auth-action" onClick={handleLogout}>
