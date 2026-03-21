@@ -327,6 +327,7 @@ export default function BookingFlow() {
           throw new Error(payload?.message || "Failed to load available slots");
         }
         const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
+        console.log("RAW SLOTS FROM API:", rawSlots);
         const now = new Date();
         const today = getTodayDate();
 
@@ -593,7 +594,7 @@ export default function BookingFlow() {
                 required
               >
                 <option value="">Select slot</option>
-
+                
                 {availableSlots.map((slot) => {
                   const value = slot.toISOString();
 
@@ -602,7 +603,8 @@ export default function BookingFlow() {
                       {slot.toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
-                        hour12: true
+                        hour12: true,
+                        timeZone: "UTC",
                       })}
                     </option>
                   );
