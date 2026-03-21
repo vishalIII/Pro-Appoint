@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { ROLES } from "../../../rbac";
+import LazyImage from "../../../components/LazyImage";
+import { applyCloudinaryTransform } from "../../../utils/cloudinary";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -116,20 +118,22 @@ export default function ServiceDetails() {
 
       {!isLoading && service?.images?.length > 0 && (
         <div className="service-image-gallery">
-          <img
-            src={service.images[0]}
+          <LazyImage
+            src={applyCloudinaryTransform(service.images[0])}
             alt={service.name}
             className="service-main-image"
+            height={360}
           />
 
           {service.images.length > 1 && (
             <div className="service-thumbnail-row">
               {service.images.slice(1).map((img, index) => (
-                <img
-                  key={index}
-                  src={img}
+                <LazyImage
+                  key={img}
+                  src={applyCloudinaryTransform(img)}
                   alt={`${service.name} ${index + 2}`}
                   className="service-thumbnail"
+                  height={80}
                 />
               ))}
             </div>

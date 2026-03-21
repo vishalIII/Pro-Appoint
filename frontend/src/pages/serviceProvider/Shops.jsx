@@ -13,6 +13,7 @@ import {
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getDateLabel, getDateTimeLabel } from "./utils/dateRange";
+import ImageUploader from "../../components/ImageUploader";
 
 const DAYS = [
   "monday",
@@ -28,6 +29,8 @@ const toTitleCase = (value) => value.charAt(0).toUpperCase() + value.slice(1);
 
 const emailRegex = /^\S+@\S+\.\S+$/;
 const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+const normalizeImages = (images) =>
+  Array.isArray(images) ? images.filter(Boolean) : [];
 
 const getDefaultOpeningHours = () =>
   DAYS.reduce((acc, day) => {
@@ -55,15 +58,6 @@ const resolveStatusMeta = (status) => {
     isRejected: normalized === "rejected",
   };
 };
-
-const parseImagesText = (value) =>
-  String(value || "")
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-const toImagesText = (images) =>
-  Array.isArray(images) && images.length > 0 ? images.join("\n") : "";
 
 const buildOpeningHours = (weeklyAvailability) => {
   const openingHours = getDefaultOpeningHours();
@@ -128,7 +122,7 @@ const createEditForm = (shop) => ({
   addressState: shop?.address?.state || "",
   addressPincode: shop?.address?.pincode || "",
   addressLandMark: shop?.address?.landMark || "",
-  imagesText: toImagesText(shop?.images),
+  images: normalizeImages(shop?.images),
   openingHours: buildOpeningHours(shop?.weeklyAvailability),
 });
 
@@ -370,7 +364,7 @@ export default function ProviderShopsPage() {
             pincode: editForm.addressPincode.trim(),
             landMark: editForm.addressLandMark.trim(),
           },
-          images: parseImagesText(editForm.imagesText),
+          images: normalizeImages(editForm.images),
           weeklyAvailability: toWeeklyAvailability(editForm.openingHours),
         },
       });
@@ -679,17 +673,12 @@ export default function ProviderShopsPage() {
                         />
                       </label>
 
-                      <label className="form-field" htmlFor={`shop-images-${shop._id}`}>
-                        Images (comma/newline separated URLs)
-                        <textarea
-                          id={`shop-images-${shop._id}`}
-                          rows={2}
-                          value={editForm.imagesText}
-                          onChange={(event) =>
-                            handleEditFieldChange("imagesText", event.target.value)
-                          }
-                        />
-                      </label>
+                      <ImageUploader
+                        label="Shop Images"
+                        folder="shops"
+                        value={editForm.images}
+                        onChange={(images) => handleEditFieldChange("images", images)}
+                      />
 
                       <div className="form-field">
                         Weekly Availability

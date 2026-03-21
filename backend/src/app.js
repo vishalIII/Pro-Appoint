@@ -15,6 +15,7 @@ const publicAppointmentRoutes = require('./routes/public/public.appointment.rout
 const notificationRoutes = require("./routes/notification/notification.routes.js");
 const videoRoutes = require("./routes/video/video.routes.js");
 const meetingRoutes = require("./routes/meeting/meeting.routes.js");
+const uploadRoutes = require("./routes/upload/upload.routes.js");
 require("dotenv").config();
 
 
@@ -71,6 +72,7 @@ app.use("/api/notifications", authMiddleware, notificationRoutes);
 
 app.use("/api/video", videoRoutes);
 app.use("/api/meeting", meetingRoutes);
+app.use("/api/uploads", authMiddleware, uploadRoutes);
 
 // // Public-facing appointment routes (customers can book without being a tenant)
 // // example: POST /api/shops/:shopId/appointments 

@@ -4,6 +4,7 @@ import AlertModal from "../../components/AlertModal";
 import { useAuth } from "../../auth/useAuth";
 import { createTenantShop, fetchShopIndustries } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
+import ImageUploader from "../../components/ImageUploader";
 
 const DAYS = [
   "monday",
@@ -39,6 +40,7 @@ export default function ProviderCreateShopPage() {
     addressPincode: "",
     addressLandMark: "",
     openingHours: defaultOpeningHours,
+    images: [],
   });
   const [industries, setIndustries] = useState([]);
   const [industriesLoading, setIndustriesLoading] = useState(true);
@@ -171,6 +173,7 @@ export default function ProviderCreateShopPage() {
             pincode: form.addressPincode.trim(),
             landMark: form.addressLandMark.trim(),
           },
+          images: Array.isArray(form.images) ? form.images : [],
           weeklyAvailability: DAYS.map((day) => {
             const entry = form.openingHours[day];
             return {
@@ -291,6 +294,13 @@ export default function ProviderCreateShopPage() {
               onChange={handleChange}
             />
           </label>
+
+          <ImageUploader
+            label="Shop Images"
+            folder="shops"
+            value={form.images}
+            onChange={(images) => setForm((prev) => ({ ...prev, images }))}
+          />
 
           <label className="form-field" htmlFor="shop-address-street">
             Address Street

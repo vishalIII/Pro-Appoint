@@ -1,6 +1,6 @@
 const Appointment = require("../models/appointment/appointment.model");
 
-const DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS = 60;
+const DEFAULT_AUTO_CANCEL_INTERVAL_SECONDS = 30;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_ONLINE_END_BUFFER_MINUTES = 30;
 const DEFAULT_HOST_GRACE_MINUTES = 5;
@@ -222,47 +222,77 @@ const autoGraceNoShowOnline = async () => {
     mode: "online",
     status: "confirmed",
     startTimeUTC: { $lte: now },
-  })
-    .limit(500)
-    .lean(false);
+    "meeting.status": { $ne: "ended" },
+  }).limit(500);
 
   for (const appt of candidates) {
+    const participants = appt.meeting?.participants || [];
+
+    const hasJoinEvent = (p) =>
+      p?.joinEvents?.some((e) => e.action === "join");
+
+    const attendees = participants.filter(
+      (p) => p.role === "participant"
+    );
+
+    const hostJoined = participants.some(
+      (p) => p.role === "host" && hasJoinEvent(p)
+    );
+
+    const attendeeJoined = attendees.some(hasJoinEvent);
+
+    const start = new Date(appt.startTimeUTC);
+
     const hostGraceCutoff = new Date(
-      new Date(appt.startTimeUTC).getTime() + HOST_GRACE_MINUTES * 60 * 1000,
-    );
-    const attendeeGraceCutoff = new Date(
-      new Date(appt.startTimeUTC).getTime() +
-        ATTENDEE_GRACE_MINUTES * 60 * 1000,
+      start.getTime() + HOST_GRACE_MINUTES * 60 * 1000
     );
 
-    const { hostDuration, maxAttendeeDuration } = getParticipantDurations(
-      appt,
-      now,
+    const hostParticipant = participants.find(
+      (p) => p.role === "host"
     );
-    const hostJoined = Boolean(appt.meeting?.startedAt) || hostDuration > 0;
-    const attendeeJoined = maxAttendeeDuration > 0;
 
-    // Host never showed by host grace window
-    if (now >= hostGraceCutoff && !hostJoined) {
-      appt.status = attendeeJoined ? "provider_no_show" : "both_no_show";
+    const hostJoinTime = hostParticipant?.joinEvents
+      ?.filter((e) => e.action === "join")
+      ?.sort((a, b) => new Date(a.at) - new Date(b.at))[0]?.at;
+
+    const attendeeGraceCutoff = hostJoinTime
+      ? new Date(
+          new Date(hostJoinTime).getTime() +
+            ATTENDEE_GRACE_MINUTES * 60 * 1000
+        )
+      : null;
+
+    // Host no-show
+    if (!hostJoined && now >= hostGraceCutoff) {
+      appt.status = attendeeJoined
+        ? "provider_no_show"
+        : "both_no_show";
+
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
       appt.meeting.endedAt = now;
+
       await appt.save();
       continue;
     }
 
-    // Host showed but attendee never showed by attendee grace window
-    if (hostJoined && now >= attendeeGraceCutoff && !attendeeJoined) {
+    // Attendee no-show
+    if (
+      hostJoined &&
+      attendeeGraceCutoff &&
+      now >= attendeeGraceCutoff &&
+      !attendeeJoined
+    ) {
       appt.status = "customer_no_show";
+
       appt.meeting = appt.meeting || {};
       appt.meeting.status = "ended";
       appt.meeting.endedAt = now;
+
       await appt.save();
     }
   }
 };
-
 // Online: meeting started but not closed after buffer -> complete & end, based on attendance
 const autoCompleteOnlineMeetings = async () => {
   const now = new Date();

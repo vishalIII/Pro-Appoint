@@ -11,6 +11,7 @@ import {
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import StatusPill from "./components/StatusPill";
+import ImageUploader from "../../components/ImageUploader";
 
 const generateTimeOptions = (start, end, step = 30) => {
   const result = [];
@@ -67,7 +68,7 @@ const createInitialForm = () => ({
   durationMinutes: "30",
   capacity: "1",
   discountPercentage: "0",
-  imagesText: "",
+  images: [],
   mode: "offline",
   dayHours: DAYS.reduce((acc, day) => {
     acc[day] = { ...defaultDayHours[day] };
@@ -78,21 +79,6 @@ const createInitialForm = () => ({
 });
 
 const toLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
-
-const parseImages = (value) =>
-  String(value || "")
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const isValidHttpUrl = (value) => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
 
 const toWeeklyAvailability = (dayHours) =>
   DAYS.map((day) => {
@@ -490,11 +476,6 @@ export default function ProviderServicesPage() {
       }
     }
 
-    const images = parseImages(form.imagesText);
-    if (images.some((imageUrl) => !isValidHttpUrl(imageUrl))) {
-      nextErrors.imagesText = "Images must be valid http/https URLs";
-    }
-
     if (!Array.isArray(form.requiredResources) || form.requiredResources.length === 0) {
       nextErrors.requiredResources = "At least one required resource is needed";
     } else {
@@ -573,7 +554,7 @@ export default function ProviderServicesPage() {
       durationMinutes: service.durationMinutes?.toString() || "30",
       capacity: service.capacity?.toString() || "1",
       discountPercentage: service.discountPercentage?.toString() || "0",
-      imagesText: (service.images || []).join("\n"),
+      images: Array.isArray(service.images) ? service.images : [],
       mode: service.mode || "offline",
       dayHours,
       closedPeriods: service.closedPeriods || [],
@@ -592,8 +573,6 @@ export default function ProviderServicesPage() {
     setError("");
 
     try {
-      const images = parseImages(form.imagesText);
-
       const payload = {
         name: form.name.trim(),
         price: Number(form.price),
@@ -602,6 +581,7 @@ export default function ProviderServicesPage() {
         discountPercentage: Number(form.discountPercentage),
         weeklyAvailability: toWeeklyAvailability(form.dayHours),
         mode: form.mode,
+        images: Array.isArray(form.images) ? form.images : [],
         requiredResources: form.requiredResources.map((item) => ({
           resourceId: String(
             typeof item.resourceId === "object"
@@ -614,7 +594,6 @@ export default function ProviderServicesPage() {
 
       if (form.description.trim()) payload.description = form.description.trim();
       if (form.category.trim()) payload.category = form.category.trim();
-      if (images.length) payload.images = images;
 
       if (editingService) {
         // UPDATE SERVICE
@@ -983,16 +962,12 @@ export default function ProviderServicesPage() {
               </label>
             </div>
 
-            <label className="form-field" htmlFor="service-images">
-              Images (comma/newline separated URLs)
-              <textarea
-                id="service-images"
-                rows={2}
-                value={form.imagesText}
-                onChange={(event) => setForm((prev) => ({ ...prev, imagesText: event.target.value }))}
-              />
-              {formErrors.imagesText ? <span className="error-text">{formErrors.imagesText}</span> : null}
-            </label>
+            <ImageUploader
+              label="Service Images"
+              folder="services"
+              value={form.images}
+              onChange={(images) => setForm((prev) => ({ ...prev, images }))}
+            />
 
             <div className="form-field">
               Weekly Availability

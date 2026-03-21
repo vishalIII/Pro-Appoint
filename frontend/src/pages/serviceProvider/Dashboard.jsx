@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import StatusPill from "./components/StatusPill";
 import LineTrendChart from "./components/LineTrendChart";
@@ -19,7 +19,6 @@ import {
   runAppointmentAction,
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
-import { useNotifications } from "../../notifications/useNotifications";
 import {
   getDateLabel,
   getDateTimeLabel,
@@ -150,8 +149,6 @@ export default function ProviderDashboard() {
   const { token } = useAuth();
   const { shops, shopsLoading, selectedShopId, effectiveRange, rangePreset } =
     useProviderWorkspace();
-  const navigate = useNavigate();
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [runningActionId, setRunningActionId] = useState("");
@@ -172,29 +169,6 @@ export default function ProviderDashboard() {
     () => selectedShopId || shops?.[0]?._id || "",
     [selectedShopId, shops],
   );
-
-  const latestNotifications = useMemo(() => {
-    const sorted = [...notifications].sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-    );
-    return sorted.slice(0, 4);
-  }, [notifications]);
-
-  const hasUnreadNotifications = notifications.some((notification) => !notification.isRead);
-
-  const handleOpenNotification = useCallback(
-    (notification) => {
-      if (!notification) return;
-      markAsRead(notification._id);
-      const route = notification.data?.route || "/tenant/appointments";
-      navigate(route);
-    },
-    [markAsRead, navigate],
-  );
-
-  const handleMarkAllRead = useCallback(() => {
-    markAllAsRead();
-  }, [markAllAsRead]);
 
   const loadDashboard = useCallback(async () => {
     if (!token || shopsLoading) return;
