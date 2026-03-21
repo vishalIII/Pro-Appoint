@@ -20,7 +20,11 @@ export default function FeaturedShopsSection({ featuredShops, isLoadingShops, sh
           {featuredShops.map((shop) => (
             <article key={shop.id} className="shop-highlight-card">
               <Link className="shop-highlight-media" to={`/shops/${shop.id}`}>
-                <img src={SHOP_PLACEHOLDER_IMAGE} alt={`${shop.name} preview`} loading="lazy" />
+                <img
+                  src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
+                  alt={`${shop.name || "Shop"} preview`}
+                  loading="lazy"
+                />
               </Link>
               <div className="shop-highlight-body">
                 <div className="shop-highlight-head">

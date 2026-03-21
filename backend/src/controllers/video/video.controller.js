@@ -1,6 +1,7 @@
 const videoService = require("../../services/video/video.service");
 const Service = require("../../models/service/service.model");
 const User = require("../../models/user/user.model");
+const Tenant = require("../../models/tenant/tenant.model");
 const participantTracker = require("../../services/video/participantTracker");
 
 const deriveMaxParticipants = async (appointment) => {
@@ -74,7 +75,17 @@ exports.joinMeeting = async (req, res, next) => {
       return res.status(403).json({ message: "Room is full" });
     }
 
-    const isTenantHost = appointment.tenantId?.toString() === userId;
+    // tenantId references tenant doc; host is tenant.ownerId
+    let isTenantHost = false;
+    if (appointment.tenantId) {
+      const tenant = await Tenant.findById(appointment.tenantId)
+        .select("ownerId")
+        .lean();
+      if (tenant?.ownerId && tenant.ownerId.toString() === userId) {
+        isTenantHost = true;
+      }
+    }
+
     const role = isTenantHost ? "host" : "participant";
 
     const { token, expireAt } = videoService.generateToken({
@@ -116,7 +127,7 @@ exports.joinMeeting = async (req, res, next) => {
       appointment.meeting.attendeeJoinedAt = now;
     }
 
-    if (role === "host" && !appointment.meeting.startedAt) {
+    if (isTenantHost && !appointment.meeting.startedAt) {
       appointment.meeting.startedAt = now;
       appointment.meeting.status = "live";
     }

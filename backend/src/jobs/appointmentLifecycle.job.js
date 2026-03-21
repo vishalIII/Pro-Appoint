@@ -102,21 +102,43 @@ const getParticipantDurations = (appointment, now) => {
   const findParticipant = (id) =>
     participants.find((p) => p.userId && p.userId.toString() === id);
 
-  const hostDuration = hostId
-    ? computeDurationSeconds(findParticipant(hostId), now)
-    : 0;
+  // Prefer explicit hosts, then tenant, then longest participant as fallback
+  const hostCandidates = participants.filter(
+    (p) =>
+      p.role === "host" ||
+      (p.userId && hostId && p.userId.toString() === hostId),
+  );
 
-  const attendeeDurations = [];
-  if (attendeeId) {
-    attendeeDurations.push(
-      computeDurationSeconds(findParticipant(attendeeId), now),
+  let hostDuration = Math.max(
+    0,
+    ...hostCandidates.map((p) => computeDurationSeconds(p, now)),
+  );
+
+  if (hostDuration === 0 && participants.length > 0) {
+    hostDuration = Math.max(
+      hostDuration,
+      ...participants.map((p) => computeDurationSeconds(p, now)),
     );
   }
 
-  for (const extraId of extraAttendees) {
-    attendeeDurations.push(
-      computeDurationSeconds(findParticipant(extraId), now),
-    );
+  const attendeeDurations = [];
+  const attendeeCandidates = participants.filter(
+    (p) =>
+      !hostCandidates.includes(p) &&
+      !(p.userId && hostId && p.userId.toString() === hostId),
+  );
+
+  attendeeDurations.push(
+    ...attendeeCandidates.map((p) => computeDurationSeconds(p, now)),
+  );
+
+  if (attendeeDurations.length === 0) {
+    // Fallback: use anyone except host if hostCandidates exist, else everyone
+    const pool =
+      participants.length && hostCandidates.length
+        ? participants.filter((p) => !hostCandidates.includes(p))
+        : participants;
+    attendeeDurations.push(...pool.map((p) => computeDurationSeconds(p, now)));
   }
 
   const maxAttendeeDuration =
