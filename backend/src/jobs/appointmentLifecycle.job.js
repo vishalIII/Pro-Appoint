@@ -231,15 +231,48 @@ const autoGraceNoShowOnline = async () => {
     const hasJoinEvent = (p) =>
       p?.joinEvents?.some((e) => e.action === "join");
 
-    const attendees = participants.filter(
-      (p) => p.role === "participant"
-    );
+    const allJoinTimes = participants
+      .flatMap((p) =>
+        (p.joinEvents || [])
+          .filter((e) => e.action === "join")
+          .map((e) => e.at),
+      )
+      .map((at) => new Date(at))
+      .sort((a, b) => a - b);
 
-    const hostJoined = participants.some(
-      (p) => p.role === "host" && hasJoinEvent(p)
-    );
+    const hostJoinedAt =
+      appt.meeting?.hostJoinedAt ||
+      participants
+        .filter(
+          (p) =>
+            p.role === "host" ||
+            (p.userId &&
+              appt.tenantId &&
+              p.userId.toString() === appt.tenantId.toString()),
+        )
+        .flatMap((p) =>
+          (p.joinEvents || [])
+            .filter((e) => e.action === "join")
+            .map((e) => e.at),
+        )
+        .map((at) => new Date(at))
+        .sort((a, b) => a - b)[0] ||
+      allJoinTimes[0]; // fallback: if anyone joined, consider host present to avoid false no-show
 
-    const attendeeJoined = attendees.some(hasJoinEvent);
+    const attendeeJoinedAt =
+      appt.meeting?.attendeeJoinedAt ||
+      participants
+        .filter((p) => p.role === "participant")
+        .flatMap((p) =>
+          (p.joinEvents || [])
+            .filter((e) => e.action === "join")
+            .map((e) => e.at),
+        )
+        .map((at) => new Date(at))
+        .sort((a, b) => a - b)[0];
+
+    const hostJoined = Boolean(hostJoinedAt);
+    const attendeeJoined = Boolean(attendeeJoinedAt);
 
     const start = new Date(appt.startTimeUTC);
 
@@ -247,23 +280,23 @@ const autoGraceNoShowOnline = async () => {
       start.getTime() + HOST_GRACE_MINUTES * 60 * 1000
     );
 
-    const hostParticipant = participants.find(
-      (p) => p.role === "host"
-    );
-
-    const hostJoinTime = hostParticipant?.joinEvents
-      ?.filter((e) => e.action === "join")
-      ?.sort((a, b) => new Date(a.at) - new Date(b.at))[0]?.at;
-
-    const attendeeGraceCutoff = hostJoinTime
+    const attendeeGraceCutoff = hostJoinedAt
       ? new Date(
-          new Date(hostJoinTime).getTime() +
-            ATTENDEE_GRACE_MINUTES * 60 * 1000
+          new Date(hostJoinedAt).getTime() +
+            ATTENDEE_GRACE_MINUTES * 60 * 1000,
         )
       : null;
 
-    // Host no-show
-    if (!hostJoined && now >= hostGraceCutoff) {
+    // Persist detected joins for future runs
+    if (!appt.meeting.hostJoinedAt && hostJoinedAt) {
+      appt.meeting.hostJoinedAt = hostJoinedAt;
+    }
+    if (!appt.meeting.attendeeJoinedAt && attendeeJoinedAt) {
+      appt.meeting.attendeeJoinedAt = attendeeJoinedAt;
+    }
+
+    // Host no-show (only if absolutely no join observed)
+    if (!hostJoined && now >= hostGraceCutoff && allJoinTimes.length === 0) {
       appt.status = attendeeJoined
         ? "provider_no_show"
         : "both_no_show";

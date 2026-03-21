@@ -33,7 +33,7 @@ const Appointment = require("../../models/appointment/appointment.model");
 
 exports.startMeeting = async (req, res, next) => {
   try {
-    const appointment = await Appointment.findById(req.params.appointmentId);
+    const appointment = await Appointment.findById(req.params.appointmentId);                 
 
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });

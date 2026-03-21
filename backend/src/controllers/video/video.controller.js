@@ -74,8 +74,8 @@ exports.joinMeeting = async (req, res, next) => {
       return res.status(403).json({ message: "Room is full" });
     }
 
-    const role =
-      appointment.tenantId?.toString() === userId ? "host" : "participant";
+    const isTenantHost = appointment.tenantId?.toString() === userId;
+    const role = isTenantHost ? "host" : "participant";
 
     const { token, expireAt } = videoService.generateToken({
       userId,
@@ -105,6 +105,15 @@ exports.joinMeeting = async (req, res, next) => {
         role,
         joinEvents: [{ at: now, action: "join" }],
       });
+    }
+
+    // Track first joins explicitly for lifecycle jobs (decoupled from role)
+    if (!appointment.meeting.hostJoinedAt && isTenantHost) {
+      appointment.meeting.hostJoinedAt = now;
+    }
+
+    if (!appointment.meeting.attendeeJoinedAt && !isTenantHost) {
+      appointment.meeting.attendeeJoinedAt = now;
     }
 
     if (role === "host" && !appointment.meeting.startedAt) {
@@ -156,6 +165,16 @@ exports.leaveMeeting = async (req, res, next) => {
         participant.joinEvents = participant.joinEvents || [];
         participant.joinEvents.push({ at: now, action: "leave" });
       }
+    }
+
+    // Clear explicit flags on leave if no one else is in the room
+    const remaining = participantTracker.count(roomId);
+    if (remaining === 0) {
+      // keep historical flags; do not reset hostJoinedAt/attendeeJoinedAt
+      appointment.meeting.status =
+        appointment.meeting.status === "live"
+          ? "waiting"
+          : appointment.meeting.status;
     }
 
     await appointment.save();
