@@ -316,8 +316,9 @@ export default function BookingFlow() {
       setSelectedSlot("");
 
       try {
+        const tzOffsetMinutes = -new Date().getTimezoneOffset(); // minutes east of UTC
         const response = await fetch(
-          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}`,
+          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}&tzOffsetMinutes=${tzOffsetMinutes}`,
           { signal: controller.signal }
         );
 
@@ -604,7 +605,6 @@ export default function BookingFlow() {
                         hour: "2-digit",
                         minute: "2-digit",
                         hour12: true,
-                        timeZone: "UTC",
                       })}
                     </option>
                   );

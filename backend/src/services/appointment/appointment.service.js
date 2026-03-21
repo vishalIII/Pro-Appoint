@@ -126,10 +126,38 @@ const CUSTOMER_REFUND_WINDOW_HOURS = readNonNegativeIntFromEnv(
   "CUSTOMER_REFUND_WINDOW_HOURS",
   DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS,
 );
-const SLOT_TIMEZONE_OFFSET_MINUTES = readNonNegativeIntFromEnv(
+const readIntFromEnvWithinRange = (key, fallback, min, max) => {
+  const raw = process.env[key];
+  if (raw === undefined || raw === null || raw === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed)) {
+    return fallback;
+  }
+
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return parsed;
+};
+
+const SLOT_TIMEZONE_OFFSET_MINUTES = readIntFromEnvWithinRange(
   "SLOT_TIMEZONE_OFFSET_MINUTES",
   DEFAULT_SLOT_TZ_OFFSET_MINUTES,
+  -12 * 60,
+  14 * 60,
 );
+
+const normalizeTimezoneOffsetMinutes = (value) => {
+  if (Number.isFinite(value)) {
+    const clamped = Math.trunc(value);
+    if (clamped < -12 * 60) return -12 * 60;
+    if (clamped > 14 * 60) return 14 * 60;
+    return clamped;
+  }
+  return SLOT_TIMEZONE_OFFSET_MINUTES;
+};
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
@@ -158,7 +186,7 @@ const parseDateOnlyUTC = (value) => {
   return date;
 };
 
-const parseTimeOnDateUTC = (date, timeText) => {
+const parseTimeOnDateUTC = (date, timeText, offsetMinutes = SLOT_TIMEZONE_OFFSET_MINUTES) => {
   const match =
     typeof timeText === "string"
       ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
@@ -179,7 +207,7 @@ const parseTimeOnDateUTC = (date, timeText) => {
   );
 
   // Adjust to local/business timezone by applying configured offset (minutes from UTC).
-  return new Date(utcBase - SLOT_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
+  return new Date(utcBase - offsetMinutes * 60 * 1000);
 };
 
 // const getOnlineCapacity = (service) => {
@@ -255,7 +283,7 @@ const isDayOpen = (dayAvailability) => {
   return false;
 };
 
-const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
+const getDayRangesOnDateUTC = ({ date, dayAvailability, offsetMinutes }) => {
   if (!dayAvailability) return [];
 
   const ranges = [];
@@ -267,8 +295,8 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
   for (const slot of slotList) {
     const startCandidate = slot?.startTime ?? slot?.start;
     const endCandidate = slot?.endTime ?? slot?.end;
-    const slotStart = parseTimeOnDateUTC(date, startCandidate);
-    const slotEnd = parseTimeOnDateUTC(date, endCandidate);
+    const slotStart = parseTimeOnDateUTC(date, startCandidate, offsetMinutes);
+    const slotEnd = parseTimeOnDateUTC(date, endCandidate, offsetMinutes);
 
     if (!slotStart || !slotEnd || slotStart >= slotEnd) {
       continue;
@@ -296,8 +324,8 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability }) => {
       : dayAvailability.endTime;
 
   if (rangeStartText && rangeEndText) {
-    const rangeStart = parseTimeOnDateUTC(date, rangeStartText);
-    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText);
+    const rangeStart = parseTimeOnDateUTC(date, rangeStartText, offsetMinutes);
+    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText, offsetMinutes);
     if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
       return [
         {
@@ -777,11 +805,15 @@ exports.getAvailableSlots = async ({
   date,
   attendeeId,
   slotIntervalMinutes,
+  tzOffsetMinutes,
 }) => {
   try {
     const shopId = normalizeObjectId(rawShopId);
     const serviceId = normalizeObjectId(rawServiceId);
     const selectedDate = parseDateOnlyUTC(date);
+    const timezoneOffsetMinutes = normalizeTimezoneOffsetMinutes(
+      Number(tzOffsetMinutes),
+    );
 
     const intervalRaw =
       slotIntervalMinutes === undefined ? 15 : Number(slotIntervalMinutes);
@@ -842,10 +874,12 @@ exports.getAvailableSlots = async ({
     const shopRanges = getDayRangesOnDateUTC({
       date: selectedDate,
       dayAvailability: shopDayAvailability,
+      offsetMinutes: timezoneOffsetMinutes,
     });
     const serviceRanges = getDayRangesOnDateUTC({
       date: selectedDate,
       dayAvailability: serviceDayAvailability,
+      offsetMinutes: timezoneOffsetMinutes,
     });
     const effectiveRanges = getIntersectedRanges(shopRanges, serviceRanges);
 
