@@ -3,6 +3,51 @@ const AppError = require("../../utils/appError");
 const razorpay = require("../../config/razorpay");
 const Payment = require("../../models/payment/paymentData.model");
 const appointmentService = require("../appointment/appointment.service");
+const User = require("../../models/user/user.model");
+const Tenant = require("../../models/tenant/tenant.model");
+const mongoose = require("mongoose");
+const { PLAN_LIMITS } = require("../../config/planLimits");
+// AppError already required above
+
+
+exports.createSubscriptionOrder = async (plan, userId) => {
+  try {
+    const validPlans = Object.keys(PLAN_LIMITS);
+    if (!validPlans.includes(plan)) {
+      throw new AppError(`Invalid plan: ${plan}. Must be ${validPlans.join(', ')}`, 400);
+    }
+
+    // Test prices per user: basic=1, pro=2, enterprise=3 INR
+    const planPrices = { basic: 1, pro: 2, enterprise: 3 };
+    const amount = planPrices[plan];
+    if (!amount) throw new AppError("Plan price not configured", 500);
+
+    // Verify user exists and has provider intent
+    const user = await User.findById(userId);
+    if (!user || user.intent !== 'provider') {
+      throw new AppError("User not eligible for provider subscription", 400);
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Number(amount) * 100, // paise
+      currency: "INR",
+      receipt: `sub_${Date.now() % 10000000}`, // short unique <40 chars
+      notes: {
+        userId,
+        plan,
+        type: 'provider_subscription'
+      }
+    });
+
+
+    return order;
+  } catch (error) {
+    throw new AppError(
+      error?.error?.description || error.message || "Subscription order creation failed",
+      500,
+    );
+  }
+};
 
 exports.createOrder = async (amount) => {
   try {
@@ -24,6 +69,7 @@ exports.createOrder = async (amount) => {
     );
   }
 };
+
 
 exports.verifyPayment = async ({
   razorpay_order_id,
@@ -113,3 +159,90 @@ exports.markAppointmentPaymentFailed = async ({
     paymentReference,
     paymentGateway,
   });
+
+exports.verifySubscriptionPayment = async ({
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  amount
+}) => {
+  try {
+    const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      throw new AppError("Payment verification failed", 400);
+    }
+
+    // Fetch order to get notes (userId, plan)
+    const order = await razorpay.orders.fetch(razorpay_order_id);
+    const notes = order.notes;
+    if (!notes || notes.type !== 'provider_subscription') {
+      throw new AppError("Invalid subscription payment", 400);
+    }
+
+    const { userId, plan } = notes;
+
+    // Transactional update
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      // Check/create payment record idempotent
+      await Payment.findOneAndUpdate(
+        { orderId: razorpay_order_id },
+        {
+          userId,
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          signature: razorpay_signature,
+          amount,
+          type: 'subscription'
+        },
+        { upsert: true, session }
+      );
+
+      // Upgrade user to ServiceProvider + create tenant
+      const user = await User.findById(userId).session(session);
+      if (!user || user.role !== 'Customer' || user.intent !== 'provider') {
+        throw new AppError("User not eligible for upgrade", 400);
+      }
+
+      // Create tenant
+      const tenant = await Tenant.create([{
+        ownerId: userId,
+        plan,
+        planStatus: 'active',
+        subscriptionStart: new Date(),
+        subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+      }], { session });
+
+      // Update user
+      user.role = 'ServiceProvider';
+      user.tenantId = tenant[0]._id;
+      user.intent = null; // clear
+      user.isVerified = true;
+      await user.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return {
+        verified: true,
+        upgraded: true,
+        plan,
+        tenantId: tenant[0]._id
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Subscription verification failed", 500);
+  }
+};
+

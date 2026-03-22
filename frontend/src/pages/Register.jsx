@@ -9,8 +9,9 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: ROLES.CUSTOMER
+    intent: false
   });
+
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -32,17 +33,25 @@ export default function Register() {
     setIsSubmitting(true);
 
     try {
-      await registerRequest({
+      const result = await registerRequest({
         name: form.name,
         email: form.email,
         password: form.password,
-        role: form.role
+        intent: form.intent ? "provider" : undefined
       });
 
-      navigate("/login", {
-        replace: true,
-        state: { message: "Registration successful. Please login." }
-      });
+      if (form.intent) {
+        // Redirect to plan selection with userId from response
+        navigate(`/register/plan-selection?userId=${result.userId}`, {
+          replace: true
+        });
+      } else {
+        navigate("/login", {
+          replace: true,
+          state: { message: "Registration successful. Please login." }
+        });
+      }
+
     } catch (submissionError) {
       setError(submissionError.message || "Unable to register");
     } finally {
@@ -100,18 +109,22 @@ export default function Register() {
             />
           </label>
 
-          <label className="form-field" htmlFor="role">
-            Role
-            <select id="role" name="role" value={form.role} onChange={handleChange}>
-              <option value={ROLES.CUSTOMER}>Customer</option>
-              <option value={ROLES.PROVIDER}>Service Provider</option>
-            </select>
+          <label className="form-field checkbox-field">
+            <input
+              id="intent"
+              name="intent"
+              type="checkbox"
+              checked={form.intent}
+              onChange={handleChange}
+            />
+            <span>Register as Service Provider? (requires payment for plan selection)</span>
           </label>
 
           <button className="btn" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Register"}
           </button>
         </form>
+
 
         <p>
           Already registered? <Link to="/login">Go to login</Link>

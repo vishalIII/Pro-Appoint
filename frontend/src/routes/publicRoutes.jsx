@@ -8,6 +8,7 @@ import ServicesPage from "../pages/public/service/ServicesPage";
 import Subscription from "../pages/payment_transactions/subscription";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import PlanSelection from "../pages/PlanSelection";
 import Unauthorized from "../pages/Unauthorized";
 
 export const publicRoutes = [
@@ -21,5 +22,7 @@ export const publicRoutes = [
   { path: "payment/subscription", element: <Subscription /> },
   { path: "login", element: <Login /> },
   { path: "register", element: <Register /> },
+  { path: "register/plan-selection", element: <PlanSelection /> },
   { path: "unauthorized", element: <Unauthorized /> }
 ];
+

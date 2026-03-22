@@ -27,11 +27,11 @@ export const loginRequest = async ({ email, password }) => {
   return payload;
 };
 
-export const registerRequest = async ({ name, email, password, role }) => {
+export const registerRequest = async ({ name, email, password, intent }) => {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password, role })
+    body: JSON.stringify({ name, email, password, intent })
   });
 
   const payload = await parseJsonSafely(response);
@@ -42,3 +42,36 @@ export const registerRequest = async ({ name, email, password, role }) => {
 
   return payload;
 };
+
+export const registerProviderSubscription = async ({ userId, plan }) => {
+  const response = await fetch(`${API_BASE_URL}/auth/register-provider-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, plan })
+  });
+
+  const payload = await parseJsonSafely(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(payload, "Subscription order creation failed"));
+  }
+
+  return payload;
+};
+
+export const verifySubscriptionPayment = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature, amount }) => {
+  const response = await fetch(`${API_BASE_URL}/payment/verify-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ razorpay_order_id, razorpay_payment_id, razorpay_signature, amount })
+  });
+
+  const payload = await parseJsonSafely(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(payload, "Payment verification failed"));
+  }
+
+  return payload;
+};
+

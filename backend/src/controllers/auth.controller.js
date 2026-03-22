@@ -28,9 +28,31 @@ exports.login = async (req, res, next) => {
       token: result.token,
       user: result.user,
     });
-
-
   } catch (error) {
     next(error);
   }
 };
+
+// =======================================================
+// Register Provider Subscription Order (for new provider upgrade)
+// =======================================================
+exports.registerProviderSubscription = async (req, res, next) => {
+  try {
+    const { userId, plan } = req.body;
+
+    if (!userId || !plan) {
+      return res.status(400).json({ message: "userId and plan required" });
+    }
+
+    const paymentService = require("../services/payments/payment.service");
+    const order = await paymentService.createSubscriptionOrder(plan, userId);
+
+    return res.status(201).json({
+      message: "Subscription order created",
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

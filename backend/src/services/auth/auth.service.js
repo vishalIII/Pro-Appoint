@@ -6,7 +6,7 @@ const AppError = require("../../utils/appError");
 // =======================================================
 // Register service
 // =======================================================
-exports.register = async ({ name, email, password, role }) => {
+exports.register = async ({ name, email, password, role, intent }) => {
   try{
   // 1. Check existing user
   const existingUser = await User.findOne({ email });
@@ -18,14 +18,15 @@ exports.register = async ({ name, email, password, role }) => {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
-  // 3. Create user
+  // 3. Always register as Customer, store provider intent if provided
   const user = await User.create({
     name,
     email,
     password: hashedPassword,
-    role: role || "Customer",
+    role: "Customer",
+    intent: intent || null,
     tenantId: null,
-    isVerified: role === "Customer", // providers verified later
+    isVerified: true,
   });
 
   return {
@@ -35,6 +36,7 @@ exports.register = async ({ name, email, password, role }) => {
 throw new AppError(error.message || "Failed to register user", error.statusCode || 500);
 }
 };
+
 
 // =======================================================
 // Login service

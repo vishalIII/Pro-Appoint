@@ -106,3 +106,30 @@ exports.appointmentPaymentFailedWebhook = async (req, res, next) => {
     next(error);
   }
 };
+
+// Verify Subscription Payment (for provider registration upgrade)
+exports.verifySubscriptionPayment = async (req, res, next) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      amount
+    } = req.body;
+
+    const result = await paymentService.verifySubscriptionPayment({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      amount
+    });
+
+    return res.json({
+      success: true,
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

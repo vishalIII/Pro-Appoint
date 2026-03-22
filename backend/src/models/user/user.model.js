@@ -51,9 +51,16 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true
+    },
+
+    intent: {
+      type: String,
+      enum: ["provider"],
+      default: null
     }
 
   },
+
   { timestamps: true }
 );
 
