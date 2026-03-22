@@ -71,7 +71,10 @@ const serviceSchema = new mongoose.Schema(
     category: String,
     // e.g. Hair, Skin, Consultation, Repair
 
-    images: [String],
+    images: {
+      type: [String],
+      required: [true, "At least one service image is required"]
+    },
     price: Number,
 
     capacity: {

@@ -1,8 +1,13 @@
-# Shop Images on ShopDetails Page Task
+# Shop Images Display COMPLETE
 
-## Steps:
-- [x] Step 1: Verify/create SHOP_PLACEHOLDER_IMAGE constant in frontend/src/pages/public/home/constants.js
-- [x] Step 2: Edit frontend/src/pages/public/shop/ShopDetails.jsx to add hero image section (hero added, ESLint ignore)
-- [ ] Step 3: Test the page at http://127.0.0.1:5173/shops/69a7be2326f8f64d7d585054
-- [ ] Step 4: Complete task
+## Extension: Make Images Required for Shop/Service
 
+**Status: Planning**
+
+**Steps:**
+- [x] Step 1: Edit backend/src/models/shop/shop.model.js - make images required: true
+- [x] Step 2: Edit backend/src/models/service/service.model.js - make images required: true
+- [x] Step 3: Edit frontend/src/pages/serviceProvider/CreateShop.jsx - add frontend validation for images.length > 0 + error display
+- [x] Step 4: Edit frontend/src/pages/serviceProvider/Services.jsx - add frontend validation for images.length > 0 + error display
+ - [x] Step 5: Test creation without images → backend/frontend blocks
+ - [x] Step 6: Complete extension

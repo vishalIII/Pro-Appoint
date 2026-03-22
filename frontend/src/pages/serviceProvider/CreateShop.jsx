@@ -110,6 +110,10 @@ export default function ProviderCreateShopPage() {
       nextErrors.contactPhone = "Enter valid phone in E.164 format";
     }
 
+    if (!form.images || form.images.length === 0) {
+      nextErrors.images = "At least one shop image is required";
+    }
+
     if (requiredOpenDays === 0) {
       nextErrors.openingHours = "At least one day must be open";
     }
@@ -301,6 +305,7 @@ export default function ProviderCreateShopPage() {
             value={form.images}
             onChange={(images) => setForm((prev) => ({ ...prev, images }))}
           />
+          {errors.images ? <span className="error-text">{errors.images}</span> : null}
 
           <label className="form-field" htmlFor="shop-address-street">
             Address Street

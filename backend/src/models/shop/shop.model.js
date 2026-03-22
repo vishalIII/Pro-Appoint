@@ -49,7 +49,10 @@ const ShopSchema = new mongoose.Schema(
       trim: true,
     },
 
-    images: [String],
+    images: {
+      type: [String],
+      required: [true, "At least one shop image is required"]
+    },
 
     contactEmail: {
       type: String,

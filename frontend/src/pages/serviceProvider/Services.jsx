@@ -446,6 +446,10 @@ export default function ProviderServicesPage() {
       nextErrors.discountPercentage = "Discount must be between 0 and 100";
     }
 
+    if (!form.images || form.images.length === 0) {
+      nextErrors.images = "At least one service image is required";
+    }
+
     const openDays = DAYS.filter((day) => form.dayHours[day]?.isOpen);
     if (openDays.length === 0) {
       nextErrors.weeklyAvailability = "At least one day should be open";
@@ -968,6 +972,7 @@ export default function ProviderServicesPage() {
               value={form.images}
               onChange={(images) => setForm((prev) => ({ ...prev, images }))}
             />
+            {formErrors.images ? <span className="error-text">{formErrors.images}</span> : null}
 
             <div className="form-field">
               Weekly Availability
