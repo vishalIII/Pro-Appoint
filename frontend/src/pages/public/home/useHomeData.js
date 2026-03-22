@@ -93,10 +93,13 @@ export const useHomeData = () => {
             rating: Number(shop?.ratingAvg) || 0,
             ratingCount: Number(shop?.ratingCount) || 0,
             location: location || "Location not available",
+
             label:
               typeof shop?.description === "string" && shop.description.trim()
                 ? shop.description.trim()
-                : "Professional service shop"
+                : "Professional service shop",
+            images: shop?.images || []
+
           };
         });
 

@@ -1,1 +1,8 @@
-# ZEGOCLOUD Webhook Implementation for Reliable Attendance Tracking\n\n## Status: ✅ Completed\n\n### 1. ✅ Create utils/zegocloud.js (signature verification, roomId parsing)\n### 2. ✅ Create controllers/video/webhook.controller.js (handle enter/leave events)\n### 3. ✅ Create middlewares/video/verifyZegoWebhook.middleware.js (signature check)\n### 4. ✅ Edit routes/video/video.routes.js (add POST /webhook route)\n### 5. ✅ Test webhook endpoint\n### 6. ✅ Complete & verify\n\n**Webhook endpoint ready at POST /api/video/webhook**\n\nRegister in ZEGOCLOUD console with your domain + signature verification enabled.
+# Shop Images on ShopDetails Page Task
+
+## Steps:
+- [x] Step 1: Verify/create SHOP_PLACEHOLDER_IMAGE constant in frontend/src/pages/public/home/constants.js
+- [x] Step 2: Edit frontend/src/pages/public/shop/ShopDetails.jsx to add hero image section (hero added, ESLint ignore)
+- [ ] Step 3: Test the page at http://127.0.0.1:5173/shops/69a7be2326f8f64d7d585054
+- [ ] Step 4: Complete task
+

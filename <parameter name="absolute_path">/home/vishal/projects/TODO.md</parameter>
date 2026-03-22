@@ -1,0 +1,8 @@
+<parameter name="content"># Task: Show first image of shops on home page FeaturedShopsSection
+
+## Steps:
+- [x] Understand codebase (analyzed files: useHomeData.js, FeaturedShopsSection.jsx, shop model, public shop controller)
+- [ ] Edit frontend/src/pages/public/home/useHomeData.js to add images field to shopCards mapping
+- [ ] Update TODO.md after edit
+- [ ] Test: Run frontend dev server and check home page shops show actual images
+- [ ] Complete task</parameter>

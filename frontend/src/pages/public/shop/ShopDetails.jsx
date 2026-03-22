@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+const SHOP_PLACEHOLDER_IMAGE = "https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const DAY_LABELS = {
@@ -161,6 +163,33 @@ export default function ShopDetails() {
         </aside>
 
         <div className="home-stack">
+          {!isLoading && !error && shop ? (
+            <article className="shop-highlight-card">
+              <div className="shop-highlight-media">
+                <img
+                  src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
+                  alt={`${shop.shopName || "Shop"} preview`}
+                  loading="lazy"
+                />
+              </div>
+              <div className="shop-highlight-body">
+              <div className="shop-highlight-head">
+                  <h3>{shop.shopName}</h3>
+                  <p className="shop-highlight-rating">
+                    <span className="shop-star">★</span>
+                    <span>{shop.rating ? shop.rating.toFixed(1) : "New"}</span>
+                    {shop.ratingCount > 0 ? (
+                      <span className="shop-rating-count">({shop.ratingCount})</span>
+                    ) : null}
+                  </p>
+                </div>
+                <p className="shop-highlight-location">
+                  {shop.address?.city || shop.address?.landMark || "Location"}
+                </p>
+                <p className="shop-highlight-label">Featured Shop</p>
+              </div>
+            </article>
+          ) : null}
           <div className="card">
             <div className="page-title-row">
               <h1>{shop?.shopName || "Shop Details"}</h1>
