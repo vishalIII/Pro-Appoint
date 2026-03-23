@@ -31,5 +31,13 @@ router.use(
   require("./dashboard.routes"),
 );
 
+// Wallet routes (tenant-only)
+router.use(
+  "/wallet",
+  checkTenantSubscriptionMiddleware,
+  tenantAuth,
+  require("./wallet.routes"),
+);
+
 module.exports = router;
 
