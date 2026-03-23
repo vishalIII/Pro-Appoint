@@ -23,7 +23,10 @@ export default function ProviderResourcesPage() {
   const [form, setForm] = useState(initialForm);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+const [error, setError] = useState("");
+  const [editingResource, setEditingResource] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", capacity: "1" });
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (routeShopId && routeShopId !== selectedShopId) {
@@ -113,6 +116,43 @@ export default function ProviderResourcesPage() {
     }
   };
 
+  const handleEdit = async (resource) => {
+    setEditingResource(resource);
+    setEditForm({ name: resource.name, capacity: String(resource.capacity) });
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async (event) => {
+    event.preventDefault();
+    if (!selectedShopId || !editingResource) return;
+    setIsEditing(true);
+    setError("");
+
+    try {
+      await updateShopResource({
+        token,
+        shopId: selectedShopId,
+        resourceId: editingResource._id,
+        payload: {
+          name: editForm.name.trim(),
+          capacity: Number(editForm.capacity),
+        },
+      });
+      setEditingResource(null);
+      setEditForm({ name: "", capacity: "1" });
+      await loadResources();
+    } catch (editError) {
+      setError(editError.message || "Failed to update resource");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingResource(null);
+    setEditForm({ name: "", capacity: "1" });
+  };
+
   if (!selectedShopId) {
     return (
       <section className="provider-page">
@@ -195,6 +235,13 @@ export default function ProviderResourcesPage() {
                         </button>
                         <button
                           type="button"
+                          className="btn btn-small"
+                          onClick={() => handleEdit(resource)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
                           className="btn btn-small btn-secondary"
                           onClick={() => handleDelete(resource._id)}
                         >
@@ -208,6 +255,47 @@ export default function ProviderResourcesPage() {
             </table>
           </div>
         ) : null}
+
+        {editingResource && (
+          <div className="modal-overlay" onClick={handleCancelEdit}>
+            <div className="card modal" onClick={(e) => e.stopPropagation()}>
+              <h2>Edit Resource</h2>
+              {error ? <p className="error-text">{error}</p> : null}
+              <form className="provider-inline-form" onSubmit={handleSaveEdit}>
+                <input
+                  type="text"
+                  placeholder="Resource name"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  required
+                />
+                <input
+                  type="number"
+                  placeholder="Capacity"
+                  min="1"
+                  value={editForm.capacity}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, capacity: e.target.value }))
+                  }
+                  required
+                />
+                <button className="btn" type="submit" disabled={isEditing}>
+                  {isEditing ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleCancelEdit}
+                  disabled={isEditing}
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </article>
     </section>
   );

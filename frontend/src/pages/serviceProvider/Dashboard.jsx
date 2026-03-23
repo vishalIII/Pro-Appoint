@@ -17,6 +17,7 @@ import {
   fetchSubscription,
   fetchTenantAppointments,
   runAppointmentAction,
+  fetchWalletBalance,
 } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import {
@@ -163,6 +164,7 @@ export default function ProviderDashboard() {
     reviews: [],
     shopHealth: null,
     subscription: null,
+    wallet: { balance: 0 },
   });
 
   const activeShopId = useMemo(
@@ -207,6 +209,7 @@ export default function ProviderDashboard() {
         servicePerformancePayload,
         resourceUtilizationPayload,
         subscriptionPayload,
+        walletPayload,
       ] = await Promise.all([
         fetchDashboardSummary({
           token,
@@ -242,6 +245,7 @@ export default function ProviderDashboard() {
         fetchSubscription({
           token,
         }),
+        fetchWalletBalance({ token }),
       ]);
 
       const pendingAppointments = filterByShop(
@@ -292,6 +296,7 @@ export default function ProviderDashboard() {
         reviews,
         shopHealth,
         subscription: subscriptionPayload,
+        wallet: walletPayload?.data || { balance: 0 },
       });
     } catch (loadError) {
       setError(loadError.message || "Failed to load dashboard");
@@ -374,8 +379,14 @@ export default function ProviderDashboard() {
         value: formatCurrency(cards.revenue?.value ?? 0),
         change: cards.revenue?.changePct ?? 0,
       },
+      {
+        key: "wallet",
+        label: "Wallet Balance",
+        value: formatCurrency(data.wallet.balance),
+        change: 0,
+      },
     ];
-  }, [data.summary?.cards]);
+  }, [data.summary?.cards, data.wallet.balance]);
 
   const timelineMeta = useMemo(() => {
     const bookedMinutes = data.todayAppointments.reduce((sum, appointment) => {

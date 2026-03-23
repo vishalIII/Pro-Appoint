@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../auth/useAuth";
 import LineTrendChart from "./components/LineTrendChart";
-import { fetchRevenueAnalytics } from "./api/providerApi";
+import { fetchRevenueAnalytics, fetchWalletBalance } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getRevenueRangeForPreset } from "./utils/dateRange";
 
@@ -26,12 +26,15 @@ export default function ProviderRevenuePage() {
     setError("");
 
     try {
-      const payload = await fetchRevenueAnalytics({
-        token,
-        shopId: selectedShopId,
-        range: getRevenueRangeForPreset(rangePreset),
-      });
-      setData(payload);
+      const [payload, walletPayload] = await Promise.all([
+        fetchRevenueAnalytics({
+          token,
+          shopId: selectedShopId,
+          range: getRevenueRangeForPreset(rangePreset),
+        }),
+        fetchWalletBalance({ token }),
+      ]);
+      setData({ ...payload, walletBalance: walletPayload.data.balance || 0 });
     } catch (loadError) {
       setError(loadError.message || "Failed to load revenue analytics");
       setData(null);
@@ -52,29 +55,33 @@ export default function ProviderRevenuePage() {
         {error ? <p className="error-text">{error}</p> : null}
 
         {!isLoading && !error && data ? (
-          <>
-            <div className="provider-kpi-grid">
-              <div>
-                <p>Net Revenue</p>
-                <strong>{formatCurrency(data?.totals?.netRevenue)}</strong>
-              </div>
-              <div>
-                <p>Paid</p>
-                <strong>{formatCurrency(data?.totals?.paid)}</strong>
-              </div>
-              <div>
-                <p>Pending</p>
-                <strong>{formatCurrency(data?.totals?.pending)}</strong>
-              </div>
-              <div>
-                <p>Refunded</p>
-                <strong>{formatCurrency(data?.totals?.refunded)}</strong>
-              </div>
-              <div>
-                <p>Failed</p>
-                <strong>{formatCurrency(data?.totals?.failed)}</strong>
-              </div>
+        <>
+          <div className="provider-kpi-grid">
+            <div>
+              <p>Net Revenue</p>
+              <strong>{formatCurrency(data?.totals?.netRevenue)}</strong>
             </div>
+            <div>
+              <p>Paid</p>
+              <strong>{formatCurrency(data?.totals?.paid)}</strong>
+            </div>
+            <div>
+              <p>Pending</p>
+              <strong>{formatCurrency(data?.totals?.pending)}</strong>
+            </div>
+            <div>
+              <p>Refunded</p>
+              <strong>{formatCurrency(data?.totals?.refunded)}</strong>
+            </div>
+            <div>
+              <p>Failed</p>
+              <strong>{formatCurrency(data?.totals?.failed)}</strong>
+            </div>
+            <div>
+              <p>Wallet</p>
+              <strong>{formatCurrency(data.walletBalance)}</strong>
+            </div>
+          </div>
 
             <LineTrendChart data={Array.isArray(data?.trend) ? data.trend : []} />
           </>

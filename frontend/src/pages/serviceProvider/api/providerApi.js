@@ -215,6 +215,27 @@ export const deleteShopResource = ({ token, shopId, resourceId }) =>
     method: "DELETE",
   });
 
+export const fetchWalletBalance = ({ token }) =>
+  authRequest({
+    token,
+    path: "/tenant/wallet/balance",
+  });
+
+export const fetchWalletTransactions = ({ token, page, limit }) =>
+  authRequest({
+    token,
+    path: "/tenant/wallet/transactions",
+    query: { page, limit },
+  });
+
+export const topupWallet = ({ token, amount }) =>
+  authRequest({
+    token,
+    path: "/tenant/wallet/topup",
+    method: "POST",
+    body: { amount },
+  });
+
 export const getUploadSignature = ({ token, folder, fileType, fileSize }) =>
   authRequest({
     token,
