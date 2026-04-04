@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../notifications/useNotifications";
 import StatusPill from "./components/StatusPill";
@@ -17,8 +17,17 @@ const formatDateTime = (value) => {
 };
 
 export default function ProviderNotificationsPage() {
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const {
+    notifications,
+    markAsRead,
+    markAllAsRead,
+    loadMoreNotifications,
+    hasMore,
+    isFetchingMore,
+    loading,
+  } = useNotifications();
   const navigate = useNavigate();
+  const sentinelRef = useRef(null);
 
   const sorted = useMemo(
     () =>
@@ -28,6 +37,8 @@ export default function ProviderNotificationsPage() {
     [notifications],
   );
 
+  const hasUnread = useMemo(() => notifications.some((n) => !n.isRead), [notifications]);
+
   const handleOpen = (notification) => {
     if (!notification) return;
     markAsRead(notification._id);
@@ -35,24 +46,52 @@ export default function ProviderNotificationsPage() {
     navigate(route);
   };
 
+  const handleIntersect = useCallback(
+    (entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && hasMore && !isFetchingMore && !loading) {
+        loadMoreNotifications();
+      }
+    },
+    [hasMore, isFetchingMore, loading, loadMoreNotifications],
+  );
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return undefined;
+
+    const observer = new IntersectionObserver(handleIntersect, {
+      root: null,
+      rootMargin: "200px 0px",
+      threshold: 0,
+    });
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [handleIntersect]);
+
   return (
     <section className="provider-page">
-      
       <article className="card">
         <div className="provider-section-header">
-  <h1>Notifications</h1>
-  {notifications.length > 0 && (
-    <button
-      type="button"
-      className="btn btn-small"
-      onClick={markAllAsRead}
-      disabled={!notifications.some(n => !n.isRead)}
-    >
-      Mark all read
-    </button>
-  )}
-</div>
-        {sorted.length === 0 ? (
+          <h1>Notifications</h1>
+          {notifications.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={markAllAsRead}
+              disabled={!hasUnread}
+            >
+              Mark all read
+            </button>
+          )}
+        </div>
+        {loading && sorted.length === 0 ? (
+          <div className="loading-spinner" style={{ padding: "2rem", textAlign: "center" }}>
+            Loading notifications...
+          </div>
+        ) : sorted.length === 0 ? (
           <p className="muted-text">No notifications yet.</p>
         ) : (
           <div className="provider-table-wrap">
@@ -93,6 +132,33 @@ export default function ProviderNotificationsPage() {
                     </td>
                   </tr>
                 ))}
+                {isFetchingMore && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      style={{ textAlign: "center", padding: "12px", color: "#66705a" }}
+                    >
+                      Loading more notifications...
+                    </td>
+                  </tr>
+                )}
+                {hasMore && (
+                  <tr>
+                    <td colSpan={6}>
+                      <div ref={sentinelRef} style={{ height: "1px" }} />
+                    </td>
+                  </tr>
+                )}
+                {!hasMore && notifications.length > 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      style={{ textAlign: "center", padding: "12px", color: "#66705a" }}
+                    >
+                      No more notifications
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

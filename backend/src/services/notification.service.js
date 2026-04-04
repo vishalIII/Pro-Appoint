@@ -9,23 +9,24 @@ async function sendNotification(payload) {
   return notification;
 }
 
-async function getNotificationsForUser({ userId, limit = 20, page = 1 } = {}) {
-  const skip = Math.max(0, page - 1) * limit;
-  const filters = { userId };
-  const [notifications, total, unreadCount] = await Promise.all([
-    Notification.find(filters)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    Notification.countDocuments(filters),
-    Notification.countDocuments({ ...filters, isRead: false }),
-  ]);
-  return {
-    notifications,
-    total,
-    unreadCount,
-    page,
-    perPage: limit,
+async function getNotificationsForUser({ userId, limit = 10, cursor = null } = {}) {
+  const query = { userId };
+  if (cursor) {
+    query._id = { $lt: cursor };
+  }
+  const results = await Notification.find(query)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit + 1)
+    .lean();
+  const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+  const hasMore = results.length > limit;
+  const data = results.slice(0, limit);
+  const nextCursor = hasMore ? data[data.length - 1]._id.toString() : null;
+  return { 
+    data, 
+    nextCursor, 
+    hasMore, 
+    unreadCount 
   };
 }
 

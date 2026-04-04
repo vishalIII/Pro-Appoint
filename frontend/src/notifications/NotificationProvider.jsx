@@ -7,119 +7,141 @@ import {
 } from "../api/notificationsApi";
 import NotificationContext from "./context";
 
-const defaultPagination = {
-  total: 0,
-  unreadCount: 0,
-  page: 1,
-  perPage: 20,
-};
-
 export const NotificationProvider = ({ children }) => {
   const { token, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [pagination, setPagination] = useState(defaultPagination);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  const refreshNotifications = useCallback(
-    async ({ page = 1, limit = 50 } = {}) => {
-      if (!token) {
-        setNotifications([]);
-        setPagination({ ...defaultPagination });
-        return;
-      }
+  const loadNotifications = useCallback(async (reset = false) => {
+    if (reset) {
+      setNotifications([]);
+      setNextCursor(null);
+      setHasMore(true);
+    }
+    if (!token || !hasMore) return;
 
+    const isLoadingMore = !reset;
+    if (isLoadingMore) {
+      setIsFetchingMore(true);
+    } else {
       setLoading(true);
+    }
 
-      try {
-        const payload = await fetchNotificationsRequest({ token, page, limit });
-        const list = payload.notifications || [];
-        setNotifications(list);
-        setPagination({
-          total: payload.total ?? list.length,
-          unreadCount: payload.unreadCount ?? list.filter((item) => !item.isRead).length,
-          page: payload.page ?? page,
-          perPage: payload.perPage ?? limit,
-        });
-      } catch (error) {
-        console.error("Failed to load notifications", error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token],
-  );
+    try {
+      const cursor = reset ? null : nextCursor;
+      const payload = await fetchNotificationsRequest({ cursor, limit: 10 });
+      const newData = payload.data || [];
+
+      setNotifications((prev) => [...prev, ...newData]);
+
+      setNextCursor(payload.nextCursor);
+      setHasMore(payload.hasMore);
+      setUnreadCount(payload.unreadCount || 0);
+    } catch (error) {
+      console.error("Failed to load notifications", error);
+    } finally {
+      setLoading(false);
+      setIsFetchingMore(false);
+    }
+  }, [token, nextCursor, hasMore]);
+
+  const loadMoreNotifications = useCallback(() => {
+    loadNotifications(false);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      refreshNotifications();
-      return;
+      loadNotifications(true);
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(true);
+      setNextCursor(null);
     }
-    setNotifications([]);
-    setPagination({ ...defaultPagination });
-  }, [isAuthenticated, refreshNotifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const addNotification = useCallback((notification) => {
     if (!notification) return;
     setNotifications((prev) => {
-      const deduped = prev.filter((item) => item._id !== notification._id);
-      return [notification, ...deduped].slice(0, 200);
+      if (prev.some((item) => item._id === notification._id)) {
+        return prev.map((item) =>
+          item._id === notification._id ? notification : item
+        );
+      }
+      return [notification, ...prev].slice(0, 200);
     });
-    setPagination((prev) => ({
-      ...prev,
-      total: (prev.total || 0) + 1,
-      unreadCount: (prev.unreadCount || 0) + (notification.isRead ? 0 : 1),
-    }));
+    setUnreadCount((prev) => prev + (notification.isRead ? 0 : 1));
   }, []);
 
   const markAsRead = useCallback(
     async (notificationId) => {
-      if (!token || !notificationId) return null;
       const existing = notifications.find((item) => item._id === notificationId);
-      const wasUnread = existing && !existing.isRead;
+      if (!existing || existing.isRead) return existing;
       try {
-        const updated = await markNotificationReadRequest({ token, notificationId });
-        setNotifications((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
-        if (wasUnread) {
-          setPagination((prev) => ({
-            ...prev,
-            unreadCount: Math.max(0, (prev.unreadCount || 1) - 1),
-          }));
-        }
+        const updated = await markNotificationReadRequest({ notificationId });
+        setNotifications((prev) =>
+          prev.map((item) => (item._id === updated._id ? updated : item))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
         return updated;
       } catch (error) {
         console.error("Failed to mark notification as read", error);
         return null;
       }
     },
-    [notifications, token],
+    [notifications]
   );
 
   const markAllAsRead = useCallback(async () => {
-    if (!token) return;
+    if (!token || unreadCount === 0) return;
     try {
-      await markAllNotificationsReadRequest({ token });
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-      setPagination((prev) => ({
-        ...prev,
-        unreadCount: 0,
-      }));
+      await markAllNotificationsReadRequest();
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, isRead: true }))
+      );
+      setUnreadCount(0);
     } catch (error) {
       console.error("Failed to mark all notifications as read", error);
     }
-  }, [token]);
+  }, [token, unreadCount]);
+
+  const refreshNotifications = useCallback(() => {
+    loadNotifications(true);
+  }, [loadNotifications]);
 
   const contextValue = useMemo(
     () => ({
       notifications,
       loading,
-      unreadCount: pagination.unreadCount,
-      total: pagination.total,
+      isFetchingMore,
+      hasMore,
+      nextCursor,
+      unreadCount,
+      loadNotifications,
+      loadMoreNotifications,
       refreshNotifications,
       markAsRead,
       markAllAsRead,
       addNotification,
     }),
-    [notifications, loading, pagination, refreshNotifications, markAsRead, markAllAsRead, addNotification],
+    [
+      notifications,
+      loading,
+      isFetchingMore,
+      hasMore,
+      nextCursor,
+      unreadCount,
+      loadNotifications,
+      loadMoreNotifications,
+      markAsRead,
+      markAllAsRead,
+      addNotification,
+    ]
   );
 
   return <NotificationContext.Provider value={contextValue}>{children}</NotificationContext.Provider>;

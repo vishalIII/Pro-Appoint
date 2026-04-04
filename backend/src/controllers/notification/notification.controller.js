@@ -6,13 +6,13 @@ const {
 
 exports.list = async (req, res, next) => {
   try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const perPage = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+    const cursor = req.query.cursor || null;
 
     const result = await getNotificationsForUser({
       userId: req.user.userId,
-      page,
-      limit: perPage,
+      limit,
+      cursor,
     });
 
     return res.status(200).json(result);

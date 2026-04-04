@@ -1,8 +1,12 @@
 import api from "../auth/api";
 
-export const fetchNotifications = async ({ page = 1, limit = 20 } = {}) => {
+export const fetchNotifications = async ({ cursor = null, limit = 10 } = {}) => {
+  const params = { limit };
+  if (cursor) {
+    params.cursor = cursor;
+  }
   const { data } = await api.get("/notifications", {
-    params: { page, limit },
+    params
   });
   return data;
 };
