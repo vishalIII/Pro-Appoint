@@ -2,14 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-
-const parseJsonSafely = async (response) => {
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-  return response.json();
-};
+import api from "../../auth/api";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -39,17 +32,7 @@ export default function MyBookings() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/customer/appointments`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      const payload = await parseJsonSafely(response);
-
-      if (!response.ok) {
-        throw new Error(payload?.message || "Failed to load bookings");
-      }
+      const { data: payload } = await api.get("/customer/appointments");
 
       setBookings(Array.isArray(payload?.appointments) ? payload.appointments : []);
     } catch (loadError) {
@@ -68,18 +51,7 @@ export default function MyBookings() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/customer/appointments/${appointmentId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      const payload = await parseJsonSafely(response);
-
-      if (!response.ok) {
-        throw new Error(payload?.message || "Failed to cancel booking");
-      }
+      const { data: payload } = await api.delete(`/customer/appointments/${appointmentId}`);
 
       setBookings((prev) => prev.filter((item) => item._id !== appointmentId));
     } catch (cancelError) {

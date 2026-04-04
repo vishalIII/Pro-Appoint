@@ -19,11 +19,15 @@ const uploadRoutes = require("./routes/upload/upload.routes.js");
 require("dotenv").config();
 
 
+
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
+
 /* -------- Middleware -------- */
 app.use(cors({
-  origin: 'http://127.0.0.1:5173', 
-  credentials: true               
-}))
+  origin:['http://localhost:5173', 'http://127.0.0.1:5173'], // 🔥 FIX
+  credentials: true
+}));
 app.use(express.json());
 // Normalize multiple slashes in incoming URLs to prevent accidental '//' segments
 app.use((req, res, next) => {

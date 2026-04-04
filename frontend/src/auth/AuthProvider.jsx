@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { AuthContext } from "./AuthContext";
+import { logoutRequest } from "./authApi";
 
 const STORAGE_KEYS = {
   user: "auth_user",
-  token: "auth_token"
+  token: "accessToken" // align with axios client
 };
 
 const readStoredUser = () => {
@@ -34,17 +35,27 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.removeItem("user");
+    localStorage.removeItem("auth_token"); // cleanup old key
 
     setUser(nextUser);
     setToken(nextToken);
   };
 
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEYS.user);
-    localStorage.removeItem(STORAGE_KEYS.token);
-    localStorage.removeItem("user");
-    setUser(null);
-    setToken(null);
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      // ignore network errors on logout
+      console.warn("Logout request failed:", error?.message || error);
+    } finally {
+      localStorage.removeItem(STORAGE_KEYS.user);
+      localStorage.removeItem(STORAGE_KEYS.token);
+      localStorage.removeItem("user");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("refreshToken");
+      setUser(null);
+      setToken(null);
+    }
   };
 
   const value = useMemo(

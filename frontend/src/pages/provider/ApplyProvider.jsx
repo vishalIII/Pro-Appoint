@@ -1,21 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import api from "../../auth/api";
 import { ROLES } from "../../rbac";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 const PLAN_OPTIONS = [
   { value: "basic", label: "Basic" },
   { value: "pro", label: "Pro" },
   { value: "enterprise", label: "Enterprise" }
 ];
-
-const parseJsonSafely = async (response) => {
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-  return response.json();
-};
 
 export default function ApplyProvider() {
   const { user, token, login } = useAuth();
@@ -45,19 +38,7 @@ export default function ApplyProvider() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/tenant/create-tenant`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ plan })
-      });
-
-      const payload = await parseJsonSafely(response);
-      if (!response.ok) {
-        throw new Error(payload?.message || "Failed to apply as service provider");
-      }
+      const { data: payload } = await api.post("/tenant/create-tenant", { plan });
 
       if (payload?.token && payload?.user) {
         login({ user: payload.user, token: payload.token });

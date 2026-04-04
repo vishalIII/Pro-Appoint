@@ -21,24 +21,30 @@ export default function Login() {
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
+  event.preventDefault();
+  setError("");
+  setIsSubmitting(true);
 
-    try {
-      const data = await loginRequest(form);
-      login({ user: data.user, token: data.token });
-      if (data.user?.role === ROLES.PROVIDER) {
-        navigate("/tenant", { replace: true });
-      } else {
-        navigate(redirectTo || getDashboardPathForRole(data.user?.role), { replace: true });
-      }
-    } catch (submissionError) {
-      setError(submissionError.message || "Unable to login");
-    } finally {
-      setIsSubmitting(false);
+  try {
+    const data = await loginRequest(form);
+
+    // ✅ FIX: store accessToken correctly
+    login({ user: data.user, token: data.accessToken });
+
+    if (data.user?.role === ROLES.PROVIDER) {
+      navigate("/tenant", { replace: true });
+    } else {
+      navigate(
+        redirectTo || getDashboardPathForRole(data.user?.role),
+        { replace: true }
+      );
     }
-  };
+  } catch (submissionError) {
+    setError(submissionError.message || "Unable to login");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <section className="auth-page">
