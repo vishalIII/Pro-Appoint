@@ -41,46 +41,44 @@ throw new AppError(error.message || "Failed to register user", error.statusCode 
 // =======================================================
 // Login service
 // =======================================================
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token");
+
 exports.login = async ({ email, password }) => {
-  try{
-  // 1. Find user
-  const user = await User.findOne({ email })
-    .select("+password")
-    .populate("tenantId");
+  try {
+    const user = await User.findOne({ email })
+      .select("+password")
+      .populate("tenantId");
 
-  if (!user || !user.isActive) {
-    throw new AppError("Invalid credentials", 401);
+    if (!user || !user.isActive) {
+      throw new AppError("Invalid credentials", 401);
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      throw new AppError("Invalid credentials", 401);
+    }
+
+    // ✅ Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // ✅ Save refresh token in DB
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId?._id || null,
+        isVerified: user.isVerified,
+      },
+    };
+  } catch (error) {
+    throw new AppError(error.message || "Failed to login", error.statusCode || 500);
   }
-
-  // 2. Compare password
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    throw new AppError("Invalid credentials", 401);
-  }
-
-  // 3. Generate JWT
-  const token = jwt.sign(
-    {
-      userId: user._id,
-      role: user.role,
-      tenantId: user.tenantId?._id || null,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "1h" }
-  );
-
-  return {
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId?._id || null,
-      isVerified: user.isVerified,
-    },
-  };
-}catch(error){
-throw new AppError(error.message || "Failed to login", error.statusCode || 500);
-}
 };

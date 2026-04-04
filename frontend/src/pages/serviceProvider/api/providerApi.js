@@ -1,10 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-
-const parseJsonSafely = async (response) => {
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-  return response.json();
-};
+import api from "../../../auth/api";
 
 const toQueryString = (query = {}) => {
   const params = new URLSearchParams();
@@ -16,205 +10,169 @@ const toQueryString = (query = {}) => {
   return encoded ? `?${encoded}` : "";
 };
 
-const authRequest = async ({ token, path, method = "GET", body, query }) => {
-  const response = await fetch(
-    `${API_BASE_URL}${path}${toQueryString(query)}`,
-    {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(body ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    },
-  );
-
-  const payload = await parseJsonSafely(response);
-  if (!response.ok) {
-    throw new Error(payload?.message || `Request failed (${response.status})`);
-  }
-
-  return payload;
+const authRequest = async ({ path, method = "GET", body, query }) => {
+  const { data } = await api.request({
+    url: path,
+    method,
+    params: query,
+    data: body,
+  });
+  return data;
 };
 
-export const fetchTenantShops = ({ token }) =>
+export const fetchTenantShops = () =>
   authRequest({
-    token,
     path: "/tenant/shops",
   });
 
-export const createTenantShop = ({ token, payload }) =>
+export const createTenantShop = ({ payload }) =>
   authRequest({
-    token,
     path: "/tenant/shops",
     method: "POST",
     body: payload,
   });
 
-export const fetchShopIndustries = ({ token }) =>
+export const fetchShopIndustries = () =>
   authRequest({
-    token,
     path: "/tenant/shops/shop-application/industries",
   });
 
-export const fetchDashboardSummary = ({ token, shopId, from, to }) =>
+export const fetchDashboardSummary = ({ shopId, from, to }) =>
   authRequest({
-    token,
     path: "/tenant/dashboard/summary",
     query: { shopId, from, to },
   });
 
-export const fetchTenantAppointments = ({ token, status, from, to }) =>
+export const fetchTenantAppointments = ({ status, from, to }) =>
   authRequest({
-    token,
     path: "/tenant/appointments",
     query: { status, from, to },
   });
 
 export const runAppointmentAction = ({
-  token,
   appointmentId,
   action,
   body,
 }) =>
   authRequest({
-    token,
     path: `/tenant/appointments/${appointmentId}/${action}`,
     method: "PATCH",
     body,
   });
 
-export const fetchJoinCredentials = ({ token, appointmentId }) =>
+export const fetchJoinCredentials = ({ appointmentId }) =>
   authRequest({
-    token,
     path: `/video/join/${appointmentId}`,
   });
 
-export const endMeeting = ({ token, appointmentId }) =>
+export const endMeeting = ({ appointmentId }) =>
   authRequest({
-    token,
     path: `/video/end/${appointmentId}`,
     method: "POST",
   });
 
-export const fetchRevenueAnalytics = ({ token, shopId, range }) =>
+export const fetchRevenueAnalytics = ({ shopId, range }) =>
   authRequest({
-    token,
     path: "/tenant/dashboard/revenue",
     query: { shopId, range },
   });
 
-export const fetchServicePerformance = ({ token, shopId }) =>
+export const fetchServicePerformance = ({ shopId }) =>
   authRequest({
-    token,
     path: "/tenant/dashboard/service-performance",
     query: { shopId },
   });
 
-export const fetchResourceUtilization = ({ token, shopId, date }) =>
+export const fetchResourceUtilization = ({ shopId, date }) =>
   authRequest({
-    token,
     path: "/tenant/dashboard/resource-utilization",
     query: { shopId, date },
   });
 
-export const fetchShopReviewSummary = ({ token, shopId }) =>
+export const fetchShopReviewSummary = ({ shopId }) =>
   authRequest({
-    token,
     path: `/shops/${shopId}/review-summary`,
   });
 
-export const fetchShopReviews = ({ token, shopId, page = 1, limit = 3 }) =>
+export const fetchShopReviews = ({ shopId, page = 1, limit = 3 }) =>
   authRequest({
-    token,
     path: `/shops/${shopId}/reviews`,
     query: { page, limit },
   });
 
-export const fetchShopById = ({ token, shopId }) =>
+export const fetchShopById = ({ shopId }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}`,
   });
 
-export const updateTenantShop = ({ token, shopId, payload }) =>
+export const updateTenantShop = ({ shopId, payload }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}`,
     method: "PATCH",
     body: payload,
   });
 
-export const fetchShopApplicationStatus = ({ token }) =>
+export const fetchShopApplicationStatus = () =>
   authRequest({
-    token,
     path: "/tenant/shops/shop-application/status",
   });
 
-export const fetchSubscription = ({ token }) =>
+export const fetchSubscription = () =>
   authRequest({
-    token,
     path: "/tenant/subscription",
   });
 
-export const fetchShopServices = ({ token, shopId }) =>
+export const fetchShopServices = ({ shopId }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/services`,
   });
 
-export const createShopService = ({ token, shopId, payload }) =>
+export const createShopService = ({ shopId, payload }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/services`,
     method: "POST",
     body: payload,
   });
 
-export const updateShopService = ({ token, shopId, serviceId, payload }) =>
+export const updateShopService = ({ shopId, serviceId, payload }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/services/${serviceId}`,
     method: "PATCH",
     body: payload,
   });
 
-export const deleteShopService = ({ token, shopId, serviceId }) =>
+export const deleteShopService = ({ shopId, serviceId }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/services/${serviceId}`,
     method: "DELETE",
   });
 
-export const fetchShopResources = ({ token, shopId }) =>
+export const fetchShopResources = ({ shopId }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/resources`,
   });
 
-export const createShopResource = ({ token, shopId, payload }) =>
+export const createShopResource = ({ shopId, payload }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/resources`,
     method: "POST",
     body: payload,
   });
 
-export const updateShopResource = ({ token, shopId, resourceId, payload }) =>
+export const updateShopResource = ({ shopId, resourceId, payload }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/resources/${resourceId}`,
     method: "PATCH",
     body: payload,
   });
 
-export const deleteShopResource = ({ token, shopId, resourceId }) =>
+export const deleteShopResource = ({ shopId, resourceId }) =>
   authRequest({
-    token,
     path: `/tenant/shops/${shopId}/resources/${resourceId}`,
     method: "DELETE",
   });
 
+<<<<<<< HEAD
 export const fetchWalletBalance = ({ token }) =>
   authRequest({
     token,
@@ -237,8 +195,10 @@ export const topupWallet = ({ token, amount }) =>
   });
 
 export const getUploadSignature = ({ token, folder, fileType, fileSize }) =>
+=======
+export const getUploadSignature = ({ folder, fileType, fileSize }) =>
+>>>>>>> feature/refresh-token-2
   authRequest({
-    token,
     path: "/uploads/signature",
     method: "POST",
     body: { folder, fileType, fileSize },

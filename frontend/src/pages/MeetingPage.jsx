@@ -2,8 +2,7 @@ import { useParams } from "react-router-dom";
 import { useRef, useEffect, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { useAuth } from "../auth/useAuth";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+import api from "../auth/api";
 
 export default function MeetingPage() {
   const { token } = useAuth();
@@ -19,12 +18,7 @@ export default function MeetingPage() {
     const sendLeave = async () => {
       try {
         if (!token || !appointmentId) return;
-        await fetch(`${API_BASE_URL}/meeting/leave/${appointmentId}`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        await api.post(`/meeting/leave/${appointmentId}`);
       } catch {
         // ignore cleanup errors
       }
@@ -42,20 +36,7 @@ export default function MeetingPage() {
         setError("");
         setLoading(true);
 
-        const res = await fetch(
-          `${API_BASE_URL}/meeting/token/${appointmentId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data?.message || "Failed to fetch meeting token");
-        }
+        const { data } = await api.get(`/meeting/token/${appointmentId}`);
 
         const zp = ZegoUIKitPrebuilt.create(data.token);
         zpRef.current = zp;

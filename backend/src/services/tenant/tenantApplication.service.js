@@ -2,6 +2,8 @@ const User = require("../../models/user/user.model");
 const Tenant = require("../../models/tenant/tenant.model");
 const AppError = require("../../utils/appError");
 const jwt = require("jsonwebtoken");
+
+const { generateAccessToken } = require("../../utils/token");
 // =======================================================
 // Create tenant service
 // =======================================================
@@ -40,28 +42,24 @@ exports.createTenant = async (userId, plan) => {
   user.role = "ServiceProvider";
   await user.save();
 
-  const token = jwt.sign(
-    {
-      userId: user._id,
-      role: user.role,
-      tenantId: tenant._id,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "1h" },
-  );
+const accessToken = generateAccessToken({
+  _id: user._id,
+  role: user.role,
+  tenantId: tenant._id,
+});
 
   return {
+  tenantId: tenant._id,
+  subscriptionEnd,
+  accessToken, // ✅ renamed
+  user: {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
     tenantId: tenant._id,
-    subscriptionEnd,
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tenantId: tenant._id,
-      isVerified: user.isVerified,
-    },
-  };
+    isVerified: user.isVerified,
+  },
+};
 }catch(error){throw new AppError(error.message || "Failed to create tenant", error.statusCode || 500); }
 };

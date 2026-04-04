@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import AlertModal from "../../components/AlertModal";
+import api from "../../auth/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -529,27 +530,10 @@ export default function BookingFlow() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}/appointments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const responsePayload = await parseJsonSafely(response);
-
-      if (!response.ok) {
-        const mappedMessage = mapServerErrorToPopupMessage({
-          rawMessage: responsePayload?.message,
-          shopSchedule: selectedShopSchedule,
-          serviceSchedule: selectedServiceSchedule,
-          bookingStart: startDate,
-          bookingEnd: endDate
-        });
-        throw new Error(mappedMessage);
-      }
+      const { data: responsePayload } = await api.post(
+        `/shops/${shopId}/services/${serviceId}/appointments`,
+        payload
+      );
 
       setSuccessMessage("Appointment booked successfully.");
       setTimeout(() => navigate("/bookings", { replace: true }), 700);
