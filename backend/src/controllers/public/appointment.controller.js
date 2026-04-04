@@ -45,10 +45,26 @@ exports.getAvailableSlots = async (req, res, next) => {
 
 exports.getMyAppointments = async (req, res, next) => {
   try {
-    const appointments = await appointmentService.getAppointments({
+    const result = await appointmentService.getAppointments({
       attendeeId: req.user.userId,
+      filters: {
+        status: req.query.status,
+        from: req.query.from,
+        to: req.query.to,
+        shopId: req.query.shopId,
+      },
+      page: req.query.page,
+      limit: req.query.limit,
     });
-    return res.status(200).json({ count: appointments.length, appointments });
+    return res.status(200).json({
+      count: result.appointments.length,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      hasMore: result.hasMore,
+      appointments: result.appointments,
+    });
   } catch (error) {
     next(error);
   }

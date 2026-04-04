@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/useAuth";
 import StatusPill from "./components/StatusPill";
 import {
@@ -20,7 +20,7 @@ const STATUS_OPTIONS = [
   { value: "no_show", label: "No-show" },
 ];
 
-
+const PAGE_SIZE = 10;
 
 const ACTIONS_BY_STATUS = {
   pending: ["accept", "reject", "cancel", "mark-paid"],
@@ -77,8 +77,11 @@ export default function ProviderAppointmentsPage() {
   const [error, setError] = useState("");
   const [runningActionId, setRunningActionId] = useState("");
   const [expandedAttendees, setExpandedAttendees] = useState({});
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const loadAppointments = useCallback(async () => {
+  const loadAppointments = useCallback(async (pageToLoad = 1) => {
     if (!token) return;
 
     setIsLoading(true);
@@ -90,20 +93,17 @@ export default function ProviderAppointmentsPage() {
         status,
         from: effectiveRange.from,
         to: effectiveRange.to,
+        page: pageToLoad,
+        limit: PAGE_SIZE,
+        shopId: selectedShopId,
       });
 
-      const list = Array.isArray(payload?.appointments)
-        ? payload.appointments
-        : [];
+      const list = Array.isArray(payload?.appointments) ? payload.appointments : [];
 
-      const filtered = selectedShopId
-        ? list.filter((item) => {
-          const shopId = item?.shopId?._id || item?.shopId;
-          return String(shopId) === String(selectedShopId);
-        })
-        : list;
-
-      setAppointments(filtered);
+      setAppointments(list);
+      setTotalPages(payload?.totalPages || 1);
+      setTotalCount(payload?.total ?? list.length);
+      setPage(payload?.page || pageToLoad);
     } catch (err) {
       setError(err.message || "Failed to load appointments");
       setAppointments([]);
@@ -113,8 +113,8 @@ export default function ProviderAppointmentsPage() {
   }, [token, status, selectedShopId, effectiveRange.from, effectiveRange.to]);
 
   useEffect(() => {
-    loadAppointments();
-  }, [loadAppointments]);
+    loadAppointments(1);
+  }, [loadAppointments, status, selectedShopId, effectiveRange.from, effectiveRange.to]);
 
   const onAction = async (appointmentId, action) => {
     if (!token) return;
@@ -136,7 +136,7 @@ export default function ProviderAppointmentsPage() {
             : undefined,
       });
 
-      await loadAppointments();
+      await loadAppointments(page);
     } catch (err) {
       setError(err.message || "Failed to update appointment");
     } finally {
@@ -153,7 +153,7 @@ export default function ProviderAppointmentsPage() {
 
     try {
       await endMeeting({ token, appointmentId });
-      await loadAppointments();
+      await loadAppointments(page);
     } catch (err) {
       setError(err.message || "Failed to end meeting");
     }
@@ -165,6 +165,29 @@ export default function ProviderAppointmentsPage() {
       [appointmentId]: !prev[appointmentId],
     }));
   };
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === page) return;
+    loadAppointments(nextPage);
+  };
+
+  const paginationItems = useMemo(() => {
+    const items = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) items.push(i);
+      return items;
+    }
+
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+
+    items.push(1);
+    if (start > 2) items.push("ellipsis-start");
+    for (let i = start; i <= end; i += 1) items.push(i);
+    if (end < totalPages - 1) items.push("ellipsis-end");
+    items.push(totalPages);
+    return items;
+  }, [page, totalPages]);
 
 
   return (
@@ -187,7 +210,7 @@ export default function ProviderAppointmentsPage() {
             </select>
 
             <RefreshButton
-              onRefresh={loadAppointments}
+              onRefresh={() => loadAppointments(page)}
               disabled={isLoading}
             />
           </label>
@@ -397,6 +420,60 @@ export default function ProviderAppointmentsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!error && totalCount > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 12,
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div className="muted-text">
+              Showing {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–
+              {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+            </div>
+
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1 || isLoading}
+              >
+                &lt; Prev
+              </button>
+              {paginationItems.map((item, idx) =>
+                typeof item === "number" ? (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`btn btn-small${item === page ? " btn-primary" : " btn-ghost"}`}
+                    onClick={() => handlePageChange(item)}
+                    disabled={isLoading}
+                  >
+                    {item}
+                  </button>
+                ) : (
+                  <span key={item + idx} className="muted-text">
+                    ...
+                  </span>
+                )
+              )}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages || isLoading}
+              >
+                Next &gt;
+              </button>
+            </div>
           </div>
         )}
       </article>

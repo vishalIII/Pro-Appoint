@@ -11,6 +11,8 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
+const PAGE_SIZE = 6;
+
 export default function MyBookings() {
   const { token } = useAuth();
   const [bookings, setBookings] = useState([]);
@@ -20,8 +22,11 @@ export default function MyBookings() {
   // const [joiningId, setJoiningId] = useState("");
   // const [joinInfo, setJoinInfo] = useState(null);
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const loadBookings = useCallback(async () => {
+  const loadBookings = useCallback(async (pageToLoad = 1) => {
     if (!token) {
       setBookings([]);
       setIsLoading(false);
@@ -32,9 +37,14 @@ export default function MyBookings() {
     setError("");
 
     try {
-      const { data: payload } = await api.get("/customer/appointments");
+      const { data: payload } = await api.get("/customer/appointments", {
+        params: { page: pageToLoad, limit: PAGE_SIZE },
+      });
 
       setBookings(Array.isArray(payload?.appointments) ? payload.appointments : []);
+      setPage(payload?.page || pageToLoad);
+      setTotalPages(payload?.totalPages || 1);
+      setTotalCount(payload?.total ?? (payload?.appointments?.length || 0));
     } catch (loadError) {
       setError(loadError.message || "Failed to load bookings");
     } finally {
@@ -63,6 +73,24 @@ export default function MyBookings() {
   const handleJoin = async (appointment) => {
     navigate(`/meeting/${appointment._id}`);
   };
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === page) return;
+    loadBookings(nextPage);
+  };
+
+  const paginationItems = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i += 1) paginationItems.push(i);
+  } else {
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+    paginationItems.push(1);
+    if (start > 2) paginationItems.push("ellipsis-start");
+    for (let i = start; i <= end; i += 1) paginationItems.push(i);
+    if (end < totalPages - 1) paginationItems.push("ellipsis-end");
+    paginationItems.push(totalPages);
+  }
 
   return (
     <section className="page-block">
@@ -134,6 +162,59 @@ export default function MyBookings() {
             ))}
           </div>
         ) : null}
+
+        {!error && totalCount > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 12,
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div className="muted-text">
+              Showing {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–
+              {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1 || isLoading}
+              >
+                &lt; Prev
+              </button>
+              {paginationItems.map((item, idx) =>
+                typeof item === "number" ? (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`btn btn-small${item === page ? " btn-primary" : " btn-ghost"}`}
+                    onClick={() => handlePageChange(item)}
+                    disabled={isLoading}
+                  >
+                    {item}
+                  </button>
+                ) : (
+                  <span key={item + idx} className="muted-text">
+                    ...
+                  </span>
+                )
+              )}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages || isLoading}
+              >
+                Next &gt;
+              </button>
+            </div>
+          </div>
+        )}
 
 
       </div>

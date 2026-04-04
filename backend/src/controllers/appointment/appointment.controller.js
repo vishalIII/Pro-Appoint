@@ -34,15 +34,26 @@ exports.getAppointments = async (req, res, next) => {
       status: req.query.status,
       from: req.query.from,
       to: req.query.to,
+      shopId: req.query.shopId,
     };
 
-    const appointments = await appointmentService.getAppointments({
+    const result = await appointmentService.getAppointments({
       tenantId: req.user.tenantId,
       attendeeId: req.query.attendeeId,
       filters,
+      page: req.query.page,
+      limit: req.query.limit,
     });
 
-    return res.status(200).json({ count: appointments.length, appointments });
+    return res.status(200).json({
+      count: result.appointments.length,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      hasMore: result.hasMore,
+      appointments: result.appointments,
+    });
   } catch (error) {
     console.error("Appointment.getAppointments error:", error);
     next(error);

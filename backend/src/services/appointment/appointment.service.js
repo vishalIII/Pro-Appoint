@@ -1446,7 +1446,14 @@ exports.markAppointmentPaymentFailed = async ({
   }
 };
 
-exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
+exports.getAppointments = async ({
+  tenantId,
+  attendeeId,
+  filters,
+  page,
+  limit,
+  sort = { startTimeUTC: 1 },
+}) => {
   try {
     const query = {};
     if (tenantId) query.tenantId = tenantId;
@@ -1456,6 +1463,7 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
 
     if (filters) {
       if (filters.status) query.status = filters.status;
+      if (filters.shopId) query.shopId = filters.shopId;
       if (filters.from) query.startTimeUTC = { $gte: new Date(filters.from) };
       if (filters.to) {
         query.endTimeUTC = query.endTimeUTC || {};
@@ -1463,13 +1471,47 @@ exports.getAppointments = async ({ tenantId, attendeeId, filters }) => {
       }
     }
 
-    return await Appointment.find(query)
-      .sort({ startTimeUTC: 1 })
+    const paginationEnabled =
+      Number.isFinite(Number.parseInt(page, 10)) ||
+      Number.isFinite(Number.parseInt(limit, 10));
+
+    const pageNum = Math.max(1, Number.parseInt(page, 10) || 1);
+    const limitNum = Math.max(
+      1,
+      Math.min(100, Number.parseInt(limit, 10) || 10),
+    );
+    const skip = (pageNum - 1) * limitNum;
+
+    const queryBuilder = Appointment.find(query)
+      .sort(sort)
       .populate("attendeeId", "name email")
       .populate("attendees.userId", "name email")
       .populate("serviceId", "name")
       .populate("shopId", "shopName")
       .populate("allocatedResources.resourceId", "name type");
+
+    if (paginationEnabled) {
+      queryBuilder.skip(skip).limit(limitNum);
+    }
+
+    const [appointments, total] = await Promise.all([
+      queryBuilder,
+      paginationEnabled ? Appointment.countDocuments(query) : Promise.resolve(0),
+    ]);
+
+    const effectiveTotal = paginationEnabled ? total : appointments.length;
+    const totalPages = paginationEnabled
+      ? Math.max(1, Math.ceil(effectiveTotal / limitNum))
+      : 1;
+
+    return {
+      appointments,
+      total: effectiveTotal,
+      page: paginationEnabled ? pageNum : 1,
+      limit: paginationEnabled ? limitNum : appointments.length || 1,
+      totalPages,
+      hasMore: paginationEnabled ? pageNum < totalPages : false,
+    };
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError(error.message || "Failed to fetch appointments", 500);

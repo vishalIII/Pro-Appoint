@@ -43,10 +43,10 @@ export const fetchDashboardSummary = ({ shopId, from, to }) =>
     query: { shopId, from, to },
   });
 
-export const fetchTenantAppointments = ({ status, from, to }) =>
+export const fetchTenantAppointments = ({ status, from, to, page, limit, shopId }) =>
   authRequest({
     path: "/tenant/appointments",
-    query: { status, from, to },
+    query: { status, from, to, page, limit, shopId },
   });
 
 export const runAppointmentAction = ({
