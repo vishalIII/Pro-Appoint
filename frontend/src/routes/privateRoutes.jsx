@@ -18,7 +18,6 @@ import ProviderSubscriptionPage from "../pages/serviceProvider/Subscription";
 import ProviderSettingsPage from "../pages/serviceProvider/Settings";
 import ProviderCreateShopPage from "../pages/serviceProvider/CreateShop";
 import ProviderNotificationsPage from "../pages/serviceProvider/Notifications";
-import ProviderWalletPage from "../pages/serviceProvider/Wallet";
 import NotificationsPage from "../pages/NotificationsPage";
 import MeetingPage from "../pages/MeetingPage";
 import { ROLES } from "../rbac";

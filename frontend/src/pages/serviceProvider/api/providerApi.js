@@ -1,14 +1,14 @@
 import api from "../../../auth/api";
 
-const toQueryString = (query = {}) => {
-  const params = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") return;
-    params.set(key, String(value));
-  });
-  const encoded = params.toString();
-  return encoded ? `?${encoded}` : "";
-};
+// const toQueryString = (query = {}) => {
+//   const params = new URLSearchParams();
+//   Object.entries(query).forEach(([key, value]) => {
+//     if (value === undefined || value === null || value === "") return;
+//     params.set(key, String(value));
+//   });
+//   const encoded = params.toString();
+//   return encoded ? `?${encoded}` : "";
+// };
 
 const authRequest = async ({ path, method = "GET", body, query }) => {
   const { data } = await api.request({
@@ -172,32 +172,7 @@ export const deleteShopResource = ({ shopId, resourceId }) =>
     method: "DELETE",
   });
 
-<<<<<<< HEAD
-export const fetchWalletBalance = ({ token }) =>
-  authRequest({
-    token,
-    path: "/tenant/wallet/balance",
-  });
-
-export const fetchWalletTransactions = ({ token, page, limit }) =>
-  authRequest({
-    token,
-    path: "/tenant/wallet/transactions",
-    query: { page, limit },
-  });
-
-export const topupWallet = ({ token, amount }) =>
-  authRequest({
-    token,
-    path: "/tenant/wallet/topup",
-    method: "POST",
-    body: { amount },
-  });
-
-export const getUploadSignature = ({ token, folder, fileType, fileSize }) =>
-=======
 export const getUploadSignature = ({ folder, fileType, fileSize }) =>
->>>>>>> feature/refresh-token-2
   authRequest({
     path: "/uploads/signature",
     method: "POST",

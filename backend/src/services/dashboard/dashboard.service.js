@@ -12,9 +12,6 @@ const REFUND_STATUSES = ["refunded", "partially_refunded"];
 const PAID_LIKE_STATUSES = ["paid", "partially_refunded", "refunded"];
 const PENDING_PAYMENT_STATUSES = ["pending", "unpaid"];
 
-const walletService = require("../wallet/wallet.service");
-
-
 const asObjectId = (value, fieldName) => {
   if (!value || !mongoose.Types.ObjectId.isValid(value)) {
     throw new AppError(`Invalid ${fieldName}`, 400);
@@ -585,9 +582,6 @@ exports.getDashboardSummary = async ({ tenantId, shopId, from, to }) => {
       },
     };
 
-    // Add wallet balance
-    const wallet = await walletService.getWalletBalance(tenantIdObjectId);
-
     return {
       range: {
         from: fromDate.toISOString(),
@@ -597,7 +591,6 @@ exports.getDashboardSummary = async ({ tenantId, shopId, from, to }) => {
       },
       cards,
       revenueBreakdown: currentSummary.revenue,
-      walletBalance: wallet.balance,
       alerts,
       generatedAt: new Date().toISOString(),
     };

@@ -29,14 +29,9 @@ const tenantSchema = new mongoose.Schema(
       type: Date,
     },
     
-isActive: {
+    isActive: {
       type: Boolean,
       default: true,
-    },
-    walletBalance: {
-      type: Number,
-      default: 0,
-      min: 0,
     },
   },
   { timestamps: true }
