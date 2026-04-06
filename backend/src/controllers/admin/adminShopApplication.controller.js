@@ -60,3 +60,24 @@ exports.rejectShop = async (req, res) => {
     next(error);
   }
 };
+
+// patch Suspend shop
+exports.suspendShop = async (req, res, next) => {
+  try {
+    const { shopId } = req.params;
+    const { reason } = req.body || {};
+
+    await adminShopApplicationService.suspendShop({
+      shopId,
+      reason,
+      adminUserId: req.user.userId,
+    });
+
+    return res.status(200).json({
+      message: "Shop suspended successfully",
+      shopId,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

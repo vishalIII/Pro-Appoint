@@ -23,6 +23,14 @@ export const rejectShopApplication = async ({ shopId, reason }) => {
   return data;
 };
 
+export const suspendShop = async ({ shopId, reason }) => {
+  if (!shopId) throw new Error("shopId is required");
+  const { data } = await api.patch(`/admin/shop-application/${shopId}/suspend`, {
+    reason,
+  });
+  return data;
+};
+
 // ---------------- Industries ----------------
 export const fetchIndustries = async () => {
   const { data } = await api.get("/admin/industry");
@@ -54,4 +62,3 @@ export const fetchTenantApplications = async () => {
   const { data } = await api.get("/admin/tenant-application");
   return Array.isArray(data) ? data : [];
 };
-

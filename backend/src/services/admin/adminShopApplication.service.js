@@ -88,3 +88,36 @@ exports.rejectShop = async ({ shopId, reason, adminUserId }) => {
   throw new AppError(error.message || "Failed to reject shop application", error.statusCode || 500);
 }
 };
+
+exports.suspendShop = async ({ shopId, reason, adminUserId }) => {
+  try {
+    const shop = await Shop.findById(shopId);
+
+    if (!shop) {
+      throw new AppError("Shop not found", 404);
+    }
+
+    if (shop.status === "blocked") {
+      throw new AppError("Shop is already suspended", 400);
+    }
+
+    await Shop.findByIdAndUpdate(
+      shopId,
+      {
+        status: "blocked",
+        statusMeta: {
+          reason: reason || "Suspended by admin",
+          by: adminUserId,
+          at: new Date(),
+        },
+      },
+      { runValidators: true }
+    );
+
+    await deactivateServicesForShop({ shopId });
+
+    return shopId;
+  } catch (error) {
+    throw new AppError(error.message || "Failed to suspend shop", error.statusCode || 500);
+  }
+};
