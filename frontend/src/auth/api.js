@@ -98,9 +98,10 @@ api.interceptors.response.use(
     const originalRequest = error.config || {};
     const status = error.response?.status;
     const isAuthError = status === 401 || status === 403;
+    const isLoginOrRegister = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register');
 
     // ❗ handle only auth errors + avoid infinite loop
-    if (isAuthError && !originalRequest._retry && !originalRequest.url?.includes('refresh-token')) {
+    if (isAuthError && !originalRequest._retry && !isLoginOrRegister && !originalRequest.url?.includes('refresh-token')) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

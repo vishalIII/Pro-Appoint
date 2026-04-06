@@ -8,8 +8,10 @@ const AppError = require("../../utils/appError");
 // =======================================================
 exports.register = async ({ name, email, password, role, intent }) => {
   try{
+  const normalizedEmail = (email || "").trim().toLowerCase();
+
   // 1. Check existing user
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
    throw new AppError("Email already in use", 409);
   }
@@ -21,7 +23,7 @@ exports.register = async ({ name, email, password, role, intent }) => {
   // 3. Always register as Customer, store provider intent if provided
   const user = await User.create({
     name,
-    email,
+    email: normalizedEmail,
     password: hashedPassword,
     role: "Customer",
     intent: intent || null,
@@ -45,7 +47,10 @@ const { generateAccessToken, generateRefreshToken } = require("../../utils/token
 
 exports.login = async ({ email, password }) => {
   try {
-    const user = await User.findOne({ email })
+    // Normalize email to match how it is stored in Mongo (lowercased)
+    const normalizedEmail = (email || "").trim().toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail })
       .select("+password")
       .populate("tenantId");
 
