@@ -8,6 +8,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isTenantRoute = location.pathname.startsWith("/tenant");
+  const isAdminRoute = location.pathname.startsWith("/admin");
   const canUseListBusiness = !isAuthenticated || user?.role === ROLES.CUSTOMER;
   const navLinks = [
     { to: "/", label: "Home", end: true },
@@ -34,7 +35,7 @@ export default function Layout() {
     navigate("/login", { replace: true });
   };
 
-  if (isTenantRoute) {
+  if (isTenantRoute || isAdminRoute) {
     return (
       <div className="app-shell tenant-app-shell">
         <main className="tenant-page-shell">
