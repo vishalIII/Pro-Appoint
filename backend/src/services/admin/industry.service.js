@@ -27,6 +27,7 @@ exports.getAllIndustries = async () => {
 };
 
 exports.updateIndustry = async (id, data) => {
+    const { name, isActive } = data || {};
     try{
     const industry = await Industry.findById(id);
 
@@ -34,9 +35,9 @@ exports.updateIndustry = async (id, data) => {
         throw new AppError("Industry not found", 404);
     }
 
-    if (data.name) industry.name = data.name;
-    if (typeof data.isActive === "boolean") {
-        industry.isActive = data.isActive;
+    if (name) industry.name = name;
+    if (typeof isActive === "boolean") {
+        industry.isActive = isActive;
     }
 
     await industry.save();

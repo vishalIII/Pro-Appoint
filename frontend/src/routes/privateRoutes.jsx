@@ -3,6 +3,9 @@ import AdminLayout from "../layouts/AdminLayout";
 import ProviderLayout from "../layouts/ProviderLayout";
 import CustomerLayout from "../layouts/CustomerLayout";
 import AdminDashboard from "../dashboards/AdminDashboard";
+import ShopApplicationsPage from "../pages/admin/ShopApplications";
+import IndustryManagerPage from "../pages/admin/IndustryManager";
+import TenantApplicationsPage from "../pages/admin/TenantApplications";
 import ProviderDashboard from "../dashboards/ProviderDashboard";
 import CustomerDashboard from "../dashboards/CustomerDashboard";
 import BookingFlow from "../pages/customer/BookingFlow";
@@ -77,6 +80,11 @@ export const privateRoutes = [
     path: "admin",
     element: <AdminLayout />,
     guard: { roles: [ROLES.ADMIN] },
-    children: [{ index: true, element: <AdminDashboard /> }]
+    children: [
+      { index: true, element: <AdminDashboard /> },
+      { path: "shops", element: <ShopApplicationsPage /> },
+      { path: "industries", element: <IndustryManagerPage /> },
+      { path: "tenants", element: <TenantApplicationsPage /> }
+    ]
   }
 ];

@@ -7,6 +7,9 @@ const AdminLayout = () => {
         <h2>Admin Panel</h2>
         <nav className="dashboard-nav">
           <Link to="/admin">Overview</Link>
+          <Link to="/admin/shops">Shops</Link>
+          <Link to="/admin/industries">Industries</Link>
+          <Link to="/admin/tenants">Tenants</Link>
         </nav>
       </header>
       <Outlet />

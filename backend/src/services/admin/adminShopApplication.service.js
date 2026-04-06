@@ -9,6 +9,7 @@ exports.getAllShopApplication = async () => {
     const shops = await Shop.find()
       .populate("ownerId", "name email role")
       .populate("tenantId", "plan isActive")
+      .populate("industry", "name isActive")
       .sort({ createdAt: -1 });
 
     return shops;
@@ -22,6 +23,7 @@ exports.getPendingShopApplication = async () => {
     const shops = await Shop.find({status:"pending"})
       .populate("ownerId", "name email role")
       .populate("tenantId", "plan isActive")
+      .populate("industry", "name isActive")
       .sort({ createdAt: -1 });
 
     return shops;

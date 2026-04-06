@@ -71,6 +71,40 @@
   background: #262f3f;
 }
 
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #e9edf4;
+  color: #27324a;
+}
+
+.badge-green {
+  background: #e6f5e8;
+  color: #1f7a33;
+}
+
+.badge-amber {
+  background: #fff4e5;
+  color: #a35a05;
+}
+
+.badge-red {
+  background: #feecec;
+  color: #a52727;
+}
+
+.badge-slate {
+  background: #edf0f5;
+  color: #41506a;
+}
+
 .btn-ogani {
   background: var(--primary);
   border-radius: 0;
