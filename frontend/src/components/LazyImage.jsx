@@ -51,9 +51,12 @@ export default function LazyImage({
   }, [src]);
 
   const wrapperStyle = {
-    minHeight: height,
     position: "relative",
-    ...(aspectRatio ? { aspectRatio } : {}),
+    width: "100%",
+    // When an aspect ratio is provided, let it control the sizing so the box stays perfectly
+    // proportional (important for small thumbnails). Otherwise, fall back to a minimum height
+    // to reserve space while the image loads.
+    ...(aspectRatio ? { aspectRatio } : { minHeight: height }),
   };
 
   return (

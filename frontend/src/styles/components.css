@@ -190,13 +190,15 @@
   border-radius: 8px;
   padding: 4px;
   background: #fbfcf8;
+  display: block;
 }
 
-.thumb img {
+/* Keep drawer thumbnails perfectly square and filling their cells */
+.thumb .lazy-image {
   width: 100%;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 6px;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  display: block;
 }
 
 .doc-list {
