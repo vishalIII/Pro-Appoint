@@ -16,8 +16,15 @@
   box-sizing: border-box;
 }
 
+html {
+  width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  width: 100%;
+  overflow-x: hidden;
   font-family: "Poppins", "Trebuchet MS", sans-serif;
   font-size: clamp(14px, 0.35vw + 13px, 16px);
   line-height: 1.6;
