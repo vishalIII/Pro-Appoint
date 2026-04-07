@@ -425,6 +425,26 @@
   background: rgba(45, 67, 21, 0.1);
 }
 
+.dashboard-nav {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-nav,
+  .dashboard-nav a {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 1000 !important;
+    position: relative;
+  }
+  
+  .dashboard-nav a:hover {
+    text-decoration: underline;
+  }
+}
+
 .notification-bell-count {
   position: absolute;
   top: 4px;

@@ -132,6 +132,20 @@
   color: var(--primary);
 }
 
+.header-nav {
+  pointer-events: auto;
+}
+
+@media (min-width: 1024px) {
+  .header-nav,
+  .header-nav-link {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 1000 !important;
+    position: relative;
+  }
+}
+
 .auth-action {
   display: inline-flex;
   align-items: center;

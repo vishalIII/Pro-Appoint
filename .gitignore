@@ -29,6 +29,8 @@ frontend/build/
 frontend/dist/
 frontend/.cache/
 
+TODO.md
+
 ############################
 # NEXT.JS (if used)
 ############################

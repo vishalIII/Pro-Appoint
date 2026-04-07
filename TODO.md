@@ -1,14 +1,15 @@
-# Cursor-based Pagination Implementation TODO
+# Fix Customer Navbar Buttons Not Clicking (PC View)
 
-## Current Progress
-✅ Steps 1-5 completed (API, Provider pagination logic, etc.)
+## Steps:
+- [x] Create TODO.md with plan breakdown
+- [x] Add explicit pointer-events: auto and z-index to .dashboard-nav in components.css for PC view
+- [x] Fix main site navbar (Home/Shop/About) in layout.css for customer PC view
+- [x] Update TODO.md progress
+- [ ] Test in browser PC view (run `cd frontend && npm run dev` if needed)
+- [ ] Check for persistent overlays/modals
+- [ ] Verify React Router links
+- [ ] Check for persistent overlays/modals
+- [ ] Verify React Router links
+- [ ] Complete: attempt_completion
 
-## Remaining Steps
-- [✅] **Step 6**: Update NotificationsPage.jsx (add infinite scroll with IntersectionObserver, debounced loadMore using custom hook, loading states, sentinel, no-more message) ✅
-- [x] **Step 7**: Update useNotifications.js - exports full context props (loadMoreNotifications, hasMore etc. available) ✅
-- [ ] **Step 8**: Restart services (backend/frontend)
-- [ ] **Step 9**: End-to-end tests (manual: load page, scroll to load more, verify pagination, mark read)
-- [ ] **Step 10**: Cleanup (mark complete, backend tests)
-
-**Next: Complete Step 6 → edit NotificationsPage.jsx**
-
+Progress: CSS fix applied to components.css. Test in PC browser view.
