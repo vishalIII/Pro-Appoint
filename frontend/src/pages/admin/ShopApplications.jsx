@@ -6,6 +6,7 @@ import {
   suspendShop,
 } from "../../api/adminApi";
 import { useAuth } from "../../auth/useAuth";
+import LazyImage from "../../components/LazyImage";
 
 const statusBadge = (status) => {
   const map = {
@@ -293,7 +294,12 @@ function ShopDrawer({
                 onClick={() => setPreviewUrl(src)}
                 aria-label="Preview image"
               >
-                <img src={src} alt={`Shop ${idx + 1}`} loading="lazy" />
+                <LazyImage
+                  src={src}
+                  alt={`Shop ${idx + 1}`}
+                  height={120}
+                  aspectRatio="1 / 1"
+                />
               </button>
             ))}
             {shop.images?.length ? null : <p className="muted-text">No images uploaded.</p>}
@@ -371,7 +377,7 @@ function ShopDrawer({
 
         {previewUrl ? (
           <div className="image-preview" onClick={() => setPreviewUrl("")}>
-            <img src={previewUrl} alt="Preview" />
+            <LazyImage src={previewUrl} alt="Preview" height={320} aspectRatio="16 / 10" />
           </div>
         ) : null}
       </aside>

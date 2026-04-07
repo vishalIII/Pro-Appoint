@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import LazyImage from "../../../../components/LazyImage";
 import { SHOP_PLACEHOLDER_IMAGE } from "../constants";
 
 export default function FeaturedShopsSection({ featuredShops, isLoadingShops, shopsError }) {
@@ -20,10 +21,12 @@ export default function FeaturedShopsSection({ featuredShops, isLoadingShops, sh
           {featuredShops.map((shop) => (
             <article key={shop.id} className="shop-highlight-card">
               <Link className="shop-highlight-media" to={`/shops/${shop.id}`}>
-                <img
+                <LazyImage
                   src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
                   alt={`${shop.name || "Shop"} preview`}
-                  loading="lazy"
+                  height={200}
+                  aspectRatio="4 / 3"
+                  fetchPriority="low"
                 />
               </Link>
               <div className="shop-highlight-body">
