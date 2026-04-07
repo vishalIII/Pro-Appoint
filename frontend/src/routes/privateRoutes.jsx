@@ -1,29 +1,36 @@
+import { lazy } from "react";
 import { Navigate } from "react-router-dom";
-import AdminLayout from "../layouts/AdminLayout";
-import ProviderLayout from "../layouts/ProviderLayout";
-import CustomerLayout from "../layouts/CustomerLayout";
-import AdminDashboard from "../dashboards/AdminDashboard";
-import ShopApplicationsPage from "../pages/admin/ShopApplications";
-import IndustryManagerPage from "../pages/admin/IndustryManager";
-import TenantApplicationsPage from "../pages/admin/TenantApplications";
-import ProviderDashboard from "../dashboards/ProviderDashboard";
-import CustomerDashboard from "../dashboards/CustomerDashboard";
-import BookingFlow from "../pages/customer/BookingFlow";
-import MyBookings from "../pages/customer/MyBookings";
-import ApplyProvider from "../pages/provider/ApplyProvider";
-import ProviderAppointmentsPage from "../pages/serviceProvider/Appointments";
-import ProviderShopsPage from "../pages/serviceProvider/Shops";
-import ProviderServicesPage from "../pages/serviceProvider/Services";
-import ProviderResourcesPage from "../pages/serviceProvider/Resources";
-import ProviderRevenuePage from "../pages/serviceProvider/Revenue";
-import ProviderReviewsPage from "../pages/serviceProvider/Reviews";
-import ProviderSubscriptionPage from "../pages/serviceProvider/Subscription";
-import ProviderSettingsPage from "../pages/serviceProvider/Settings";
-import ProviderCreateShopPage from "../pages/serviceProvider/CreateShop";
-import ProviderNotificationsPage from "../pages/serviceProvider/Notifications";
-import NotificationsPage from "../pages/NotificationsPage";
-import MeetingPage from "../pages/MeetingPage";
 import { ROLES } from "../rbac";
+
+const AdminLayout = lazy(() => import("../layouts/AdminLayout"));
+const ProviderLayout = lazy(() => import("../layouts/ProviderLayout"));
+const CustomerLayout = lazy(() => import("../layouts/CustomerLayout"));
+
+const AdminDashboard = lazy(() => import("../dashboards/AdminDashboard"));
+const ShopApplicationsPage = lazy(() => import("../pages/admin/ShopApplications"));
+const IndustryManagerPage = lazy(() => import("../pages/admin/IndustryManager"));
+const TenantApplicationsPage = lazy(() => import("../pages/admin/TenantApplications"));
+
+const ProviderDashboard = lazy(() => import("../dashboards/ProviderDashboard"));
+const CustomerDashboard = lazy(() => import("../dashboards/CustomerDashboard"));
+
+const BookingFlow = lazy(() => import("../pages/customer/BookingFlow"));
+const MyBookings = lazy(() => import("../pages/customer/MyBookings"));
+const ApplyProvider = lazy(() => import("../pages/provider/ApplyProvider"));
+
+const ProviderAppointmentsPage = lazy(() => import("../pages/serviceProvider/Appointments"));
+const ProviderShopsPage = lazy(() => import("../pages/serviceProvider/Shops"));
+const ProviderServicesPage = lazy(() => import("../pages/serviceProvider/Services"));
+const ProviderResourcesPage = lazy(() => import("../pages/serviceProvider/Resources"));
+const ProviderRevenuePage = lazy(() => import("../pages/serviceProvider/Revenue"));
+const ProviderReviewsPage = lazy(() => import("../pages/serviceProvider/Reviews"));
+const ProviderSubscriptionPage = lazy(() => import("../pages/serviceProvider/Subscription"));
+const ProviderSettingsPage = lazy(() => import("../pages/serviceProvider/Settings"));
+const ProviderCreateShopPage = lazy(() => import("../pages/serviceProvider/CreateShop"));
+const ProviderNotificationsPage = lazy(() => import("../pages/serviceProvider/Notifications"));
+
+const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
+const MeetingPage = lazy(() => import("../pages/MeetingPage"));
 
 export const privateRoutes = [
   {

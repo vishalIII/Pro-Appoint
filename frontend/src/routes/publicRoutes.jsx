@@ -1,15 +1,17 @@
-import HomePage from "../pages/public/home/HomePage";
-import About from "../pages/public/About";
-import Menu from "../pages/public/Menu";
-import Reviews from "../pages/public/Reviews";
-import ShopDetails from "../pages/public/shop/ShopDetails";
-import ServiceDetails from "../pages/public/service/ServiceDetails";
-import ServicesPage from "../pages/public/service/ServicesPage";
-import Subscription from "../pages/payment_transactions/subscription";
-import Login from "../pages/Login";
-import Register from "../pages/Register";
-import PlanSelection from "../pages/PlanSelection";
-import Unauthorized from "../pages/Unauthorized";
+import { lazy } from "react";
+
+const HomePage = lazy(() => import("../pages/public/home/HomePage"));
+const About = lazy(() => import("../pages/public/About"));
+const Menu = lazy(() => import("../pages/public/Menu"));
+const Reviews = lazy(() => import("../pages/public/Reviews"));
+const ShopDetails = lazy(() => import("../pages/public/shop/ShopDetails"));
+const ServiceDetails = lazy(() => import("../pages/public/service/ServiceDetails"));
+const ServicesPage = lazy(() => import("../pages/public/service/ServicesPage"));
+const Subscription = lazy(() => import("../pages/payment_transactions/subscription"));
+const Login = lazy(() => import("../pages/Login"));
+const Register = lazy(() => import("../pages/Register"));
+const PlanSelection = lazy(() => import("../pages/PlanSelection"));
+const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 
 export const publicRoutes = [
   { index: true, element: <HomePage /> },
@@ -25,4 +27,3 @@ export const publicRoutes = [
   { path: "register/plan-selection", element: <PlanSelection /> },
   { path: "unauthorized", element: <Unauthorized /> }
 ];
-
