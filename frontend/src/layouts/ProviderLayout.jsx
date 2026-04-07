@@ -64,6 +64,7 @@ const ProviderLayout = () => {
   const [rangePreset, setRangePreset] = useState(() =>
     normalizeRangePreset(readStorage(STORAGE_KEYS.rangePreset, "today")),
   );
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [customFrom, setCustomFrom] = useState(() =>
     readStorage(STORAGE_KEYS.customFrom, getTodayIsoDate()),
   );
@@ -141,6 +142,14 @@ const ProviderLayout = () => {
     navigate("/login", { replace: true });
   };
 
+  const toggleSidebar = () => setIsSidebarOpen((open) => !open);
+  const closeSidebar = () => setIsSidebarOpen(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("no-scroll", isSidebarOpen);
+    return () => document.body.classList.remove("no-scroll");
+  }, [isSidebarOpen]);
+
   const outletContext = useMemo(
     () => ({
       shops,
@@ -174,8 +183,20 @@ const ProviderLayout = () => {
 
   return (
     <section className="provider-workspace">
-      <aside className="provider-sidebar">
+      <aside className={`provider-sidebar${isSidebarOpen ? " is-open" : ""}`}>
         <div className="provider-sidebar-inner">
+          <div className="provider-sidebar-header">
+            <span className="provider-sidebar-title">Menu</span>
+            <button
+              type="button"
+              className="provider-sidebar-close"
+              onClick={closeSidebar}
+              aria-label="Close sidebar"
+            >
+              ×
+            </button>
+          </div>
+
           <div className="provider-brand">
             <Link to="/tenant" className="provider-sidebar-logo" aria-label="Tenant dashboard">
               Pro<span>Appoint</span>
@@ -189,6 +210,7 @@ const ProviderLayout = () => {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                onClick={closeSidebar}
                 className={({ isActive }) =>
                   isActive ? "provider-nav-link is-active" : "provider-nav-link"
                 }
@@ -199,7 +221,14 @@ const ProviderLayout = () => {
           </nav>
 
           <div className="provider-sidebar-footer">
-            <button type="button" className="provider-logout-btn" onClick={handleLogout}>
+            <button
+              type="button"
+              className="provider-logout-btn"
+              onClick={() => {
+                closeSidebar();
+                handleLogout();
+              }}
+            >
               Logout
             </button>
           </div>
@@ -208,61 +237,72 @@ const ProviderLayout = () => {
 
       <div className="provider-main">
         <header className="provider-topbar">
-          <div className="provider-filters">
-            <label className="form-field provider-compact-field" htmlFor="provider-shop-switch">
-              Shop
-              <select
-                id="provider-shop-switch"
-                value={selectedShopId}
-                onChange={(event) => setSelectedShopId(event.target.value)}
-                disabled={shopsLoading}
-              >
-                <option value="">All shops</option>
-                {shops.map((shop) => (
-                  <option key={shop._id} value={shop._id}>
-                    {shop.shopName}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="provider-topbar-left">
+            <button
+              type="button"
+              className="provider-sidebar-toggle"
+              aria-label="Toggle sidebar"
+              aria-expanded={isSidebarOpen}
+              onClick={toggleSidebar}
+            >
+              ☰
+            </button>
+            <div className="provider-filters">
+              <label className="form-field provider-compact-field" htmlFor="provider-shop-switch">
+                Shop
+                <select
+                  id="provider-shop-switch"
+                  value={selectedShopId}
+                  onChange={(event) => setSelectedShopId(event.target.value)}
+                  disabled={shopsLoading}
+                >
+                  <option value="">All shops</option>
+                  {shops.map((shop) => (
+                    <option key={shop._id} value={shop._id}>
+                      {shop.shopName}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="form-field provider-compact-field" htmlFor="provider-range-preset">
-              Range
-              <select
-                id="provider-range-preset"
-                value={rangePreset}
-                onChange={(event) => setRangePreset(event.target.value)}
-              >
-                {RANGE_PRESET_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="form-field provider-compact-field" htmlFor="provider-range-preset">
+                Range
+                <select
+                  id="provider-range-preset"
+                  value={rangePreset}
+                  onChange={(event) => setRangePreset(event.target.value)}
+                >
+                  {RANGE_PRESET_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            {rangePreset === "custom" ? (
-              <>
-                <label className="form-field provider-compact-field" htmlFor="provider-custom-from">
-                  From
-                  <input
-                    id="provider-custom-from"
-                    type="date"
-                    value={customFrom}
-                    onChange={(event) => setCustomFrom(event.target.value)}
-                  />
-                </label>
-                <label className="form-field provider-compact-field" htmlFor="provider-custom-to">
-                  To
-                  <input
-                    id="provider-custom-to"
-                    type="date"
-                    value={customTo}
-                    onChange={(event) => setCustomTo(event.target.value)}
-                  />
-                </label>
-              </>
-            ) : null}
+              {rangePreset === "custom" ? (
+                <>
+                  <label className="form-field provider-compact-field" htmlFor="provider-custom-from">
+                    From
+                    <input
+                      id="provider-custom-from"
+                      type="date"
+                      value={customFrom}
+                      onChange={(event) => setCustomFrom(event.target.value)}
+                    />
+                  </label>
+                  <label className="form-field provider-compact-field" htmlFor="provider-custom-to">
+                    To
+                    <input
+                      id="provider-custom-to"
+                      type="date"
+                      value={customTo}
+                      onChange={(event) => setCustomTo(event.target.value)}
+                    />
+                  </label>
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div className="provider-top-actions">
@@ -278,6 +318,15 @@ const ProviderLayout = () => {
           <Outlet context={outletContext} />
         </div>
       </div>
+
+      {isSidebarOpen ? (
+        <button
+          type="button"
+          className="provider-sidebar-backdrop"
+          onClick={closeSidebar}
+          aria-label="Close sidebar"
+        />
+      ) : null}
     </section>
   );
 };

@@ -5,7 +5,7 @@
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 500;
   background: var(--surface);
   box-shadow: 0 10px 28px rgba(28, 34, 22, 0.06);
 }
@@ -23,7 +23,7 @@
 .header-container {
   max-width: 1220px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 clamp(14px, 3vw, 24px);
 }
 
 .header-info {
@@ -52,16 +52,15 @@
 
 .header-main {
   min-height: 90px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  justify-content: flex-start;
-  gap: 18px;
-  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .brand-logo {
   font-family: "Oswald", "Arial Narrow", sans-serif;
-  font-size: 44px;
+  font-size: clamp(34px, 4vw, 44px);
   letter-spacing: 0.04em;
   line-height: 1;
   color: #1f2a16;
@@ -71,12 +70,26 @@
   color: var(--primary);
 }
 
+.header-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-mobile-panel {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
 .header-nav {
   display: flex;
   align-items: center;
   gap: 28px;
   flex-wrap: wrap;
-  margin-left: 24px;
+  flex: 1;
 }
 
 .header-actions {
@@ -93,7 +106,7 @@
   font-family: "Oswald", "Arial Narrow", sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 17px;
+  font-size: clamp(14px, 1vw + 13px, 17px);
   color: #1f2616;
   padding-bottom: 4px;
 }
@@ -147,7 +160,7 @@
   border-radius: 999px;
   background: #fff;
   color: #1c2711;
-  padding: 10px 18px;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -161,11 +174,11 @@
 }
 
 .page-shell {
-  padding: 28px 24px 36px;
+  padding: clamp(18px, 4vw, 28px) clamp(12px, 4vw, 24px) clamp(26px, 6vw, 36px);
 }
 
 .tenant-page-shell {
-  padding: 14px;
+  padding: clamp(10px, 3vw, 16px);
 }
 
 .page-block {
@@ -173,40 +186,177 @@
   margin: 0 auto;
 }
 
+.header-menu-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.header-menu-btn span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #1f2616;
+  border-radius: 999px;
+}
+
+.header-menu-btn.is-active span:nth-child(2) {
+  width: 70%;
+}
+
+.header-panel-backdrop {
+  display: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.header-mobile-top {
+  display: none;
+}
+
+.header-menu-close {
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
   .header-container {
     padding: 0 14px;
   }
 
-  .header-main {
-    align-items: flex-start;
-    min-height: 76px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+  .header-info {
+    font-size: 11px;
+    justify-content: center;
   }
 
-  .brand-logo {
-    font-size: 36px;
+  .header-main {
+    grid-template-columns: 1fr;
+    align-items: center;
+    padding: 12px 0;
+  }
+
+  .header-menu-btn {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .header-mobile-panel {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(420px, 86vw);
+    background: var(--surface);
+    padding: 22px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    transform: translateX(105%);
+    transition: transform 0.24s ease;
+    box-shadow: -12px 0 32px rgba(18, 24, 15, 0.26);
+    overflow-y: auto;
+  }
+
+  .header-mobile-panel.is-open {
+    transform: translateX(0);
+  }
+
+  .header-panel-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border: 0;
+    z-index: 450;
+  }
+
+  .header-mobile-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+
+  .header-mobile-label {
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #3a4628;
   }
 
   .header-nav {
-    gap: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    width: 100%;
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .auth-action,
+  .list-business-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .list-business-btn {
+    padding: 10px 14px;
+  }
+
+  .page-shell {
+    padding: 18px 12px 26px;
+  }
+
+  .tenant-page-shell {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-info {
+    gap: 8px;
+    padding: 8px 0;
+    text-align: center;
+  }
+
+  .brand-logo {
+    font-size: 32px;
   }
 
   .header-nav-link {
     font-size: 15px;
   }
 
-  .list-business-btn {
-    padding: 8px 14px;
-    font-size: 13px;
+  .header-actions {
+    gap: 8px;
   }
 
   .page-shell {
-    padding: 18px 12px 30px;
+    padding: 16px 12px 22px;
   }
 
   .tenant-page-shell {
-    padding: 10px;
+    padding: 10px 8px;
   }
 }

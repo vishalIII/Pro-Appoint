@@ -41,6 +41,10 @@
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: none;
   border-radius: 8px;
   padding: 10px 14px;
@@ -236,6 +240,37 @@
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+@media (max-width: 960px) {
+  .card {
+    padding: 18px;
+  }
+
+  .form-field {
+    font-size: 13px;
+  }
+
+  .form-field input,
+  .form-field select {
+    padding: 9px 11px;
+    font-size: 13px;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 14px;
+  }
+
+  .auth-page {
+    padding: 0 8px;
+  }
 }
 
 .btn-ogani:hover {

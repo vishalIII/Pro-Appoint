@@ -19,6 +19,8 @@
 body {
   margin: 0;
   font-family: "Poppins", "Trebuchet MS", sans-serif;
+  font-size: clamp(14px, 0.35vw + 13px, 16px);
+  line-height: 1.6;
   color: var(--text);
   background: linear-gradient(180deg, #fbfdf6 0%, #f3f6ea 100%);
 }
@@ -38,4 +40,20 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+.no-scroll {
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
