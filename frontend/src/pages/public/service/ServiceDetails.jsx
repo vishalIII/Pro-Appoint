@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/useAuth";
 import { ROLES } from "../../../rbac";
 import LazyImage from "../../../components/LazyImage";
+import ImageCarousel from "../../../components/ImageCarousel";
 import { applyCloudinaryTransform } from "../../../utils/cloudinary";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -118,26 +119,13 @@ export default function ServiceDetails() {
 
       {!isLoading && service?.images?.length > 0 && (
         <div className="service-image-gallery">
-          <LazyImage
-            src={applyCloudinaryTransform(service.images[0])}
-            alt={service.name}
-            className="service-main-image"
-            height={360}
+          <ImageCarousel
+            images={service.images.map((img) => applyCloudinaryTransform(img))}
+            alt={service.name || "Service"}
+            type="service"
+            height={340}
+            aspectRatio="4 / 3"
           />
-
-          {service.images.length > 1 && (
-            <div className="service-thumbnail-row">
-              {service.images.slice(1).map((img, index) => (
-                <LazyImage
-                  key={img}
-                  src={applyCloudinaryTransform(img)}
-                  alt={`${service.name} ${index + 2}`}
-                  className="service-thumbnail"
-                  height={80}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LazyImage from "../../../components/LazyImage";
+import ImageCarousel from "../../../components/ImageCarousel";
 
 const SHOP_PLACEHOLDER_IMAGE = "https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg";
 
@@ -167,12 +168,12 @@ export default function ShopDetails() {
           {!isLoading && !error && shop ? (
             <article className="shop-highlight-card">
               <div className="shop-highlight-media">
-                <LazyImage
-                  src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
-                  alt={`${shop.shopName || "Shop"} preview`}
-                  height={260}
+                <ImageCarousel
+                  images={shop.images?.length ? shop.images : [SHOP_PLACEHOLDER_IMAGE]}
+                  alt={shop.shopName || "Shop"}
+                  type="shop"
+                  height={280}
                   aspectRatio="16 / 9"
-                  fetchPriority="low"
                 />
               </div>
               <div className="shop-highlight-body">

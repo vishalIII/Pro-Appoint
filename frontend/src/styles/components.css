@@ -638,7 +638,109 @@
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #4d7c0f, #a3e635);
-  transition: width 0.2s ease;
+}
+
+.image-carousel {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  align-items: center;
+}
+
+.image-carousel .carousel-image-container {
+  width: 100%;
+  min-height: 220px;
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--surface);
+  display: grid;
+}
+
+.image-carousel .carousel-shop-image,
+.image-carousel .carousel-service-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+.image-carousel .carousel-nav {
+  appearance: none;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  color: #222;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(15, 20, 10, 0.12);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.image-carousel .carousel-nav:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+.image-carousel .carousel-nav:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.image-carousel .carousel-nav-prev {
+  justify-self: start;
+}
+
+.image-carousel .carousel-nav-next {
+  justify-self: end;
+}
+
+.image-carousel .carousel-indicators {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.image-carousel .carousel-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 41, 34, 0.24);
+  background: transparent;
+  cursor: pointer;
+}
+
+.image-carousel .carousel-indicator.active {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.image-carousel-shop .carousel-image-container {
+  min-height: 260px;
+}
+
+.image-carousel-service .carousel-image-container {
+  min-height: 300px;
+}
+
+@media (max-width: 760px) {
+  .image-carousel {
+    gap: 10px;
+  }
+
+  .image-carousel .carousel-nav {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
 }
 
 .upload-preview-grid {
