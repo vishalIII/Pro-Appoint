@@ -82,7 +82,6 @@
   gap: 22px;
   flex-wrap: wrap;
   justify-content: space-between;
-  pointer-events: none;
 }
 
 .header-nav {
