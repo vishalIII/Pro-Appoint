@@ -12,6 +12,7 @@ const Login = lazy(() => import("../pages/Login"));
 const Register = lazy(() => import("../pages/Register"));
 const PlanSelection = lazy(() => import("../pages/PlanSelection"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
+const VerifyOtp = lazy(() => import("../pages/VerifyOtp"));
 
 export const publicRoutes = [
   { index: true, element: <HomePage /> },
@@ -24,6 +25,7 @@ export const publicRoutes = [
   { path: "payment/subscription", element: <Subscription /> },
   { path: "login", element: <Login /> },
   { path: "register", element: <Register /> },
+  { path: "verify-otp", element: <VerifyOtp /> },
   { path: "register/plan-selection", element: <PlanSelection /> },
   { path: "unauthorized", element: <Unauthorized /> }
 ];

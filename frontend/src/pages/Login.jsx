@@ -28,6 +28,14 @@ export default function Login() {
   try {
     const data = await loginRequest(form);
 
+    if (!data.user.isVerified) {
+      navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
+        replace: true,
+        state: { message: "Please verify your email first" }
+      });
+      return;
+    }
+
     // ✅ FIX: store accessToken correctly
     login({ user: data.user, token: data.accessToken });
 

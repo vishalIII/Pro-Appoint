@@ -11,6 +11,7 @@ const logRefresh = (message, meta = {}) => {
 // Register
 // =======================================================
 exports.register = async (req, res, next) => {
+  console.log('Register endpoint hit:', req.body.email);
   try {
     const result = await authService.register(req.body);
 
@@ -62,6 +63,30 @@ exports.registerProviderSubscription = async (req, res, next) => {
       message: "Subscription order created",
       order,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =======================================================
+// Verify OTP
+// =======================================================
+exports.verifyOtp = async (req, res, next) => {
+  try {
+    const result = await authService.verifyOtp(req.body);
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =======================================================
+// Resend OTP
+// =======================================================
+exports.resendOtp = async (req, res, next) => {
+  try {
+    const result = await authService.resendOtp(req.body);
+    return res.status(200).json(result);
   } catch (error) {
     next(error);
   }

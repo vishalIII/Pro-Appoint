@@ -21,7 +21,8 @@ export default function Register() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (event) => {
+const handleSubmit = async (event) => {
+    console.log('Register button clicked', form.email);
     event.preventDefault();
     setError("");
 
@@ -41,14 +42,15 @@ export default function Register() {
       });
 
       if (form.intent) {
-        // Redirect to plan selection with userId from response
-        navigate(`/register/plan-selection?userId=${result.userId}`, {
+        // Provider intent - redirect to plan selection (OTP later after subscription?)
+        navigate(`/register/plan-selection?userId=${result.userId}&email=${encodeURIComponent(form.email)}`, {
           replace: true
         });
       } else {
-        navigate("/login", {
+        // Normal customer - OTP verification
+        navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
           replace: true,
-          state: { message: "Registration successful. Please login." }
+          state: { message: result.message || "OTP sent to your email!" }
         });
       }
 

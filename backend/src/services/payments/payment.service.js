@@ -223,7 +223,6 @@ exports.verifySubscriptionPayment = async ({
       user.role = 'ServiceProvider';
       user.tenantId = tenant[0]._id;
       user.intent = null; // clear
-      user.isVerified = true;
       await user.save({ session });
 
       await session.commitTransaction();

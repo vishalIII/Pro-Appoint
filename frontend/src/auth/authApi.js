@@ -21,6 +21,17 @@ export const registerRequest = async ({ name, email, password, intent }) => {
   return data;
 };
 
+// OTP Verification
+export const verifyOtpRequest = async ({ email, otp }) => {
+  const { data } = await api.post("/auth/verify-otp", { email, otp });
+  return data;
+};
+
+export const resendOtpRequest = async ({ email }) => {
+  const { data } = await api.post("/auth/resend-otp", { email });
+  return data;
+};
+
 // ===============================
 // CREATE SUBSCRIPTION ORDER
 // ===============================
