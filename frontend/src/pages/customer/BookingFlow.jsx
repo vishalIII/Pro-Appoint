@@ -507,8 +507,8 @@ if (serviceInfo?.mode === 'offline') {
     setIsSubmitting(true);
 
     try {
-      if (paymentMethod === 'online') {
-        // For online payments, create order first, then payment modal
+      if (serviceInfo?.mode === 'online' || paymentMethod === 'online') {
+        // For online services or online payments, create order first, then payment modal
         const orderResponse = await api.post('/payment/create-order', {
           amount: serviceInfo.price,
           paymentGateway: 'fakepay',
@@ -521,7 +521,7 @@ if (serviceInfo?.mode === 'offline') {
         return;
       }
 
-      // For cash payments, create appointment immediately
+      // For cash payments (offline only), create appointment immediately
 
       setSuccessMessage('Appointment booked successfully.');
       setTimeout(() => navigate('/bookings', { replace: true }), 700);
@@ -640,7 +640,7 @@ if (serviceInfo?.mode === 'offline') {
           ) : null} */}
 
           <button className="btn" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Booking..." : "Confirm Booking"}
+            {isSubmitting ? "Processing..." : (serviceInfo?.mode === 'online' || paymentMethod === 'online') ? "Pay & Book Appointment" : "Confirm Booking"}
           </button>
         </form>
       </div>

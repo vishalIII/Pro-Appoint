@@ -49,7 +49,7 @@ export default function FakePayCheckout({
   onSuccess,
   onCancel,
 }) {
-  const [cardholderName, setCardholderName] = useState("Cardholder Name");
+  const [cardholderName, setCardholderName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
@@ -108,33 +108,14 @@ export default function FakePayCheckout({
     setIsProcessing(true);
 
     try {
-      const paymentId = `fakepay_payment_${Date.now()}`;
-      const signature = await generateFakePaymentSignature({
-        orderId: orderPayload.id,
-        paymentId,
-      });
-
-      // First verify the payment
-      const verifyResponse = await api.post("/payment/verify-payment", {
-        razorpay_order_id: orderPayload.id,
-        razorpay_payment_id: paymentId,
-        razorpay_signature: signature,
-        amount: serviceInfo.price,
-        paymentGateway: "fakepay",
-      });
-
-      if (!verifyResponse?.data?.success) {
-        throw new Error(verifyResponse?.data?.message || "Payment verification failed.");
-      }
-
-      // Now create the appointment with payment details
+      // First create the appointment with pending payment
       const appointmentPayload = {
         ...payload,
         startTimeUTC: startDate.toISOString(),
         endTimeUTC: endDate.toISOString(),
         paymentMethod: 'card',
         paymentGateway: 'fakepay',
-        paymentReference: paymentId,
+        paymentStatus: 'pending',
       };
 
       const appointmentResponse = await api.post(
@@ -143,7 +124,30 @@ export default function FakePayCheckout({
       );
 
       if (!appointmentResponse?.data?.appointment) {
-        throw new Error("Failed to create appointment after payment.");
+        throw new Error("Failed to create appointment.");
+      }
+
+      const appointment = appointmentResponse.data.appointment;
+
+      // Now verify the payment with appointmentId
+      const paymentId = `fakepay_payment_${Date.now()}`;
+      const signature = await generateFakePaymentSignature({
+        orderId: orderPayload.id,
+        paymentId,
+      });
+
+      const verifyResponse = await api.post("/payment/verify-payment", {
+        razorpay_order_id: orderPayload.id,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature,
+        amount: serviceInfo.price,
+        appointmentId: appointment._id,
+        paymentGateway: "fakepay",
+        paymentMethod: "card",
+      });
+
+      if (!verifyResponse?.data?.success) {
+        throw new Error(verifyResponse?.data?.message || "Payment verification failed.");
       }
 
       onSuccess?.();
@@ -189,7 +193,7 @@ export default function FakePayCheckout({
               type="text"
               value={cardholderName}
               onChange={(event) => setCardholderName(event.target.value)}
-              placeholder="Jane Doe"
+              placeholder="manoj kumar"
               autoComplete="cc-name"
             />
           </label>
