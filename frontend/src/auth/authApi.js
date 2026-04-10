@@ -17,19 +17,44 @@ export const loginRequest = async ({ email, password }) => {
 // REGISTER
 // ===============================
 export const registerRequest = async ({ name, email, password, intent }) => {
+  // Clear stale tokens for public registration
+  clearTokens();
+  
   const { data } = await api.post("/auth/register", { name, email, password, intent });
   return data;
 };
 
 // OTP Verification
 export const verifyOtpRequest = async ({ email, otp }) => {
-  const { data } = await api.post("/auth/verify-otp", { email, otp });
-  return data;
+  // Clear stale tokens for public OTP verification
+  clearTokens();
+  
+  try {
+    const response = await api.post("/auth/verify-otp", { email, otp });
+    if (!response) {
+      throw new Error("No response returned from verify OTP request");
+    }
+    return response.data;
+  } catch (error) {
+    error.message = error.response?.data?.message || error.message || "Verification failed";
+    throw error;
+  }
 };
 
 export const resendOtpRequest = async ({ email }) => {
-  const { data } = await api.post("/auth/resend-otp", { email });
-  return data;
+  // Clear stale tokens for public OTP resend
+  clearTokens();
+  
+  try {
+    const response = await api.post("/auth/resend-otp", { email });
+    if (!response) {
+      throw new Error("No response returned from resend OTP request");
+    }
+    return response.data;
+  } catch (error) {
+    error.message = error.response?.data?.message || error.message || "Resend failed";
+    throw error;
+  }
 };
 
 // ===============================

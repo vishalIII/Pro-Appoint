@@ -8,6 +8,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,38 +22,40 @@ export default function Login() {
   };
 
   const handleSubmit = async (event) => {
-  event.preventDefault();
-  setError("");
-  setIsSubmitting(true);
+    event.preventDefault();
+    setError("");
+    setShowVerifyPrompt(false);
+    setIsSubmitting(true);
 
-  try {
-    const data = await loginRequest(form);
+    try {
+      const data = await loginRequest(form);
 
-    if (!data.user.isVerified) {
-      navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
-        replace: true,
-        state: { message: "Please verify your email first" }
-      });
-      return;
+      // ✅ FIX: store accessToken correctly
+      login({ user: data.user, token: data.accessToken });
+
+      if (data.user?.role === ROLES.PROVIDER) {
+        navigate("/tenant", { replace: true });
+      } else {
+        navigate(
+          redirectTo || getDashboardPathForRole(data.user?.role),
+          { replace: true }
+        );
+      }
+    } catch (error) {
+      if (error.response?.data?.needsVerification) {
+        setShowVerifyPrompt(true);
+        return;
+      }
+      setError(error.message || "Unable to login");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    // ✅ FIX: store accessToken correctly
-    login({ user: data.user, token: data.accessToken });
-
-    if (data.user?.role === ROLES.PROVIDER) {
-      navigate("/tenant", { replace: true });
-    } else {
-      navigate(
-        redirectTo || getDashboardPathForRole(data.user?.role),
-        { replace: true }
-      );
-    }
-  } catch (submissionError) {
-    setError(submissionError.message || "Unable to login");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  const handleVerifyClick = () => {
+    navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, { replace: true });
+    setShowVerifyPrompt(false);
+  };
 
   return (
     <section className="auth-page">
@@ -90,6 +93,19 @@ export default function Login() {
             {isSubmitting ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        {showVerifyPrompt && (
+          <div className="verify-prompt">
+            <p className="error-text">Please verify your email to login</p>
+            <button 
+              className="btn btn-secondary" 
+              type="button"
+              onClick={handleVerifyClick}
+            >
+              Verify Mail
+            </button>
+          </div>
+        )}
 
         <p>
           New user? <Link to="/register">Create an account</Link>

@@ -31,6 +31,10 @@ exports.login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
 
+    if (result.needsVerification) {
+      return res.status(401).json(result);
+    }
+
     // ✅ Set refresh token in cookie (honor env for dev/prod)
     res.cookie("refreshToken", result.refreshToken, buildRefreshCookieOptions());
 

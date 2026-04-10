@@ -80,6 +80,14 @@ api.interceptors.request.use(
       return config;
     }
 
+    // Skip token for public auth endpoints
+    const isPublicAuth = config.url?.includes('/auth/verify-otp') || 
+                        config.url?.includes('/auth/resend-otp') || 
+                        config.url?.includes('/auth/register');
+    if (isPublicAuth) {
+      return config;
+    }
+
     const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -98,10 +106,10 @@ api.interceptors.response.use(
     const originalRequest = error.config || {};
     const status = error.response?.status;
     const isAuthError = status === 401 || status === 403;
-    const isLoginOrRegister = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register');
+const isPublicEndpoint = originalRequest.url?.includes('/auth/verify-otp') || originalRequest.url?.includes('/auth/resend-otp') || originalRequest.url?.includes('/auth/register') || originalRequest.url?.includes('/auth/login');
 
-    // ❗ handle only auth errors + avoid infinite loop
-    if (isAuthError && !originalRequest._retry && !isLoginOrRegister && !originalRequest.url?.includes('refresh-token')) {
+    // ❗ handle only auth errors + avoid infinite loop on public endpoints
+    if (isAuthError && !originalRequest._retry && !isPublicEndpoint && !originalRequest.url?.includes('refresh-token')) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -143,6 +151,8 @@ api.interceptors.response.use(
       }
     }
 
+    // Extract backend error message for better UX
+    error.message = error.response?.data?.message || error.message;
     return Promise.reject(error);
   },
 );

@@ -39,7 +39,9 @@ export default function VerifyOtp() {
         state: { message: "Email verified! Please login." } 
       }), 1500);
     } catch (err) {
-      setError(err.message || "Invalid OTP");
+      // Safe error extraction from axios/backend
+      const errorMsg = err.response?.data?.message || err.message || "Verification failed. Please try again.";
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -52,7 +54,8 @@ export default function VerifyOtp() {
       setCanResend(false);
       setResendCooldown(30);
     } catch (err) {
-      setError(err.message);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to resend OTP";
+      setError(errorMsg);
     }
   };
 

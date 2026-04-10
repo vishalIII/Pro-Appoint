@@ -69,8 +69,18 @@ exports.login = async ({ email, password }) => {
       .select("+password")
       .populate("tenantId");
 
-    if (!user || !user.isActive || !user.isVerified) {
-      throw new AppError("Please verify your email first", 401);
+    if (!user || !user.isActive) {
+      throw new AppError("Invalid credentials", 401);
+    }
+    if (!user.isVerified) {
+      return {
+        needsVerification: true,
+        user: {
+          id: user._id,
+          email: user.email,
+          isVerified: false,
+        },
+      };
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
