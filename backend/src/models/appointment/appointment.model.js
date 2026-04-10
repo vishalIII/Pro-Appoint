@@ -166,7 +166,7 @@ const appointmentSchema = new mongoose.Schema(
 
     paymentGateway: {
       type: String,
-      enum: ["razorpay", "stripe", "phonepe"],
+      enum: ["razorpay", "stripe", "phonepe", "fakepay"],
     },
 
     paidAt: Date,

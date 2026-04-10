@@ -49,8 +49,88 @@ exports.createSubscriptionOrder = async (plan, userId) => {
   }
 };
 
-exports.createOrder = async (amount) => {
+const getFakePaymentSecret = () =>
+  process.env.FAKEPAY_KEY_SECRET || "fakepay_test_secret";
+
+const createFakeOrder = async (amount) => {
+  if (!amount || Number(amount) <= 0) {
+    throw new AppError("Amount required", 400);
+  }
+
+  return {
+    id: `fakepay_order_${Date.now()}`,
+    entity: "order",
+    amount: Number(amount) * 100,
+    currency: "INR",
+    receipt: `fakepay_receipt_${Date.now()}`,
+    status: "created",
+  };
+};
+
+const verifyFakePayment = async ({
+  orderId,
+  paymentId,
+  signature,
+  amount,
+  userData,
+  appointmentId,
+}) => {
+  const sign = `${orderId}|${paymentId}`;
+  const expectedSignature = crypto
+    .createHmac("sha256", getFakePaymentSecret())
+    .update(sign)
+    .digest("hex");
+
+  if (expectedSignature !== signature) {
+    if (appointmentId) {
+      await appointmentService.markAppointmentPaymentFailed({
+        appointmentId,
+        paymentReference: paymentId,
+        paymentGateway: "fakepay",
+      });
+    }
+
+    throw new AppError("Payment verification failed", 400);
+  }
+
   try {
+    await Payment.create({
+      userId: userData?.userId || null,
+      tenantId: userData?.tenantId || null,
+      orderId,
+      paymentId,
+      signature,
+      amount,
+    });
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+  }
+
+  let appointmentResult = null;
+  if (appointmentId) {
+    appointmentResult = await appointmentService.confirmAppointmentPayment({
+      appointmentId,
+      paymentReference: paymentId,
+      paymentGateway: "fakepay",
+    });
+  }
+
+  return {
+    verified: true,
+    appointment: appointmentResult?.appointment || null,
+    paymentConflict: appointmentResult?.paymentConflict || false,
+    conflictReason: appointmentResult?.conflictReason || null,
+  };
+};
+
+exports.createOrder = async (amount, paymentGateway = "razorpay") => {
+  try {
+    if (paymentGateway === "fakepay") {
+      return await createFakeOrder(amount);
+    }
+
     if (!amount || Number(amount) <= 0) {
       throw new AppError("Amount required", 400);
     }
@@ -78,8 +158,20 @@ exports.verifyPayment = async ({
   amount,
   userData,
   appointmentId,
+  paymentGateway = "razorpay",
 }) => {
   try {
+    if (paymentGateway === "fakepay") {
+      return await verifyFakePayment({
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+        amount,
+        userData,
+        appointmentId,
+      });
+    }
+
     const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
 
     const expectedSignature = crypto

@@ -12,8 +12,8 @@ const assertWebhookSecret = (req) => {
 
 exports.createOrder = async (req, res, next) => {
   try {
-    const { amount } = req.body;
-    const order = await paymentService.createOrder(amount);
+    const { amount, paymentGateway } = req.body;
+    const order = await paymentService.createOrder(amount, paymentGateway);
     return res.json(order);
   } catch (err) {
     next(err);
@@ -28,6 +28,7 @@ exports.verifyPayment = async (req, res, next) => {
       razorpay_signature,
       amount,
       appointmentId,
+      paymentGateway,
     } = req.body;
 
     const result = await paymentService.verifyPayment({
@@ -37,6 +38,7 @@ exports.verifyPayment = async (req, res, next) => {
       amount,
       userData: req.user,
       appointmentId,
+      paymentGateway,
     });
 
     if (result.paymentConflict) {

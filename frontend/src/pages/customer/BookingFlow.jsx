@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import AlertModal from "../../components/AlertModal";
+import FakePayCheckout from "../../components/FakePayCheckout";
 import api from "../../auth/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
@@ -28,6 +29,23 @@ const parseJsonSafely = async (response) => {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) return null;
   return response.json();
+};
+
+const generateFakePaymentSignature = async ({ orderId, paymentId }) => {
+  const secret = import.meta.env.VITE_FAKEPAY_KEY_SECRET || "fakepay_test_secret";
+  const encoder = new TextEncoder();
+  const cryptoKey = await window.crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const data = encoder.encode(`${orderId}|${paymentId}`);
+  const signatureBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, data);
+  return Array.from(new Uint8Array(signatureBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 };
 
 const parseTimeOnDateUTC = (date, timeText) => {
@@ -272,6 +290,8 @@ const [selectedSlot, setSelectedSlot] = useState("");
 
   const [serviceInfo, setServiceInfo] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [fakePayCheckout, setFakePayCheckout] = useState(null);
+  const [isFakePayOpen, setIsFakePayOpen] = useState(false);
 
 
   useEffect(() => {
@@ -488,6 +508,9 @@ const payload = {
 };
 if (serviceInfo?.mode === 'offline') {
   payload.paymentMethod = paymentMethod === 'cash' ? 'cash' : 'card';
+  if (paymentMethod === 'online') {
+    payload.paymentGateway = 'fakepay';
+  }
 }
 
     // if (form.mode === "online") {
@@ -500,15 +523,30 @@ if (serviceInfo?.mode === 'offline') {
     setIsSubmitting(true);
 
     try {
-      await api.post(
+      if (paymentMethod === 'online') {
+        // For online payments, create order first, then payment modal
+        const orderResponse = await api.post('/payment/create-order', {
+          amount: serviceInfo.price,
+          paymentGateway: 'fakepay',
+        });
+
+        const orderPayload = orderResponse?.data;
+        setFakePayCheckout({ appointment: null, orderPayload, serviceInfo, startDate, endDate, payload });
+        setIsFakePayOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // For cash payments, create appointment immediately
+      const response = await api.post(
         `/shops/${shopId}/services/${serviceId}/appointments`,
-        payload
+        payload,
       );
 
-      setSuccessMessage("Appointment booked successfully.");
-      setTimeout(() => navigate("/bookings", { replace: true }), 700);
+      setSuccessMessage('Appointment booked successfully.');
+      setTimeout(() => navigate('/bookings', { replace: true }), 700);
     } catch (error) {
-      showPopupError(error.message || "Failed to create appointment");
+      showPopupError(error.message || 'Failed to create appointment');
     } finally {
       setIsSubmitting(false);
     }
@@ -627,6 +665,28 @@ if (serviceInfo?.mode === 'offline') {
         </form>
       </div>
 
+      <FakePayCheckout
+        isOpen={isFakePayOpen}
+        appointment={fakePayCheckout?.appointment}
+        orderPayload={fakePayCheckout?.orderPayload}
+        serviceInfo={fakePayCheckout?.serviceInfo}
+        startDate={fakePayCheckout?.startDate}
+        endDate={fakePayCheckout?.endDate}
+        payload={fakePayCheckout?.payload}
+        shopId={shopId}
+        serviceId={serviceId}
+        onSuccess={() => {
+          setIsFakePayOpen(false);
+          setFakePayCheckout(null);
+          setSuccessMessage('Appointment booked and paid successfully.');
+          setTimeout(() => navigate('/bookings', { replace: true }), 700);
+        }}
+        onCancel={() => {
+          setIsFakePayOpen(false);
+          setFakePayCheckout(null);
+          // No appointment was created, so just close
+        }}
+      />
       <AlertModal isOpen={Boolean(popupMessage)} message={popupMessage} onClose={closePopup} />
     </section>
   );
