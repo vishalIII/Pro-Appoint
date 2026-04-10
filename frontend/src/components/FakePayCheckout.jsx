@@ -38,7 +38,7 @@ const formatExpiry = (value) => {
 
 export default function FakePayCheckout({
   isOpen,
-  appointment,
+  // appointment,
   orderPayload,
   serviceInfo,
   startDate,
@@ -168,8 +168,11 @@ export default function FakePayCheckout({
       >
         <div className="fakepay-header">
           <div>
-            <p className="fakepay-logo">FakePay</p>
-            <p className="fakepay-subtitle">Secure payment powered by FakePay</p>
+            {/* <p className="fakepay-logo">ProAppoint</p> */}
+             <p  className="brand-logo">
+                Pro<span>Appoint</span>
+              </p>
+            <p className="fakepay-subtitle">Secure payment powered by ProAppoint</p>
           </div>
           <div className="fakepay-status">TEST MODE</div>
         </div>
@@ -249,7 +252,7 @@ export default function FakePayCheckout({
         </form>
 
         <p className="fakepay-note">
-          Use any 16-digit number and valid expiry/CVV. This is a fake payment demo for booking.
+          Use any 16-digit number and valid expiry/CVV. This is a demo payment system for booking.
         </p>
       </div>
     </div>

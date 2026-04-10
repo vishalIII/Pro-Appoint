@@ -37,9 +37,9 @@ export default function Layout() {
     navigate("/login", { replace: true });
   };
 
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location.pathname]);
+  // useEffect(() => {
+  //   setIsMenuOpen(false);
+  // }, [location.pathname]);
 
   useEffect(() => {
     document.body.classList.toggle("no-scroll", isMenuOpen);

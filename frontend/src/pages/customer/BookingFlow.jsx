@@ -31,22 +31,6 @@ const parseJsonSafely = async (response) => {
   return response.json();
 };
 
-const generateFakePaymentSignature = async ({ orderId, paymentId }) => {
-  const secret = import.meta.env.VITE_FAKEPAY_KEY_SECRET || "fakepay_test_secret";
-  const encoder = new TextEncoder();
-  const cryptoKey = await window.crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const data = encoder.encode(`${orderId}|${paymentId}`);
-  const signatureBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, data);
-  return Array.from(new Uint8Array(signatureBuffer))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-};
 
 const parseTimeOnDateUTC = (date, timeText) => {
   const match = typeof timeText === "string" ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/) : null;
@@ -538,10 +522,6 @@ if (serviceInfo?.mode === 'offline') {
       }
 
       // For cash payments, create appointment immediately
-      const response = await api.post(
-        `/shops/${shopId}/services/${serviceId}/appointments`,
-        payload,
-      );
 
       setSuccessMessage('Appointment booked successfully.');
       setTimeout(() => navigate('/bookings', { replace: true }), 700);

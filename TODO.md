@@ -1,1 +1,0 @@
-# OTP Verification Frontend Error Update\nStatus: [x] Completed\n\n## Breakdown\n1. [x] Create TODO.md (done)\n2. [x] Edit frontend/src/pages/VerifyOtp.jsx - Updated `setError(err.message || "Wrong OTP")`\n3. [x] Verified change via diff\n4. [x] Updated TODO.md\n\n✅ Task complete: Frontend now shows "Wrong OTP" for invalid OTP verification.
