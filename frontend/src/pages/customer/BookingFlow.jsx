@@ -238,47 +238,12 @@ const getAvailabilityPopupMessage = ({ shopSchedule, serviceSchedule, bookingSta
   return "";
 };
 
-const mapServerErrorToPopupMessage = ({ rawMessage, shopSchedule, serviceSchedule, bookingStart, bookingEnd }) => {
-  const message = String(rawMessage || "").trim();
-  const normalized = message.toLowerCase();
 
-  if (
-    normalized.includes("shop is closed on selected day") ||
-    normalized.includes("booking time is outside shop working hours") ||
-    normalized.includes("service is not available at selected time")
-  ) {
-    return message;
-  }
-
-  if (normalized.includes("outside service availability")) {
-    return (
-      getAvailabilityPopupMessage({
-        shopSchedule,
-        serviceSchedule,
-        bookingStart,
-        bookingEnd
-      }) || "Selected slot is not available."
-    );
-  }
-
-  if (
-    normalized.includes("no longer available") ||
-    normalized.includes("time slot already booked")
-  ) {
-    return "Time slot already booked.";
-  }
-
-  if (normalized.includes("cannot book an appointment in the past")) {
-    return "Please select current or future date and time.";
-  }
-
-  return message || "Failed to create appointment";
-};
  
 
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
-  const { token } = useAuth();
+  const { token: _token } = useAuth();
   const navigate = useNavigate();
 
   // const defaultStartTime = useMemo(() => {
@@ -303,7 +268,10 @@ export default function BookingFlow() {
 
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState("");
+const [selectedSlot, setSelectedSlot] = useState("");
+
+  const [serviceInfo, setServiceInfo] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
 
 
   useEffect(() => {
@@ -317,9 +285,8 @@ export default function BookingFlow() {
       setSelectedSlot("");
 
       try {
-        const tzOffsetMinutes = -new Date().getTimezoneOffset(); // minutes east of UTC
-        const response = await fetch(
-          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}&tzOffsetMinutes=${tzOffsetMinutes}`,
+      const response = await fetch(
+        `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}`,
           { signal: controller.signal }
         );
 
@@ -398,7 +365,8 @@ export default function BookingFlow() {
           }
         } else if (!cancelled) {
           setServiceSchedule(normalizeServiceSchedule(servicePayload));
-          setServiceDuration(servicePayload.durationMinutes || 30);
+setServiceDuration(servicePayload.durationMinutes || 30);
+          setServiceInfo(servicePayload);
         }
 
       } catch {
@@ -454,14 +422,13 @@ export default function BookingFlow() {
       return;
     }
     const startDate = new Date(selectedSlot);
-    const duration = serviceDuration;
 
     if (Number.isNaN(startDate.getTime())) {
       setSubmitError("Please select a valid start date and time.");
       return;
     }
 
-    if (!Number.isFinite(duration) || duration <= 0) {
+    if (!Number.isFinite(serviceDuration) || serviceDuration <= 0) {
       setSubmitError("Duration must be greater than 0.");
       return;
     }
@@ -472,7 +439,7 @@ export default function BookingFlow() {
       return;
     }
 
-    const endDate = new Date(startDate.getTime() + duration * 60000);
+    const endDate = new Date(startDate.getTime() + serviceDuration * 60000);
 
     let selectedShopSchedule = shopSchedule;
     let selectedServiceSchedule = serviceSchedule;
@@ -515,10 +482,13 @@ export default function BookingFlow() {
       return;
     }
 
-   const payload = {
+const payload = {
   startTimeUTC: startDate.toISOString(),
   endTimeUTC: endDate.toISOString(),
 };
+if (serviceInfo?.mode === 'offline') {
+  payload.paymentMethod = paymentMethod === 'cash' ? 'cash' : 'card';
+}
 
     // if (form.mode === "online") {
     //   payload.meeting = {
@@ -530,7 +500,7 @@ export default function BookingFlow() {
     setIsSubmitting(true);
 
     try {
-      const { data: responsePayload } = await api.post(
+      await api.post(
         `/shops/${shopId}/services/${serviceId}/appointments`,
         payload
       );
@@ -593,9 +563,33 @@ export default function BookingFlow() {
                     </option>
                   );
                 })}
-              </select>
-            )}
-          </label>
+                </select>
+              )}
+            </label>
+
+          {serviceInfo?.mode === 'offline' && (
+            <label className="form-field">
+              Payment Method
+              <div className="payment-toggle-group" style={{display: 'flex', gap: '1rem', marginTop: '0.5rem'}}>
+                <button 
+                  type="button" 
+                  className="btn" 
+                  style={{flex: 1, opacity: paymentMethod === 'cash' ? 1 : 0.6, backgroundColor: paymentMethod === 'cash' ? '#10b981' : '#6b7280'}}
+                  onClick={() => setPaymentMethod('cash')}
+                >
+                  Pay Cash
+                </button>
+                <button 
+                  type="button" 
+                  className="btn" 
+                  style={{flex: 1, opacity: paymentMethod === 'online' ? 1 : 0.6, backgroundColor: paymentMethod === 'online' ? '#10b981' : '#6b7280'}}
+                  onClick={() => setPaymentMethod('online')}
+                >
+                  Pay Online
+                </button>
+              </div>
+            </label>
+          )}
 
           <label className="form-field">
             Duration
