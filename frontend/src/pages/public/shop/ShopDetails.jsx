@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import LazyImage from "../../../components/LazyImage";
 import ImageCarousel from "../../../components/ImageCarousel";
-
-const SHOP_PLACEHOLDER_IMAGE = "https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -136,7 +133,19 @@ export default function ShopDetails() {
   });
 
   return (
-    <section className="page-block">
+    <section className="page-block shop-details-page">
+      {!isLoading && !error && shop?.images?.length > 0 && (
+        <div className="service-image-gallery">
+          <ImageCarousel
+            images={shop.images}
+            alt={shop.shopName || "Shop"}
+            type="shop"
+            height={340}
+            aspectRatio="4 / 3"
+          />
+        </div>
+      )}
+
       <div className="service-details-layout">
         <aside className="card service-availability-card">
           <h2>Opening times</h2>
@@ -165,39 +174,10 @@ export default function ShopDetails() {
         </aside>
 
         <div className="home-stack">
-          {!isLoading && !error && shop ? (
-            <article className="shop-highlight-card">
-              <div className="shop-highlight-media">
-                <ImageCarousel
-                  images={shop.images?.length ? shop.images : [SHOP_PLACEHOLDER_IMAGE]}
-                  alt={shop.shopName || "Shop"}
-                  type="shop"
-                  height={280}
-                  aspectRatio="16 / 9"
-                />
-              </div>
-              <div className="shop-highlight-body">
-              <div className="shop-highlight-head">
-                  <h3>{shop.shopName}</h3>
-                  <p className="shop-highlight-rating">
-                    <span className="shop-star">★</span>
-                    <span>{shop.rating ? shop.rating.toFixed(1) : "New"}</span>
-                    {shop.ratingCount > 0 ? (
-                      <span className="shop-rating-count">({shop.ratingCount})</span>
-                    ) : null}
-                  </p>
-                </div>
-                <p className="shop-highlight-location">
-                  {shop.address?.city || shop.address?.landMark || "Location"}
-                </p>
-                <p className="shop-highlight-label">Featured Shop</p>
-              </div>
-            </article>
-          ) : null}
           <div className="card">
             <div className="page-title-row">
               <h1>{shop?.shopName || "Shop Details"}</h1>
-              {/* <Link to="/">Back to Shops</Link> */}
+              <Link to="/shops">Back to Shops</Link>
             </div>
 
             {isLoading ? <p>Loading shop details...</p> : null}
@@ -206,21 +186,27 @@ export default function ShopDetails() {
             {!isLoading && !error && shop ? (
               <>
                 <p>{shop.description || "No description available."}</p>
-                <p>
-                  <strong>Contact:</strong> {shop.contactPhone || "N/A"}
-                </p>
-                <p>
-                  <strong>Address:</strong>{" "}
-                  {[
-                    shop?.address?.street,
-                    shop?.address?.landMark,
-                    shop?.address?.city,
-                    shop?.address?.state,
-                    shop?.address?.pincode
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "N/A"}
-                </p>
+                <div className="service-meta">
+                  <p>
+                    <strong>Contact:</strong> {shop.contactPhone || "N/A"}
+                  </p>
+                  <p>
+                    <strong>Address:</strong>{" "}
+                    {[
+                      shop?.address?.street,
+                      shop?.address?.landMark,
+                      shop?.address?.city,
+                      shop?.address?.state,
+                      shop?.address?.pincode
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "N/A"}
+                  </p>
+                  <p>
+                    <strong>Rating:</strong> {shop.rating ? shop.rating.toFixed(1) : "New"}
+                    {shop.ratingCount > 0 ? ` (${shop.ratingCount})` : ""}
+                  </p>
+                </div>
               </>
             ) : null}
           </div>
