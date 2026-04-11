@@ -14,7 +14,7 @@ export default function HeroSection() {
           </button>
         </div>
 
-        <div className="support-box">
+        {/* <div className="support-box">
           <div className="support-icon" aria-hidden="true">
             TEL
           </div>
@@ -22,7 +22,7 @@ export default function HeroSection() {
             <p className="support-number">+65 11.188.888</p>
             <p className="support-text">support 24/7 time</p>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <article className="hero-banner">
