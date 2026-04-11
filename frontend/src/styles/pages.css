@@ -124,6 +124,7 @@
 
 .service-availability-card {
   background: linear-gradient(165deg, #f7fbe9 0%, #ffffff 58%);
+  margin: 0;
 }
 
 .service-availability-card h2 {
@@ -175,7 +176,7 @@
 }
 
 .service-availability-time {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   color: #10190b;
   text-align: right;
