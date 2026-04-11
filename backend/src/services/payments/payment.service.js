@@ -22,9 +22,9 @@ exports.createSubscriptionOrder = async (plan, userId) => {
     const amount = planPrices[plan];
     if (!amount) throw new AppError("Plan price not configured", 500);
 
-    // Verify user exists and has provider intent
+    // Verify user exists
     const user = await User.findById(userId);
-    if (!user || user.intent !== 'provider') {
+    if (!user || user.role !== 'Customer') {
       throw new AppError("User not eligible for provider subscription", 400);
     }
 
@@ -298,7 +298,7 @@ exports.verifySubscriptionPayment = async ({
 
       // Upgrade user to ServiceProvider + create tenant
       const user = await User.findById(userId).session(session);
-      if (!user || user.role !== 'Customer' || user.intent !== 'provider') {
+      if (!user || user.role !== 'Customer') {
         throw new AppError("User not eligible for upgrade", 400);
       }
 
@@ -314,7 +314,6 @@ exports.verifySubscriptionPayment = async ({
       // Update user
       user.role = 'ServiceProvider';
       user.tenantId = tenant[0]._id;
-      user.intent = null; // clear
       await user.save({ session });
 
       await session.commitTransaction();

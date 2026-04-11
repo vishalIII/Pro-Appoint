@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { registerProviderSubscription, verifySubscriptionPayment } from "../auth/authApi"; // new apis
+import { useAuth } from "../auth/useAuth";
 
 const PLANS = [
   { id: "basic", name: "Basic", price: 1, description: "1 shop, 25 services/resources" },
@@ -15,6 +16,7 @@ export default function PlanSelection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const { user, updateUser } = useAuth();
   let razorpayInstance = null;
 
 
@@ -81,9 +83,17 @@ export default function PlanSelection() {
           });
 
           if (verifyResponse.upgraded) {
-            navigate("/login", { 
+            // Update user role and tenantId
+            const updatedUser = {
+              ...user,
+              role: 'ServiceProvider',
+              tenantId: verifyResponse.tenantId
+            };
+            updateUser(updatedUser);
+
+            navigate("/tenant", { 
               replace: true,
-              state: { message: `Welcome Service Provider (${selectedPlan.name} plan)! Please login.` }
+              state: { message: `Welcome Service Provider (${selectedPlan.name} plan)!` }
             });
           } else {
             setError("Payment verified but upgrade failed. Please contact support.");
@@ -138,11 +148,7 @@ export default function PlanSelection() {
           {loading ? "Processing..." : `Subscribe ${selectedPlan?.name || ''}`}
         </button>
 
-        <p>
-          <button className="btn btn-secondary" onClick={() => navigate("/login")}>
-            Back to Login
-          </button>
-        </p>
+       
       </div>
 
       <style jsx>{`
