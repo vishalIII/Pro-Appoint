@@ -26,6 +26,6 @@ export const publicRoutes = [
   { path: "login", element: <Login /> },
   { path: "register", element: <Register /> },
   { path: "verify-otp", element: <VerifyOtp /> },
-  { path: "register/plan-selection", element: <PlanSelection /> },
+  { path: "plan-selection", element: <PlanSelection /> },
   { path: "unauthorized", element: <Unauthorized /> }
 ];

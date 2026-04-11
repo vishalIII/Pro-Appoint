@@ -8,8 +8,7 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    intent: false
+    confirmPassword: ""
   });
 
   const [error, setError] = useState("");
@@ -37,22 +36,14 @@ const handleSubmit = async (event) => {
       const result = await registerRequest({
         name: form.name,
         email: form.email,
-        password: form.password,
-        intent: form.intent ? "provider" : undefined
+        password: form.password
       });
 
-      if (form.intent) {
-        // Provider intent - redirect to plan selection (OTP later after subscription?)
-        navigate(`/register/plan-selection?userId=${result.userId}&email=${encodeURIComponent(form.email)}`, {
-          replace: true
-        });
-      } else {
-        // Normal customer - OTP verification
-        navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
-          replace: true,
-          state: { message: result.message || "OTP sent to your email!" }
-        });
-      }
+      // OTP verification
+      navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
+        replace: true,
+        state: { message: result.message || "OTP sent to your email!" }
+      });
 
     } catch (submissionError) {
       setError(submissionError.message || "Unable to register");
@@ -109,17 +100,6 @@ const handleSubmit = async (event) => {
               minLength={6}
               required
             />
-          </label>
-
-          <label className="form-field checkbox-field">
-            <input
-              id="intent"
-              name="intent"
-              type="checkbox"
-              checked={form.intent}
-              onChange={handleChange}
-            />
-            <span>Register as Service Provider? (requires payment for plan selection)</span>
           </label>
 
           <button className="btn" type="submit" disabled={isSubmitting}>

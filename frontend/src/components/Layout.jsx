@@ -11,7 +11,7 @@ export default function Layout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isTenantRoute = location.pathname.startsWith("/tenant");
   const isAdminRoute = location.pathname.startsWith("/admin");
-  const canUseListBusiness = !isAuthenticated || user?.role === ROLES.CUSTOMER;
+  const canUseListBusiness = isAuthenticated && user?.role === ROLES.CUSTOMER;
   const navLinks = [
     { to: "/", label: "Home", end: true },
     { to: "/menu", label: "Shop" },
@@ -29,7 +29,7 @@ export default function Layout() {
       return;
     }
 
-    navigate("/provider/apply");
+    navigate(`/plan-selection?userId=${user.id}&email=${encodeURIComponent(user.email)}`);
   };
 
   const handleLogout = () => {
