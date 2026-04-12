@@ -27,6 +27,7 @@ import {
   getUtcStartOfDay,
   getRevenueRangeForPreset,
 } from "./utils/dateRange";
+import PlanUpgradeModal from "../../components/PlanUpgradeModal";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -164,6 +165,7 @@ export default function ProviderDashboard() {
     shopHealth: null,
     subscription: null,
   });
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   const activeShopId = useMemo(
     () => selectedShopId || shops?.[0]?._id || "",
@@ -308,6 +310,12 @@ export default function ProviderDashboard() {
     shopsLoading,
     token,
   ]);
+
+  const openPlanModal = () => setIsPlanModalOpen(true);
+  const handleUpgradeComplete = useCallback(() => {
+    loadDashboard();
+    setIsPlanModalOpen(false);
+  }, [loadDashboard]);
 
   useEffect(() => {
     loadDashboard();
@@ -751,11 +759,20 @@ export default function ProviderDashboard() {
               {data.subscription?.limits?.maxShops ?? "-"}
             </strong>
           </p>
-          <Link className="btn" to="/plan-selection">
+          <button type="button" className="btn" onClick={openPlanModal}>
             Upgrade plan
-          </Link>
+          </button>
         </article>
       </div>
+
+      {isPlanModalOpen ? (
+        <PlanUpgradeModal
+          open
+          onClose={() => setIsPlanModalOpen(false)}
+          subscription={data.subscription}
+          onUpgradeComplete={handleUpgradeComplete}
+        />
+      ) : null}
 
       <article className="card">
         <h2>Smart Alerts</h2>

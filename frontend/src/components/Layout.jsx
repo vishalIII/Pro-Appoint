@@ -11,6 +11,7 @@ export default function Layout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isTenantRoute = location.pathname.startsWith("/tenant");
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isPlanSelectionRoute = location.pathname === "/plan-selection";
   const canUseListBusiness = isAuthenticated && user?.role === ROLES.CUSTOMER;
   const navLinks = [
     { to: "/", label: "Home", end: true },
@@ -60,7 +61,7 @@ export default function Layout() {
   const toggleMenu = () => setIsMenuOpen((open) => !open);
   const closeMenu = () => setIsMenuOpen(false);
 
-  if (isTenantRoute || isAdminRoute) {
+  if (isTenantRoute || isAdminRoute || isPlanSelectionRoute) {
     return (
       <div className="app-shell tenant-app-shell">
         <main className="tenant-page-shell">
