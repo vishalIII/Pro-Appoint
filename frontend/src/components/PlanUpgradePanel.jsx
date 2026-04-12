@@ -273,7 +273,7 @@ export default function PlanUpgradePanel({
         ) : (
           <p>
             Current plan: <strong>{subscription.plan}</strong> (
-            {subscription.daysUntilExpiry ?? "N/A"} days left)
+            {Math.max(subscription.daysUntilExpiry,0) ?? "N/A"} days left)
           </p>
         )
       ) : (
@@ -343,9 +343,6 @@ export default function PlanUpgradePanel({
             : `Subscribe ${selectedPlan?.name || ""}`}
         </button>
 
-        <button type="button" className="btn btn-secondary" onClick={() => navigate(location?.state?.from ? location.state.from : -1)}>
-          Cancel
-        </button>
       </div>
 
       <style>{`

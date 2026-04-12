@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { fetchSubscription } from "./api/providerApi";
 import { getDateLabel } from "./utils/dateRange";
+import PlanUpgradeModal from "../../components/PlanUpgradeModal";
 
 export default function ProviderSubscriptionPage() {
   const { token } = useAuth();
   const [subscription, setSubscription] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSubscription = useCallback(async () => {
     if (!token) return;
@@ -25,6 +26,14 @@ export default function ProviderSubscriptionPage() {
       setIsLoading(false);
     }
   }, [token]);
+
+  const handleUpgradeComplete = useCallback(() => {
+    loadSubscription();
+    setIsModalOpen(false);
+  }, [loadSubscription]);
+
+  const openUpgradeModal = () => setIsModalOpen(true);
+  const closeUpgradeModal = () => setIsModalOpen(false);
 
   useEffect(() => {
     loadSubscription();
@@ -53,7 +62,7 @@ export default function ProviderSubscriptionPage() {
             </div>
             <div>
               <p>Days left</p>
-              <strong>{subscription.daysUntilExpiry ?? "N/A"}</strong>
+              <strong>{Math.max(subscription.daysUntilExpiry,0) ?? "N/A"}</strong>
             </div>
             <div>
               <p>Shop usage</p>
@@ -74,14 +83,37 @@ export default function ProviderSubscriptionPage() {
         ) : null}
 
         <div className="actions-row">
-          <Link className="btn" to="/plan-selection">
+          <button type="button" className="btn" onClick={openUpgradeModal}>
             Upgrade Plan
-          </Link>
+          </button>
           <button type="button" className="btn btn-secondary" onClick={loadSubscription}>
             Refresh
           </button>
         </div>
       </article>
+
+      {subscription && (
+        <p
+          className={`muted-text ${subscription.planStatus === "expired" ? "error-text" : ""}`}
+        >
+          {subscription.planStatus === "expired"
+            ? "Your plan expired. Upgrade to continue making changes."
+            : "Your plan is active. Upgrade anytime to unlock more capacity."}
+        </p>
+      )}
+
+      <PlanUpgradeModal
+        open={isModalOpen}
+        onClose={closeUpgradeModal}
+        subscription={subscription}
+        onUpgradeComplete={handleUpgradeComplete}
+        title="Upgrade to unlock write access"
+        subtitle={
+          subscription?.planStatus === "expired"
+            ? "Your plan expired. Renew or upgrade to keep editing shops, services, and appointments."
+            : "Select a plan or extend your current one to keep write access active."
+        }
+      />
     </section>
   );
 }

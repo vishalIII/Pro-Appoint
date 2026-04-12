@@ -5,6 +5,8 @@ export default function PlanUpgradeModal({
   onClose,
   subscription,
   onUpgradeComplete,
+  title = "Upgrade your subscription",
+  subtitle = "Choose the next plan and keep your business running",
 }) {
   if (!open) return null;
 
@@ -31,8 +33,8 @@ export default function PlanUpgradeModal({
           onSuccess={handleSuccess}
           onError={() => {}}
           showHeader
-          title="Upgrade your subscription"
-          subtitle="Choose the next plan and keep your business running"
+          title={title}
+          subtitle={subtitle}
         />
       </div>
 

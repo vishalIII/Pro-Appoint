@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { notifySubscriptionBlocked } from '../subscription/subscriptionEvents';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -106,7 +107,11 @@ api.interceptors.response.use(
     const originalRequest = error.config || {};
     const status = error.response?.status;
     const isAuthError = status === 401 || status === 403;
-const isPublicEndpoint = originalRequest.url?.includes('/auth/verify-otp') || originalRequest.url?.includes('/auth/resend-otp') || originalRequest.url?.includes('/auth/register') || originalRequest.url?.includes('/auth/login');
+    const isPublicEndpoint =
+      originalRequest.url?.includes('/auth/verify-otp') ||
+      originalRequest.url?.includes('/auth/resend-otp') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/login');
 
     // ❗ handle only auth errors + avoid infinite loop on public endpoints
     if (isAuthError && !originalRequest._retry && !isPublicEndpoint && !originalRequest.url?.includes('refresh-token')) {
@@ -149,6 +154,10 @@ const isPublicEndpoint = originalRequest.url?.includes('/auth/verify-otp') || or
       } finally {
         isRefreshing = false;
       }
+    }
+
+    if (error.response?.data?.code === "SUBSCRIPTION_EXPIRED") {
+      notifySubscriptionBlocked({ message: error.response?.data?.message });
     }
 
     // Extract backend error message for better UX
