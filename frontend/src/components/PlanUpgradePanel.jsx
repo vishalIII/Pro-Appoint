@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { registerProviderSubscription, verifySubscriptionPayment } from "../auth/authApi";
 import { useAuth } from "../auth/useAuth";
 import { setAccessToken } from "../auth/api";
@@ -45,6 +45,7 @@ export default function PlanUpgradePanel({
   showHeader = true,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, updateUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(PLANS[0]);
   const [loading, setLoading] = useState(false);
@@ -321,24 +322,31 @@ export default function PlanUpgradePanel({
         })}
       </div>
 
-      <button
-        className="btn"
-        onClick={handleUpgrade}
-        disabled={
-          loading ||
-          !razorpayReady ||
-          !selectedPlan ||
-          (subscription && subscriptionLoading)
-        }
-      >
-        {loading
-          ? "Processing..."
-          : subscription
-          ? selectedPlan?.id === subscription.plan
-            ? "Extend plan"
-            : "Upgrade plan"
-          : `Subscribe ${selectedPlan?.name || ""}`}
-      </button>
+      <div className="panel-actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={handleUpgrade}
+          disabled={
+            loading ||
+            !razorpayReady ||
+            !selectedPlan ||
+            (subscription && subscriptionLoading)
+          }
+        >
+          {loading
+            ? "Processing..."
+            : subscription
+            ? selectedPlan?.id === subscription.plan
+              ? "Extend plan"
+              : "Upgrade plan"
+            : `Subscribe ${selectedPlan?.name || ""}`}
+        </button>
+
+        <button type="button" className="btn btn-secondary" onClick={() => navigate(location?.state?.from ? location.state.from : -1)}>
+          Cancel
+        </button>
+      </div>
 
       <style>{`
         .plans-grid {
@@ -382,6 +390,20 @@ export default function PlanUpgradePanel({
         }
         .plan-card.selected .plan-badge {
           background: #0055aa;
+        }
+        .panel-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.75rem;
+          margin-top: 1rem;
+        }
+        .panel-actions .btn {
+          flex: 0 0 auto;
+        }
+        .btn.btn-secondary {
+          background: #e0e0e0;
+          color: #333;
         }
       `}</style>
     </div>
