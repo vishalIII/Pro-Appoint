@@ -321,18 +321,24 @@ exports.verifySubscriptionPayment = async ({
           throw new AppError("Downgrading plans is not allowed", 400);
         }
 
+        const isExpired =
+          !tenantDoc.subscriptionEnd || now.getTime() > tenantDoc.subscriptionEnd.getTime();
+
         if (planRank === currentPlanRank) {
           extended = true;
-          const baseMs = tenantDoc.subscriptionEnd
-            ? tenantDoc.subscriptionEnd.getTime()
-            : now.getTime();
-          tenantDoc.subscriptionEnd = new Date(baseMs + planDurationMs);
+          if (isExpired) {
+            tenantDoc.subscriptionStart = now;
+            tenantDoc.subscriptionEnd = new Date(now.getTime() + planDurationMs);
+          } else {
+            const baseMs = tenantDoc.subscriptionEnd.getTime();
+            tenantDoc.subscriptionEnd = new Date(baseMs + planDurationMs);
+          }
         } else {
           upgraded = true;
-          const remainingMs = Math.max(
-            0,
-            (tenantDoc.subscriptionEnd?.getTime() || now.getTime()) - now.getTime(),
-          );
+          const remainingMs = isExpired
+            ? 0
+            : Math.max(0, tenantDoc.subscriptionEnd.getTime() - now.getTime());
+          tenantDoc.subscriptionStart = isExpired ? now : tenantDoc.subscriptionStart;
           tenantDoc.subscriptionEnd = new Date(now.getTime() + planDurationMs + remainingMs);
           tenantDoc.plan = plan;
         }

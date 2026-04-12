@@ -37,6 +37,7 @@ export const SubscriptionGuardProvider = ({ children }) => {
       const payload = await fetchSubscription();
       setSubscription(payload);
       return payload;
+    // eslint-disable-next-line no-unused-vars
     } catch (error) {
       setSubscription(null);
       return null;
@@ -116,6 +117,7 @@ export const SubscriptionGuardProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSubscriptionGuard = () => {
   const context = useContext(SubscriptionGuardContext);
   if (!context) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { registerProviderSubscription, verifySubscriptionPayment } from "../auth/authApi";
 import { useAuth } from "../auth/useAuth";
 import { setAccessToken } from "../auth/api";
@@ -45,7 +45,6 @@ export default function PlanUpgradePanel({
   showHeader = true,
 }) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user, isAuthenticated, updateUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(PLANS[0]);
   const [loading, setLoading] = useState(false);

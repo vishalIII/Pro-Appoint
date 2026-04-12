@@ -13,7 +13,7 @@ const getDaysUntil = (dateValue) => {
   const now = new Date();
   const endDate = new Date(dateValue);
   const differenceMs = endDate.getTime() - now.getTime();
-  return Math.ceil(differenceMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.ceil(differenceMs / (1000 * 60 * 60 * 24)));
 };
 
 exports.getTenantSubscription = async ({ tenantId }) => {
