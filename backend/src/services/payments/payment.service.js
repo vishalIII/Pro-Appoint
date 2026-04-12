@@ -7,6 +7,7 @@ const User = require("../../models/user/user.model");
 const Tenant = require("../../models/tenant/tenant.model");
 const mongoose = require("mongoose");
 const { PLAN_LIMITS } = require("../../config/planLimits");
+const { generateAccessToken } = require("../../utils/token");
 // AppError already required above
 
 
@@ -319,11 +320,23 @@ exports.verifySubscriptionPayment = async ({
       await session.commitTransaction();
       session.endSession();
 
+      const accessToken = generateAccessToken(user);
+      const refreshedUser = {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+        isVerified: user.isVerified,
+      };
+
       return {
         verified: true,
         upgraded: true,
         plan,
-        tenantId: tenant[0]._id
+        tenantId: tenant[0]._id,
+        accessToken,
+        user: refreshedUser,
       };
     } catch (error) {
       await session.abortTransaction();
@@ -335,4 +348,3 @@ exports.verifySubscriptionPayment = async ({
     throw new AppError(error.message || "Subscription verification failed", 500);
   }
 };
-

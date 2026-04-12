@@ -1,4 +1,9 @@
-import api, { setAccessToken, setRefreshToken, clearTokens } from "./api";
+import api, {
+  getAccessToken,
+  setAccessToken,
+  setRefreshToken,
+  clearTokens,
+} from "./api";
 
 // ===============================
 // LOGIN
@@ -60,8 +65,19 @@ export const resendOtpRequest = async ({ email }) => {
 // ===============================
 // CREATE SUBSCRIPTION ORDER
 // ===============================
-export const registerProviderSubscription = async ({ userId, plan }) => {
-  const { data } = await api.post("/auth/register-provider-subscription", { userId, plan });
+export const registerProviderSubscription = async ({ plan }) => {
+  const token = getAccessToken();
+  const { data } = await api.post(
+    "/auth/register-provider-subscription",
+    { plan },
+    token
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined,
+  );
   return data;
 };
 

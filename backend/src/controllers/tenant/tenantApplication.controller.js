@@ -13,7 +13,8 @@ exports.createTenant = async (req, res, next) => {
       message: "Tenant created successfully",
       tenantId: result.tenantId,
       subscriptionEndsOn: result.subscriptionEnd,
-      token: result.token,
+      token: result.accessToken,
+      accessToken: result.accessToken,
       user: result.user,
     });
   } catch (error) {

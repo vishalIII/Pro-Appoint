@@ -20,7 +20,7 @@ export default function Layout() {
 
   const handleListBusiness = () => {
     if (!isAuthenticated) {
-      navigate("/login", { state: { redirectTo: "/provider/apply" } });
+      navigate("/login", { state: { redirectTo: "/plan-selection" } });
       return;
     }
 
@@ -29,7 +29,7 @@ export default function Layout() {
       return;
     }
 
-    navigate(`/plan-selection?userId=${user.id}&email=${encodeURIComponent(user.email)}`);
+    navigate("/plan-selection");
   };
 
   const handleLogout = () => {

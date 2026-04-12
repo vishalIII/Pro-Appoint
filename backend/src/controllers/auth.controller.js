@@ -54,19 +54,21 @@ exports.login = async (req, res, next) => {
 // =======================================================
 exports.registerProviderSubscription = async (req, res, next) => {
   try {
-    const { userId, plan } = req.body;
+    const { plan } = req.body;
+    const userId = req.user?.userId;
 
-    if (!userId || !plan) {
-      return res.status(400).json({ message: "userId and plan required" });
+    if (!plan) {
+      return res.status(400).json({ message: "plan required" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
     const paymentService = require("../services/payments/payment.service");
     const order = await paymentService.createSubscriptionOrder(plan, userId);
 
-    return res.status(201).json({
-      message: "Subscription order created",
-      order,
-    });
+    return res.status(201).json(order);
   } catch (error) {
     next(error);
   }
