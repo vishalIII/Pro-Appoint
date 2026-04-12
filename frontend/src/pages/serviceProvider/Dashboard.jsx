@@ -751,7 +751,7 @@ export default function ProviderDashboard() {
               {data.subscription?.limits?.maxShops ?? "-"}
             </strong>
           </p>
-          <Link className="btn" to="/payment/subscription">
+          <Link className="btn" to="/plan-selection">
             Upgrade plan
           </Link>
         </article>

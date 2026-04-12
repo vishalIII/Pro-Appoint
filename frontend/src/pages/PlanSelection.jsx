@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerProviderSubscription, verifySubscriptionPayment } from "../auth/authApi";
 import { useAuth } from "../auth/useAuth";
 import { setAccessToken } from "../auth/api";
 import { ROLES } from "../rbac";
+import { fetchSubscription } from "./serviceProvider/api/providerApi";
 
 const PLANS = [
   { id: "basic", name: "Basic", price: 1, description: "1 shop, 25 services/resources" },
@@ -42,6 +43,9 @@ export default function PlanSelection() {
   const [error, setError] = useState("");
   const [razorpayReady, setRazorpayReady] = useState(Boolean(window.Razorpay));
   const razorpayInstanceRef = useRef(null);
+  const [subscription, setSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(user?.role === ROLES.PROVIDER);
+  const [subscriptionError, setSubscriptionError] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -49,15 +53,71 @@ export default function PlanSelection() {
       return;
     }
 
-    if (user?.role === ROLES.PROVIDER) {
-      navigate("/tenant", { replace: true });
-      return;
-    }
-
-    if (user && user.role !== ROLES.CUSTOMER) {
+    if (user && user.role !== ROLES.CUSTOMER && user.role !== ROLES.PROVIDER) {
       navigate("/unauthorized", { replace: true });
     }
   }, [user, isAuthenticated, navigate]);
+
+  const planPriority = useMemo(
+    () => ({
+      basic: 0,
+      pro: 1,
+      enterprise: 2,
+    }),
+    [],
+  );
+
+  const currentPlanRank = subscription ? planPriority[subscription.plan] ?? -1 : -1;
+  const availablePlans = useMemo(() => {
+    if (!subscription) return PLANS;
+    return PLANS.filter((plan) => planPriority[plan.id] >= currentPlanRank);
+  }, [subscription, planPriority, currentPlanRank]);
+
+  useEffect(() => {
+    if (!availablePlans.length) {
+      setSelectedPlan(null);
+      return;
+    }
+
+    if (!selectedPlan || !availablePlans.some((plan) => plan.id === selectedPlan.id)) {
+      setSelectedPlan(availablePlans[0]);
+    }
+  }, [availablePlans, selectedPlan]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role !== ROLES.PROVIDER) {
+      setSubscription(null);
+      setSubscriptionLoading(false);
+      setSubscriptionError("");
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const loadSubscription = async () => {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+      try {
+        const payload = await fetchSubscription();
+        if (!mounted) return;
+        setSubscription(payload);
+      } catch (err) {
+        if (!mounted) return;
+        setSubscription(null);
+        setSubscriptionError(err.message || "Failed to load subscription");
+      } finally {
+        if (mounted) {
+          setSubscriptionLoading(false);
+        }
+      }
+    };
+
+    loadSubscription();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.role]);
 
   useEffect(() => {
     let mounted = true;
@@ -83,6 +143,11 @@ export default function PlanSelection() {
 
     if (!user) {
       setError("Unable to determine your account. Please log in again.");
+      return;
+    }
+
+    if (subscription && planPriority[selectedPlan.id] < currentPlanRank) {
+      setError("Select a higher plan to upgrade or extend your current plan.");
       return;
     }
 
@@ -114,7 +179,7 @@ export default function PlanSelection() {
               amount: order.amount / 100,
             });
 
-            if (!verifyResponse?.upgraded) {
+            if (!verifyResponse?.upgraded && !verifyResponse?.extended) {
               throw new Error("Payment verified but upgrade failed. Contact support.");
             }
 
@@ -170,24 +235,80 @@ export default function PlanSelection() {
       <div className="card auth-card">
         <h1>Select Subscription Plan</h1>
         <p>Complete your Service Provider registration</p>
+        {subscription ? (
+          subscriptionLoading ? (
+            <p>Checking your current plan...</p>
+          ) : subscriptionError ? (
+            <p className="error-text">{subscriptionError}</p>
+          ) : (
+            <p>
+              Current plan: <strong>{subscription.plan}</strong> (
+              {subscription.daysUntilExpiry ?? "N/A"} days left)
+            </p>
+          )
+        ) : (
+          <p>Select a plan to activate your service provider account.</p>
+        )}
+
         {error ? <p className="error-text">{error}</p> : null}
 
         <div className="plans-grid">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={`plan-card ${selectedPlan?.id === plan.id ? "selected" : ""}`}
-              onClick={() => handlePlanSelect(plan)}
-            >
-              <h3>{plan.name}</h3>
-              <div className="price">₹{plan.price}</div>
-              <p>{plan.description}</p>
-            </div>
-          ))}
+          {availablePlans.map((plan) => {
+            const planRank = planPriority[plan.id];
+            const planState =
+              subscription && planPriority[plan.id] <= currentPlanRank
+                ? planRank === currentPlanRank
+                  ? "current"
+                  : "locked"
+                : "upgrade";
+
+            const isLocked = planState === "locked";
+            const isSelected = selectedPlan?.id === plan.id;
+            const badge =
+              planState === "locked"
+                ? "Not available"
+                : planState === "current"
+                ? "Current plan"
+                : planState === "upgrade"
+                ? subscription
+                  ? "Upgrade"
+                  : "Choose"
+                : "";
+
+            return (
+              <div
+                key={plan.id}
+                className={`plan-card${isSelected ? " selected" : ""}${
+                  isLocked ? " locked" : ""
+                }`}
+                onClick={() => !isLocked && handlePlanSelect(plan)}
+              >
+                <h3>{plan.name}</h3>
+                <div className="price">₹{plan.price}</div>
+                <p>{plan.description}</p>
+                {badge ? <span className="plan-badge">{badge}</span> : null}
+              </div>
+            );
+          })}
         </div>
 
-        <button className="btn" onClick={handleUpgrade} disabled={loading || !razorpayReady}>
-          {loading ? "Processing..." : `Subscribe ${selectedPlan?.name || ""}`}
+        <button
+          className="btn"
+          onClick={handleUpgrade}
+          disabled={
+            loading ||
+            !razorpayReady ||
+            !selectedPlan ||
+            (subscription && subscriptionLoading)
+          }
+        >
+          {loading
+            ? "Processing..."
+            : subscription
+            ? selectedPlan?.id === subscription.plan
+              ? "Extend plan"
+              : "Upgrade plan"
+            : `Subscribe ${selectedPlan?.name || ""}`}
         </button>
       </div>
 
@@ -216,6 +337,23 @@ export default function PlanSelection() {
           font-weight: bold;
           color: #3399cc;
           margin: 0.5rem 0;
+        }
+        .plan-card.locked {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .plan-badge {
+          display: inline-flex;
+          margin-top: 0.75rem;
+          padding: 0.25rem 0.75rem;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #fff;
+          background: #333;
+        }
+        .plan-card.selected .plan-badge {
+          background: #0055aa;
         }
       `}</style>
     </section>

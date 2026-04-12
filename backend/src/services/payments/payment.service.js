@@ -8,12 +8,18 @@ const Tenant = require("../../models/tenant/tenant.model");
 const mongoose = require("mongoose");
 const { PLAN_LIMITS } = require("../../config/planLimits");
 const { generateAccessToken } = require("../../utils/token");
+
+const PLAN_SEQUENCE = ["basic", "pro", "enterprise"];
+const PLAN_RANK = PLAN_SEQUENCE.reduce((acc, plan, index) => {
+  acc[plan] = index;
+  return acc;
+}, {});
 // AppError already required above
 
 
 exports.createSubscriptionOrder = async (plan, userId) => {
   try {
-    const validPlans = Object.keys(PLAN_LIMITS);
+    const validPlans = PLAN_SEQUENCE;
     if (!validPlans.includes(plan)) {
       throw new AppError(`Invalid plan: ${plan}. Must be ${validPlans.join(', ')}`, 400);
     }
@@ -25,7 +31,7 @@ exports.createSubscriptionOrder = async (plan, userId) => {
 
     // Verify user exists
     const user = await User.findById(userId);
-    if (!user || user.role !== 'Customer') {
+    if (!user || !["Customer", "ServiceProvider"].includes(user.role)) {
       throw new AppError("User not eligible for provider subscription", 400);
     }
 
@@ -270,7 +276,6 @@ exports.verifySubscriptionPayment = async ({
       throw new AppError("Payment verification failed", 400);
     }
 
-    // Fetch order to get notes (userId, plan)
     const order = await razorpay.orders.fetch(razorpay_order_id);
     const notes = order.notes;
     if (!notes || notes.type !== 'provider_subscription') {
@@ -278,12 +283,13 @@ exports.verifySubscriptionPayment = async ({
     }
 
     const { userId, plan } = notes;
+    if (!PLAN_RANK.hasOwnProperty(plan)) {
+      throw new AppError("Unknown subscription plan", 400);
+    }
 
-    // Transactional update
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      // Check/create payment record idempotent
       await Payment.findOneAndUpdate(
         { orderId: razorpay_order_id },
         {
@@ -297,24 +303,59 @@ exports.verifySubscriptionPayment = async ({
         { upsert: true, session }
       );
 
-      // Upgrade user to ServiceProvider + create tenant
       const user = await User.findById(userId).session(session);
-      if (!user || user.role !== 'Customer') {
+      if (!user) {
         throw new AppError("User not eligible for upgrade", 400);
       }
 
-      // Create tenant
-      const tenant = await Tenant.create([{
-        ownerId: userId,
-        plan,
-        planStatus: 'active',
-        subscriptionStart: new Date(),
-        subscriptionEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-      }], { session });
+      const now = new Date();
+      const planDurationMs = 30 * 24 * 60 * 60 * 1000;
+      const planRank = PLAN_RANK[plan];
+      let tenantDoc = await Tenant.findOne({ ownerId: userId }).session(session);
+      let upgraded = false;
+      let extended = false;
 
-      // Update user
-      user.role = 'ServiceProvider';
-      user.tenantId = tenant[0]._id;
+      if (tenantDoc) {
+        const currentPlanRank = PLAN_RANK[tenantDoc.plan] ?? -1;
+        if (planRank < currentPlanRank) {
+          throw new AppError("Downgrading plans is not allowed", 400);
+        }
+
+        if (planRank === currentPlanRank) {
+          extended = true;
+          const baseMs = tenantDoc.subscriptionEnd
+            ? tenantDoc.subscriptionEnd.getTime()
+            : now.getTime();
+          tenantDoc.subscriptionEnd = new Date(baseMs + planDurationMs);
+        } else {
+          upgraded = true;
+          const remainingMs = Math.max(
+            0,
+            (tenantDoc.subscriptionEnd?.getTime() || now.getTime()) - now.getTime(),
+          );
+          tenantDoc.subscriptionEnd = new Date(now.getTime() + planDurationMs + remainingMs);
+          tenantDoc.plan = plan;
+        }
+
+        tenantDoc.planStatus = "active";
+        tenantDoc.isActive = true;
+        await tenantDoc.save({ session });
+      } else {
+        const subscriptionEnd = new Date(now.getTime() + planDurationMs);
+        const tenantResult = await Tenant.create([{
+          ownerId: userId,
+          plan,
+          planStatus: "active",
+          subscriptionStart: now,
+          subscriptionEnd,
+          isActive: true,
+        }], { session });
+        tenantDoc = tenantResult[0];
+        upgraded = true;
+      }
+
+      user.role = "ServiceProvider";
+      user.tenantId = tenantDoc._id;
       await user.save({ session });
 
       await session.commitTransaction();
@@ -332,9 +373,10 @@ exports.verifySubscriptionPayment = async ({
 
       return {
         verified: true,
-        upgraded: true,
+        upgraded,
+        extended,
         plan,
-        tenantId: tenant[0]._id,
+        tenantId: tenantDoc._id,
         accessToken,
         user: refreshedUser,
       };

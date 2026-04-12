@@ -74,7 +74,7 @@ export default function ProviderSubscriptionPage() {
         ) : null}
 
         <div className="actions-row">
-          <Link className="btn" to="/payment/subscription">
+          <Link className="btn" to="/plan-selection">
             Upgrade Plan
           </Link>
           <button type="button" className="btn btn-secondary" onClick={loadSubscription}>
