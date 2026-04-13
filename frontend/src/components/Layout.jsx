@@ -144,6 +144,7 @@ export default function Layout() {
                   </Link>
                 ) : null}
                 {isAuthenticated && <NotificationBell />}
+                {isAuthenticated && <p>{user?.name}</p>}
                 {isAuthenticated ? (
                   <button
                     style={{ color: "red" }}
