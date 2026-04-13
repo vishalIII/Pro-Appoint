@@ -1,4 +1,7 @@
 const mongoose = require("mongoose");
+const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+const customParseFormat = require("dayjs/plugin/customParseFormat");
 const Appointment = require("../../models/appointment/appointment.model");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
@@ -8,6 +11,9 @@ const generateRoomId = require("../../utils/meeting/generateRoomId");
 const {
   sendPaymentSuccessNotifications,
 } = require("../../utils/appointmentNotifications");
+
+dayjs.extend(utc);
+dayjs.extend(customParseFormat);
 
 // const BLOCKING_STATUSES = ["confirmed"];
 const allowedTransitions = {
@@ -164,14 +170,14 @@ const normalizeObjectId = (id) =>
   typeof id === "string" ? id.trim().replace(/^:/, "") : id;
 
 const addMinutes = (value, minutes) =>
-  new Date(value.getTime() + minutes * 60 * 1000);
+  dayjs.utc(value).add(minutes, "minute").toDate();
 
 const toDate = (value, fieldName) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const parsed = dayjs.utc(value);
+  if (!parsed.isValid()) {
     throw new AppError(`Invalid ${fieldName}`, 400);
   }
-  return date;
+  return parsed.toDate();
 };
 
 const parseDateOnlyUTC = (value) => {
@@ -179,14 +185,18 @@ const parseDateOnlyUTC = (value) => {
     throw new AppError("date query param is required (YYYY-MM-DD)", 400);
   }
 
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) {
+  const parsed = dayjs.utc(value, "YYYY-MM-DD", true);
+  if (!parsed.isValid()) {
     throw new AppError("Invalid date format. Use YYYY-MM-DD", 400);
   }
-  return date;
+  return parsed.toDate();
 };
 
-const parseTimeOnDateUTC = (date, timeText, offsetMinutes = SLOT_TIMEZONE_OFFSET_MINUTES) => {
+const parseTimeOnDateUTC = (
+  date,
+  timeText,
+  offsetMinutes = SLOT_TIMEZONE_OFFSET_MINUTES,
+) => {
   const match =
     typeof timeText === "string"
       ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
@@ -196,18 +206,22 @@ const parseTimeOnDateUTC = (date, timeText, offsetMinutes = SLOT_TIMEZONE_OFFSET
     return null;
   }
 
-  const utcBase = Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    Number(match[1]),
-    Number(match[2]),
-    0,
-    0,
-  );
+  let base = dayjs
+    .utc(date)
+    .hour(Number(match[1]))
+    .minute(Number(match[2]))
+    .second(0)
+    .millisecond(0);
 
-  // Adjust to local/business timezone by applying configured offset (minutes from UTC).
-  return new Date(utcBase - offsetMinutes * 60 * 1000);
+  if (!base.isValid()) {
+    return null;
+  }
+
+  if (Number.isFinite(offsetMinutes)) {
+    base = base.subtract(offsetMinutes, "minute");
+  }
+
+  return base.toDate();
 };
 
 // const getOnlineCapacity = (service) => {
@@ -231,11 +245,18 @@ const getDayNameUTC = (date) => {
     "friday",
     "saturday",
   ];
-  return dayNames[date.getUTCDay()];
+  const dayIndex = dayjs.utc(date).day();
+  return dayNames[dayIndex] || "sunday";
 };
 
 const isOverlapping = ({ startA, endA, startB, endB }) =>
   startA < endB && endA > startB;
+
+const toUtcDateOrNull = (value) => {
+  if (!value) return null;
+  const parsed = dayjs.utc(value);
+  return parsed.isValid() ? parsed.toDate() : null;
+};
 
 const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   if (!Array.isArray(closedPeriods) || closedPeriods.length === 0) {
@@ -243,12 +264,9 @@ const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   }
 
   return closedPeriods.some((period) => {
-    const periodStart = new Date(period.startDate);
-    const periodEnd = new Date(period.endDate);
-    if (
-      Number.isNaN(periodStart.getTime()) ||
-      Number.isNaN(periodEnd.getTime())
-    ) {
+    const periodStart = toUtcDateOrNull(period.startDate);
+    const periodEnd = toUtcDateOrNull(period.endDate);
+    if (!periodStart || !periodEnd) {
       return false;
     }
 
@@ -262,9 +280,7 @@ const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
 };
 
 const isSameUtcDate = (left, right) =>
-  left.getUTCFullYear() === right.getUTCFullYear() &&
-  left.getUTCMonth() === right.getUTCMonth() &&
-  left.getUTCDate() === right.getUTCDate();
+  dayjs.utc(left).isSame(dayjs.utc(right), "day");
 
 const getDayAvailability = (weeklyAvailability, dayName) =>
   (weeklyAvailability || []).find(
@@ -367,18 +383,8 @@ const getBookingAvailabilityError = ({
   startTimeUTC,
   endTimeUTC,
 }) => {
-  const dayStart = new Date(
-    Date.UTC(
-      startTimeUTC.getUTCFullYear(),
-      startTimeUTC.getUTCMonth(),
-      startTimeUTC.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
-  const dayEnd = addMinutes(dayStart, 24 * 60);
+  const dayStart = dayjs.utc(startTimeUTC).startOf("day").toDate();
+  const dayEnd = dayjs.utc(startTimeUTC).add(1, "day").toDate();
   const isShopClosedByPeriod = isClosedForDateRange({
     dayStart,
     dayEnd,
@@ -899,11 +905,11 @@ exports.getAvailableSlots = async ({
     const candidateSlots = [];
 
     for (const range of effectiveRanges) {
-      let cursor = new Date(range.start);
+      let cursor = dayjs.utc(range.start).toDate();
 
       while (addMinutes(cursor, service.durationMinutes) <= range.end) {
         candidateSlots.push({
-          startTimeUTC: new Date(cursor),
+          startTimeUTC: cursor,
           endTimeUTC: addMinutes(cursor, service.durationMinutes),
         });
 
@@ -953,7 +959,7 @@ exports.getAvailableSlots = async ({
 
     const earliest = candidateSlots[0].startTimeUTC;
     const latest = candidateSlots[candidateSlots.length - 1].endTimeUTC;
-    const now = new Date();
+    const now = dayjs.utc().toDate();
 
     const conflicts = await findBlockingAppointments({
       shopId: shop._id,
@@ -965,7 +971,7 @@ exports.getAvailableSlots = async ({
     });
 
     const availableSlots = [];
-    const nowForFiltering = new Date();
+    const nowForFiltering = dayjs.utc().toDate();
 
     for (const candidate of candidateSlots) {
       if (candidate.startTimeUTC <= nowForFiltering) {

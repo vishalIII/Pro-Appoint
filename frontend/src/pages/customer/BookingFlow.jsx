@@ -4,17 +4,17 @@ import { useAuth } from "../../auth/useAuth";
 import AlertModal from "../../components/AlertModal";
 import FakePayCheckout from "../../components/FakePayCheckout";
 import api from "../../auth/api";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(utc);
+dayjs.extend(customParseFormat);
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 
-const getTodayDate = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+const getTodayDate = () => dayjs().format("YYYY-MM-DD");
 
 // const toLocalDateTimeValue = (date) => {
 //   const year = date.getFullYear();
@@ -33,20 +33,24 @@ const parseJsonSafely = async (response) => {
 
 
 const parseTimeOnDateUTC = (date, timeText) => {
-  const match = typeof timeText === "string" ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/) : null;
+  const match =
+    typeof timeText === "string"
+      ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      : null;
   if (!match) return null;
 
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      Number(match[1]),
-      Number(match[2]),
-      0,
-      0
-    )
-  );
+  const candidate = dayjs
+    .utc(date)
+    .hour(Number(match[1]))
+    .minute(Number(match[2]))
+    .second(0)
+    .millisecond(0);
+
+  if (!candidate.isValid()) {
+    return null;
+  }
+
+  return candidate.toDate();
 };
 
 // const getMinStartTimeLocal = () => {
@@ -59,7 +63,8 @@ const getDayNameUTC = (date) => {
   const dayNames = [
     "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
   ];
-  return dayNames[date.getUTCDay()];
+  const index = dayjs.utc(date).day();
+  return dayNames[index] || "sunday";
 };
 
 const normalizeShopSchedule = (payload) => ({
@@ -72,28 +77,24 @@ const normalizeServiceSchedule = (payload) => ({
   closedPeriods: Array.isArray(payload?.closedPeriods) ? payload.closedPeriods : []
 });
 
+const toUtcDateOrNull = (value) => {
+  if (!value) return null;
+  const parsed = dayjs.utc(value);
+  return parsed.isValid() ? parsed.toDate() : null;
+};
+
 const isClosedForDateRange = ({ bookingDate, closedPeriods }) => {
   if (!Array.isArray(closedPeriods) || closedPeriods.length === 0) {
     return false;
   }
 
-  const dayStart = new Date(
-    Date.UTC(
-      bookingDate.getUTCFullYear(),
-      bookingDate.getUTCMonth(),
-      bookingDate.getUTCDate(),
-      0,
-      0,
-      0,
-      0
-    )
-  );
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const dayStart = dayjs.utc(bookingDate).startOf("day").toDate();
+  const dayEnd = dayjs.utc(bookingDate).add(1, "day").toDate();
 
   return closedPeriods.some((period) => {
-    const periodStart = new Date(period?.startDate);
-    const periodEnd = new Date(period?.endDate);
-    if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
+    const periodStart = toUtcDateOrNull(period?.startDate);
+    const periodEnd = toUtcDateOrNull(period?.endDate);
+    if (!periodStart || !periodEnd) {
       return false;
     }
     return dayStart < periodEnd && dayEnd > periodStart;
@@ -113,9 +114,7 @@ const getDayAvailability = (schedule, bookingDate) => {
 };
 
 const isSameUtcDate = (left, right) =>
-  left.getUTCFullYear() === right.getUTCFullYear() &&
-  left.getUTCMonth() === right.getUTCMonth() &&
-  left.getUTCDate() === right.getUTCDate();
+  dayjs.utc(left).isSame(dayjs.utc(right), "day");
 
 const isDayOpen = (dayAvailability) => {
   if (!dayAvailability) return false;
@@ -289,9 +288,15 @@ const [selectedSlot, setSelectedSlot] = useState("");
       setSelectedSlot("");
 
       try {
-      const response = await fetch(
-        `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?date=${selectedDate}&slotIntervalMinutes=${serviceDuration}`,
-          { signal: controller.signal }
+        const queryParams = new URLSearchParams({
+          date: selectedDate,
+          slotIntervalMinutes: String(serviceDuration),
+          tzOffsetMinutes: String(dayjs().utcOffset()),
+        });
+
+        const response = await fetch(
+          `${API_BASE_URL}/shops/${shopId}/services/${serviceId}/slots?${queryParams.toString()}`,
+          { signal: controller.signal },
         );
 
         const payload = await parseJsonSafely(response);
@@ -301,17 +306,16 @@ const [selectedSlot, setSelectedSlot] = useState("");
         }
         const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
         console.log("RAW SLOTS FROM API:", rawSlots);
-        const now = new Date();
+        const now = dayjs.utc();
+        const cutoff = now.add(60, "second");
         const today = getTodayDate();
 
         const slots = rawSlots
-          .map((slot) => (slot?.startTimeUTC ? new Date(slot.startTimeUTC) : null))
-          .filter(Boolean)
+          .map((slot) => (slot?.startTimeUTC ? dayjs.utc(slot.startTimeUTC) : null))
+          .filter((slot) => slot && slot.isValid())
           .filter((slot) => {
             if (selectedDate !== today) return true;
-
-            // compare timestamps safely
-            return slot.getTime() > now.getTime() + 60 * 1000;
+            return slot.isAfter(cutoff);
           });
 
         setAvailableSlots(slots);
@@ -425,25 +429,26 @@ setServiceDuration(servicePayload.durationMinutes || 30);
       setSubmitError("Please select a slot.");
       return;
     }
-    const startDate = new Date(selectedSlot);
+    const startDate = dayjs.utc(selectedSlot);
 
-    if (Number.isNaN(startDate.getTime())) {
+    if (!startDate.isValid()) {
       setSubmitError("Please select a valid start date and time.");
       return;
     }
 
-    if (!Number.isFinite(serviceDuration) || serviceDuration <= 0) {
+    const durationMinutes = Number(serviceDuration);
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
       setSubmitError("Duration must be greater than 0.");
       return;
     }
 
-    const now = new Date();
-    if (startDate.getTime() <= now.getTime()) {
+    const now = dayjs.utc();
+    if (startDate.valueOf() <= now.valueOf()) {
       showPopupError("Please select current or future date and time.");
       return;
     }
 
-    const endDate = new Date(startDate.getTime() + serviceDuration * 60000);
+    const endDate = startDate.add(durationMinutes, "minute");
 
     let selectedShopSchedule = shopSchedule;
     let selectedServiceSchedule = serviceSchedule;
@@ -477,8 +482,8 @@ setServiceDuration(servicePayload.durationMinutes || 30);
     const availabilityPopupMessage = getAvailabilityPopupMessage({
       shopSchedule: selectedShopSchedule,
       serviceSchedule: selectedServiceSchedule,
-      bookingStart: startDate,
-      bookingEnd: endDate
+      bookingStart: startDate.toDate(),
+      bookingEnd: endDate.toDate()
     });
 
     if (availabilityPopupMessage) {
@@ -515,7 +520,14 @@ if (serviceInfo?.mode === 'offline') {
         });
 
         const orderPayload = orderResponse?.data;
-        setFakePayCheckout({ appointment: null, orderPayload, serviceInfo, startDate, endDate, payload });
+        setFakePayCheckout({
+          appointment: null,
+          orderPayload,
+          serviceInfo,
+          startDate: startDate.toDate(),
+          endDate: endDate.toDate(),
+          payload,
+        });
         setIsFakePayOpen(true);
         setIsSubmitting(false);
         return;
@@ -573,11 +585,7 @@ if (serviceInfo?.mode === 'offline') {
 
                   return (
                     <option key={value} value={value}>
-                      {slot.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
+                      {slot.local().format("h:mm A")}
                     </option>
                   );
                 })}
