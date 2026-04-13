@@ -16,23 +16,14 @@ export default function LazyImage({
   fetchPriority = "auto",
   ...rest
 }) {
-  const [isVisible, setIsVisible] = useState(false);
+  const supportsIO = typeof IntersectionObserver === "function";
+  const [isVisible, setIsVisible] = useState(!supportsIO);
   const [isLoaded, setIsLoaded] = useState(false);
   const containerRef = useRef(null);
 
   useEffect(() => {
-    setIsLoaded(false);
-  }, [src]);
-
-  useEffect(() => {
     const node = containerRef.current;
-    if (!node) return undefined;
-
-    // If IntersectionObserver isn't supported, render immediately and rely on native lazy.
-    if (typeof IntersectionObserver !== "function") {
-      setIsVisible(true);
-      return undefined;
-    }
+    if (!node || !supportsIO) return undefined;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -48,7 +39,7 @@ export default function LazyImage({
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [src]);
+  }, [supportsIO]);
 
   const wrapperStyle = {
     position: "relative",
@@ -73,6 +64,7 @@ export default function LazyImage({
 
       {isVisible ? (
         <img
+          key={src}
           src={src}
           srcSet={srcSet}
           sizes={sizes}
