@@ -58,7 +58,12 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
-
+import {
+  API_BASE_URL,
+  FALLBACK_DEPARTMENTS,
+  FEATURED_SERVICE_LIMIT,
+  SERVICE_CARD_TONES
+} from "../constants";
 export default function HeroSection() {
   const [input, setInput] = useState("");
   const [shops, setShops] = useState([]);
@@ -70,7 +75,7 @@ export default function HeroSection() {
     try {
       setLoading(true);
 
-      const res = await axios.get("/api/shops", {
+      const res = await axios.get(`${API_BASE_URL}/api/getShops`, {
         params: { search: input }
       });
 

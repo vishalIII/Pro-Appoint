@@ -1,8 +1,15 @@
 const Shop = require("../../models/shop/shop.model");
 const Industry = require("../../models/service/industry/industry.model");
 const reviewService = require("../../services/review/review.service");
-
 exports.listShops = async (req, res, next) => {
+  try {
+    const shops = await Shop.find({ status: "approved" }).sort({ createdAt: -1 });
+    return res.status(200).json({ count: shops.length, shops });
+  } catch (error) {
+    next(error);
+  }
+};
+exports.getShopSearch = async (req, res, next) => {
   try {
     const { search = "", page = 1, limit = 10 } = req.query;
 
