@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-
+import { useState } from "react";
 export default function HeroSection() {
+  
   return (
     <div className="hero-column">
       <div className="search-support-row">
@@ -8,7 +9,7 @@ export default function HeroSection() {
           <button type="button" className="search-category" aria-label="Select category">
             All Categories
           </button>
-          <input type="text" value="What do you need?" readOnly aria-label="Search query" />
+          <input type="text" value="What do you need?" aria-label="Search query" />
           <button type="button" className="btn btn-ogani">
             Search
           </button>
