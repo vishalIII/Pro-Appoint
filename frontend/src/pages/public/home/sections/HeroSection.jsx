@@ -71,11 +71,11 @@ export default function HeroSection() {
 
   const handleSearch = async () => {
     if (!input.trim()) return;
-
+    console.log("h");
     try {
       setLoading(true);
 
-      const res = await axios.get(`${API_BASE_URL}/api/getShops`, {
+      const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
         params: { search: input }
       });
 
