@@ -69,17 +69,20 @@ export default function HeroSection() {
   const [input, setInput] = useState("");
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(false);
+  const[status,setStatus]=useState(false)
 
   const handleSearch = async () => {
     if (!input.trim()) return;
-    console.log("h");
+    
     try {
       setLoading(true);
 
       const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
         params: { search: input }
       });
-      console.log(res.data.shops)
+      if(res.data.shops.length===0){
+        setStatus(true)
+      }
       setShops(res.data.shops);
     } catch (err) {
       console.error(err);
@@ -117,7 +120,7 @@ export default function HeroSection() {
       <div style={{ marginTop: "20px" }}>
         {loading && <p>Loading...</p>}
 
-        {!loading && shops.length === 0 && input && <p>No shops found</p>}
+        
 
         {/* {shops.map((shop) => (
           <Link className="shop-highlight-media" to={`/shops/${shop.id}`}>
@@ -128,7 +131,7 @@ export default function HeroSection() {
         ))} */}
         {shops.length > 0 ? (
                 <div className="shop-highlight-grid">
-                  {shops.map((shop) => (
+                  {status?<p>No Shops found</p>:shops.map((shop) => (
                     <article key={shop._id} className="shop-highlight-card">
                       <Link className="shop-highlight-media" to={`/shops/${shop._id}`}>
                         <LazyImage
