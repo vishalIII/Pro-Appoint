@@ -27,6 +27,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.5",
     "razorpay": "^2.9.6",
+    "redis": "^5.12.1",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
