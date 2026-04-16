@@ -58,6 +58,7 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
+import LazyImage from "../../../../components/LazyImage";
 import {
   API_BASE_URL,
   FALLBACK_DEPARTMENTS,
@@ -78,7 +79,7 @@ export default function HeroSection() {
       const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
         params: { search: input }
       });
-
+      console.log(res.data.shops)
       setShops(res.data.shops);
     } catch (err) {
       console.error(err);
@@ -118,12 +119,44 @@ export default function HeroSection() {
 
         {!loading && shops.length === 0 && input && <p>No shops found</p>}
 
-        {shops.map((shop) => (
+        {/* {shops.map((shop) => (
+          <Link className="shop-highlight-media" to={`/shops/${shop.id}`}>
           <div key={shop._id} style={{ marginBottom: "10px" }}>
             <h4>{shop.shopName}</h4>
-            <p>{shop.industry?.name}</p>
           </div>
-        ))}
+          </Link>  
+        ))} */}
+        {shops.length > 0 ? (
+                <div className="shop-highlight-grid">
+                  {shops.map((shop) => (
+                    <article key={shop._id} className="shop-highlight-card">
+                      <Link className="shop-highlight-media" to={`/shops/${shop._id}`}>
+                        <LazyImage
+                          src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
+                          alt={`${shop.name || "Shop"} preview`}
+                          height={200}
+                          aspectRatio="4 / 3"
+                          fetchPriority="low"
+                        />
+                      </Link>
+                      <div className="shop-highlight-body">
+                        <div className="shop-highlight-head">
+                          <h3>{shop.name}</h3>
+                          <p className="shop-highlight-rating">
+                            <span className="shop-star">★</span>
+                            <span>{shop.ratingCount > 0 ? shop.rating.toFixed(1) : "New"}</span>
+                            {shop.ratingCount > 0 ? (
+                              <span className="shop-rating-count">({shop.ratingCount})</span>
+                            ) : null}
+                          </p>
+                        </div>
+                        <p className="shop-highlight-location">{shop.location}</p>
+                        <p className="shop-highlight-label">{shop.label}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
       </div>
 
       {/* existing banner unchanged */}
