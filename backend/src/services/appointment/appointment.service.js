@@ -15,9 +15,17 @@ const {
 dayjs.extend(utc);
 dayjs.extend(customParseFormat);
 
+const redisUtils = require("../../utils/redisClient")
+
 // const BLOCKING_STATUSES = ["confirmed"];
 const allowedTransitions = {
-  pending: ["confirmed", "cancelled", "customer_cancelled", "provider_cancelled", "system_cancelled"],
+  pending: [
+    "confirmed",
+    "cancelled",
+    "customer_cancelled",
+    "provider_cancelled",
+    "system_cancelled",
+  ],
   confirmed: [
     "completed",
     "manual_completed",
@@ -62,7 +70,16 @@ const validateAppointmentAction = ({ appointment, action, updates }) => {
     throw new AppError("Appointment already completed", 400);
   }
 
-  if (action === "cancel" && ["cancelled", "cancelled_late", "customer_cancelled", "provider_cancelled", "system_cancelled"].includes(status)) {
+  if (
+    action === "cancel" &&
+    [
+      "cancelled",
+      "cancelled_late",
+      "customer_cancelled",
+      "provider_cancelled",
+      "system_cancelled",
+    ].includes(status)
+  ) {
     throw new AppError("Appointment already cancelled", 400);
   }
 
@@ -1203,7 +1220,10 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             status: providedPaymentStatus === "paid" ? "confirmed" : "pending",
             paidAt: providedPaymentStatus === "paid" ? now : undefined,
             metadata,
-            expiresAt: providedPaymentStatus === "paid" ? undefined : addMinutes(now, PAYMENT_HOLD_MINUTES),
+            expiresAt:
+              providedPaymentStatus === "paid"
+                ? undefined
+                : addMinutes(now, PAYMENT_HOLD_MINUTES),
           },
         ],
         { session },
@@ -1456,6 +1476,101 @@ exports.markAppointmentPaymentFailed = async ({
   }
 };
 
+// exports.getAppointments = async ({
+//   tenantId,
+//   attendeeId,
+//   filters,
+//   page,
+//   limit,
+//   sort = { startTimeUTC: 1 },
+// }) => {
+//   try {
+//     const cachekey = `tenant_appoinments:${JSON.stringify({
+//       tenantId,
+//       attendeeId,
+//       filters,
+//       page,
+//       limit,
+//       sort,
+//     })}`;
+
+//     const cached = await redisClient.get(cachekey);
+//     if (cached) {
+//       console.log("cache hit");
+//       return JSON.parse(cached);
+//     }
+
+//     const query = {};
+//     if (tenantId) query.tenantId = tenantId;
+//     if (attendeeId) {
+//       query.$or = [{ attendeeId }, { "attendees.userId": attendeeId }];
+//     }
+
+//     if (filters) {
+//       if (filters.status) query.status = filters.status;
+//       if (filters.shopId) query.shopId = filters.shopId;
+//       if (filters.from) query.startTimeUTC = { $gte: new Date(filters.from) };
+//       if (filters.to) {
+//         query.endTimeUTC = query.endTimeUTC || {};
+//         query.endTimeUTC.$lte = new Date(filters.to);
+//       }
+//     }
+
+//     const paginationEnabled =
+//       Number.isFinite(Number.parseInt(page, 10)) ||
+//       Number.isFinite(Number.parseInt(limit, 10));
+
+//     const pageNum = Math.max(1, Number.parseInt(page, 10) || 1);
+//     const limitNum = Math.max(
+//       1,
+//       Math.min(100, Number.parseInt(limit, 10) || 10),
+//     );
+//     const skip = (pageNum - 1) * limitNum;
+
+//     const queryBuilder = Appointment.find(query)
+//       .sort(sort)
+//       .populate("attendeeId", "name email")
+//       .populate("attendees.userId", "name email")
+//       .populate("serviceId", "name")
+//       .populate("shopId", "shopName")
+//       .populate("allocatedResources.resourceId", "name type");
+
+//     if (paginationEnabled) {
+//       queryBuilder.skip(skip).limit(limitNum);
+//     }
+
+//     const [appointments, total] = await Promise.all([
+//       queryBuilder,
+//       paginationEnabled
+//         ? Appointment.countDocuments(query)
+//         : Promise.resolve(0),
+//     ]);
+
+//     const effectiveTotal = paginationEnabled ? total : appointments.length;
+//     const totalPages = paginationEnabled
+//       ? Math.max(1, Math.ceil(effectiveTotal / limitNum))
+//       : 1;
+
+//     const response = {
+//       appointments,
+//       total: effectiveTotal,
+//       page: paginationEnabled ? pageNum : 1,
+//       limit: paginationEnabled ? limitNum : appointments.length || 1,
+//       totalPages,
+//       hasMore: paginationEnabled ? pageNum < totalPages : false,
+//     };
+//     await redisClient.set(cachekey, JSON.stringify(response), {
+//       EX: 60,
+//     });
+//     return response;
+//   } catch (error) {
+//     if (error instanceof AppError) throw error;
+//     throw new AppError(error.message || "Failed to fetch appointments", 500);
+//   }
+// };
+
+// const stringify = require("fast-json-stable-stringify");
+
 exports.getAppointments = async ({
   tenantId,
   attendeeId,
@@ -1465,8 +1580,29 @@ exports.getAppointments = async ({
   sort = { startTimeUTC: 1 },
 }) => {
   try {
+  
+    const cacheKey = `tenant_appointments:${JSON.stringify({
+      tenantId,
+      attendeeId,
+      filters,
+      page,
+      limit,
+      sort,
+    })}`;
+
+    
+    const cached = await redisUtils.get(cacheKey);
+    if (cached) {
+      console.log(" CACHE HIT-------------------------------------");
+      return JSON.parse(cached);
+    }
+
+    console.log(" CACHE MISS");
+
+    
     const query = {};
     if (tenantId) query.tenantId = tenantId;
+
     if (attendeeId) {
       query.$or = [{ attendeeId }, { "attendees.userId": attendeeId }];
     }
@@ -1474,12 +1610,22 @@ exports.getAppointments = async ({
     if (filters) {
       if (filters.status) query.status = filters.status;
       if (filters.shopId) query.shopId = filters.shopId;
-      if (filters.from) query.startTimeUTC = { $gte: new Date(filters.from) };
+
+      if (filters.from) {
+        query.startTimeUTC = {
+          ...query.startTimeUTC,
+          $gte: new Date(filters.from),
+        };
+      }
+
       if (filters.to) {
-        query.endTimeUTC = query.endTimeUTC || {};
-        query.endTimeUTC.$lte = new Date(filters.to);
+        query.endTimeUTC = {
+          ...query.endTimeUTC,
+          $lte: new Date(filters.to),
+        };
       }
     }
+
 
     const paginationEnabled =
       Number.isFinite(Number.parseInt(page, 10)) ||
@@ -1488,10 +1634,12 @@ exports.getAppointments = async ({
     const pageNum = Math.max(1, Number.parseInt(page, 10) || 1);
     const limitNum = Math.max(
       1,
-      Math.min(100, Number.parseInt(limit, 10) || 10),
+      Math.min(100, Number.parseInt(limit, 10) || 10)
     );
+
     const skip = (pageNum - 1) * limitNum;
 
+  
     const queryBuilder = Appointment.find(query)
       .sort(sort)
       .populate("attendeeId", "name email")
@@ -1506,15 +1654,18 @@ exports.getAppointments = async ({
 
     const [appointments, total] = await Promise.all([
       queryBuilder,
-      paginationEnabled ? Appointment.countDocuments(query) : Promise.resolve(0),
+      paginationEnabled
+        ? Appointment.countDocuments(query)
+        : Promise.resolve(0),
     ]);
 
     const effectiveTotal = paginationEnabled ? total : appointments.length;
+
     const totalPages = paginationEnabled
       ? Math.max(1, Math.ceil(effectiveTotal / limitNum))
       : 1;
 
-    return {
+    const response = {
       appointments,
       total: effectiveTotal,
       page: paginationEnabled ? pageNum : 1,
@@ -1522,9 +1673,17 @@ exports.getAppointments = async ({
       totalPages,
       hasMore: paginationEnabled ? pageNum < totalPages : false,
     };
+
+
+    await redisUtils.set(cacheKey, JSON.stringify(response), { EX: 60 });
+
+    return response;
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(error.message || "Failed to fetch appointments", 500);
+    throw new AppError(
+      error.message || "Failed to fetch appointments",
+      500
+    );
   }
 };
 

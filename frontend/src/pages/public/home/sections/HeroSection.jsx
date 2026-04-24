@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
@@ -82,17 +81,17 @@ export default function HeroSection() {
                       </Link>
                       <div className="shop-highlight-body">
                         <div className="shop-highlight-head">
-                          <h3>{shop.name}</h3>
-                          <p className="shop-highlight-rating">
+                          <h3>{shop.shopName}</h3>
+                          {/* <p className="shop-highlight-rating">
                             <span className="shop-star">★</span>
                             <span>{shop.ratingCount > 0 ? shop.rating.toFixed(1) : "New"}</span>
                             {shop.ratingCount > 0 ? (
                               <span className="shop-rating-count">({shop.ratingCount})</span>
                             ) : null}
-                          </p>
+                          </p> */}
                         </div>
-                        <p className="shop-highlight-location">{shop.location}</p>
-                        <p className="shop-highlight-label">{shop.label}</p>
+                        <p className="shop-highlight-location">{shop.address.city}</p>
+                        {/* <p className="shop-highlight-label">{shop.label}</p> */}
                       </div>
                     </article>
                   ))}

@@ -21,6 +21,7 @@ services:
       - ./backend/.env
     depends_on:
       - mongo
+      - redis
     volumes:
       - ./backend:/app
     command: sh -c "npm install && npm run dev"
@@ -57,6 +58,11 @@ services:
     volumes:
       - ./frontend:/app
     command: sh -c "npm install && npm run dev -- --host"
+
+  redis:
+    image: redis:7
+
+
 
 volumes:
   mongo_data:

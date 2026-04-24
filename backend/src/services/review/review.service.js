@@ -281,3 +281,71 @@ exports.getShopReviewSummary = async ({ shopId: rawShopId }) => {
     );
   }
 };
+
+exports.createReviewForShop = async ({
+  shopId: rawShopId,
+  reviewerId: rawReviewerId,
+  rating,
+  comment,
+}) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const shopId = normalizeObjectId(rawShopId);
+    const reviewerId = normalizeObjectId(rawReviewerId);
+
+    if (!shopId || !isValidObjectId(shopId)) {
+      throw new AppError("Invalid Shop ID", 400);
+    }
+    if (!reviewerId || !isValidObjectId(reviewerId)) {
+      throw new AppError("Invalid reviewer ID", 400);
+    }
+
+    const parsedRating = parseRating(rating);
+    const normalizedComment = normalizeComment(comment);
+
+    let createdReview = null;
+    let shopSummary = null;
+
+    await session.withTransaction(async () => {
+      const shop = await Shop.findById(shopId).session(session);
+      if (!shop) {
+        throw new AppError("Shop not found", 404);
+      }
+
+      // Check if user already reviewed this shop
+      const existingReview = await Review.findOne({
+        shopId,
+        reviewerId,
+        status: "active"
+      }).session(session);
+
+      if (existingReview) {
+        throw new AppError("You have already reviewed this shop", 409);
+      }
+
+      createdReview = await Review.create([{
+        shopId,
+        reviewerId,
+        rating: parsedRating,
+        comment: normalizedComment,
+        status: "active"
+      }], { session });
+
+      shopSummary = await recomputeShopReviewSummary({ shopId, session });
+    });
+
+    return {
+      review: createdReview[0],
+      shopSummary,
+    };
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new AppError("Review already exists for this shop", 409);
+    }
+    if (error instanceof AppError) throw error;
+    throw new AppError(error.message || "Failed to create review", 500);
+  } finally {
+    await session.endSession();
+  }
+};
