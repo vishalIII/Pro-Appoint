@@ -7,6 +7,7 @@ const {
   getShopByIdPublic,
   getShopReviews,
   getShopReviewSummary,
+  getShopsByCategory,
 } = require("../../controllers/public/shop.controller");
 const publicServiceRoutes = require("./public.service.routes");
 
@@ -16,6 +17,7 @@ router.get("/industries", listActiveIndustriesPublic);
 router.get("/:shopId", getShopByIdPublic);
 router.get("/:shopId/reviews", getShopReviews);
 router.get("/:shopId/review-summary", getShopReviewSummary);
+router.get("/category/:category", getShopsByCategory);
 
 // Nested public service routes: /api/shops/:shopId/services
 router.use("/:shopId/services", publicServiceRoutes);

@@ -1,4 +1,12 @@
+import { useNavigate } from "react-router-dom";
+
 export default function DepartmentsPanel({ departments, isLoadingDepartments, departmentsError }) {
+  const navigate = useNavigate();
+
+  const handleDepartmentClick = (department) => {
+    navigate(`/shops/by-category/${encodeURIComponent(department)}`);
+  };
+
   return (
     <aside className="departments-panel">
       <div className="departments-title">
@@ -12,7 +20,9 @@ export default function DepartmentsPanel({ departments, isLoadingDepartments, de
           <li className="department-meta">No departments available right now.</li>
         ) : null}
         {departments.map((department) => (
-          <li key={department}>{department}</li>
+          <li key={department} onClick={() => handleDepartmentClick(department)} style={{ cursor: "pointer" }}>
+            {department}
+          </li>
         ))}
       </ul>
     </aside>
