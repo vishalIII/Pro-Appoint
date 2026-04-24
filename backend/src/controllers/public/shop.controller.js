@@ -125,3 +125,62 @@ exports.getShopReviewSummary = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getShopsByCategory = async (req, res, next) => {
+  try {
+    const { category } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      // Only approved shops
+      { $match: { status: "approved" } },
+
+      // Join with Industry collection
+      {
+        $lookup: {
+          from: "industries",
+          localField: "industry",
+          foreignField: "_id",
+          as: "industry"
+        }
+      },
+
+      // Convert array → object
+      { $unwind: "$industry" },
+
+      // Match category
+      { $match: { "industry.name": category } },
+
+      // Pagination + sorting
+      { $sort: { createdAt: -1 } },
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+          ],
+          totalCount: [
+            { $count: "count" }
+          ]
+        }
+      }
+    ];
+
+    const result = await Shop.aggregate(pipeline);
+
+    const shops = result[0].data;
+    const total = result[0].totalCount[0]?.count || 0;
+
+    return res.status(200).json({
+      success: true,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / limit),
+      shops
+    });
+  } catch (error) {
+    next(error);
+  }
+};

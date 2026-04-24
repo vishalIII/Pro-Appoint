@@ -65,13 +65,7 @@ export default function HeroSection() {
 
         
 
-        {/* {shops.map((shop) => (
-          <Link className="shop-highlight-media" to={`/shops/${shop.id}`}>
-          <div key={shop._id} style={{ marginBottom: "10px" }}>
-            <h4>{shop.shopName}</h4>
-          </div>
-          </Link>  
-        ))} */}
+       
         {shops.length > 0 ? (
                 <div className="shop-highlight-grid">
                   {status?<p>No Shops found</p>:shops.map((shop) => (

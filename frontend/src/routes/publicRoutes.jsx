@@ -5,6 +5,7 @@ const About = lazy(() => import("../pages/public/About"));
 const Menu = lazy(() => import("../pages/public/Menu"));
 const Reviews = lazy(() => import("../pages/public/Reviews"));
 const ShopDetails = lazy(() => import("../pages/public/shop/ShopDetails"));
+const ShopByCategory = lazy(() => import("../pages/public/shop/ShopByCategory"));
 const ServiceDetails = lazy(() => import("../pages/public/service/ServiceDetails"));
 const ServicesPage = lazy(() => import("../pages/public/service/ServicesPage"));
 const Subscription = lazy(() => import("../pages/payment_transactions/subscription"));
@@ -21,6 +22,7 @@ export const publicRoutes = [
   { path: "services", element: <ServicesPage /> },
   { path: "shops/:shopId", element: <ShopDetails /> },
   { path: "shops/:shopId/services/:serviceId", element: <ServiceDetails /> },
+  { path: "shops/by-category/:category", element: <ShopByCategory /> },
   { path: "reviews", element: <Reviews /> },
   { path: "payment/subscription", element: <Subscription /> },
   { path: "login", element: <Login /> },
