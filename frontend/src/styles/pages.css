@@ -271,6 +271,79 @@
 .service-thumbnail:hover {
   opacity: 1;
   transform: scale(1.05);
+}
+
+/* Reviews Styles */
+.reviews-list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.review-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.review-rating {
+  color: #ffc107;
+  font-size: 18px;
+}
+
+.review-author {
+  font-weight: 600;
+}
+
+.review-date {
+  color: #666;
+  font-size: 14px;
+}
+
+.review-comment {
+  margin: 0;
+  color: #333;
+}
+
+.review-form {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.review-form h3 {
+  margin: 0 0 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
 }.customer-notification-list {
   display: grid;
   gap: 12px;

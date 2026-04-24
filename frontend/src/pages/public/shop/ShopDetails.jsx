@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ImageCarousel from "../../../components/ImageCarousel";
+import { useAuth } from "../../../auth/useAuth";
+import { getShopReviews, createReview } from "../../../api/reviewsApi";
+import { ROLES } from "../../../rbac/roles";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -63,10 +66,16 @@ const todayKey = WEEK_DAYS[todayIndex];
 
 export default function ShopDetails() {
   const { shopId } = useParams();
+  const { user, isAuthenticated } = useAuth();
   const [shop, setShop] = useState(null);
   const [services, setServices] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState("");
+  const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     const fetchShopDetails = async () => {
@@ -102,8 +111,47 @@ export default function ShopDetails() {
       }
     };
 
+    const fetchReviews = async () => {
+      if (!shopId) return;
+      setReviewsLoading(true);
+      setReviewsError("");
+
+      try {
+        const reviewsData = await getShopReviews(shopId);
+        console.log("Fetched reviews data:", reviewsData.reviews);
+        setReviews(Array.isArray(reviewsData.reviews) ? reviewsData.reviews : []);
+      } catch (fetchError) {
+        setReviewsError(fetchError.message || "Failed to load reviews");
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
     fetchShopDetails();
+    fetchReviews();
   }, [shopId]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated || user?.role !== ROLES.CUSTOMER) return;
+
+    setSubmittingReview(true);
+    try {
+      await createReview({
+        shopId,
+        rating: newReview.rating,
+        comment: newReview.comment
+      });
+      setNewReview({ rating: 5, comment: "" });
+      // Refresh reviews
+      const reviewsData = await getShopReviews(shopId);
+      setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+    } catch (error) {
+      alert("Failed to submit review: " + (error.message || "Unknown error"));
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const availabilityMap = new Map(
     Array.isArray(shop?.weeklyAvailability)
@@ -232,6 +280,65 @@ export default function ShopDetails() {
                 ))}
               </div>
             ) : null}
+          </div>
+
+          <div className="card">
+            <h2>Reviews</h2>
+
+            {reviewsLoading ? <p>Loading reviews...</p> : null}
+            {reviewsError ? <p className="error-text">{reviewsError}</p> : null}
+
+            {!reviewsLoading && !reviewsError && reviews.length === 0 ? <p>No reviews yet.</p> : null}
+
+            {!reviewsLoading && !reviewsError && reviews.length > 0 ? (
+              <div className="reviews-list">
+                {reviews.map((review) => (
+                  <div key={review._id} className="review-item">
+                    <div className="review-header">
+                      <span className="review-rating">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
+                      <span className="review-author">{review.reviewerId?.name || "Anonymous"}</span>
+                      <span className="review-date">{new Date(review.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="review-comment">{review.comment}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {isAuthenticated && user?.role === ROLES.CUSTOMER ? (
+              <form onSubmit={handleSubmitReview} className="review-form">
+                <h3>Add a Review</h3>
+                <div className="form-group">
+                  <label>Rating:</label>
+                  <select
+                    value={newReview.rating}
+                    onChange={(e) => setNewReview({ ...newReview, rating: Number(e.target.value) })}
+                    required
+                  >
+                    <option value={5}>5 Stars</option>
+                    <option value={4}>4 Stars</option>
+                    <option value={3}>3 Stars</option>
+                    <option value={2}>2 Stars</option>
+                    <option value={1}>1 Star</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Comment:</label>
+                  <textarea
+                    value={newReview.comment}
+                    onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                    placeholder="Write your review..."
+                    required
+                    rows={4}
+                  />
+                </div>
+                <button type="submit" disabled={submittingReview} className="btn">
+                  {submittingReview ? "Submitting..." : "Submit Review"}
+                </button>
+              </form>
+            ) : (
+              <p>Please <Link to="/login">login</Link> as a customer to add a review.</p>
+            )}
           </div>
         </div>
       </div>

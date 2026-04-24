@@ -5,15 +5,15 @@ const reviewSchema = new mongoose.Schema(
     appointmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "appointment",
-      required: true,
-      unique: true, // one review per appointment
+      required: false, // Make optional for shop reviews
+      unique: false, // Remove unique constraint
       index: true,
     },
 
     tenantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true,
+      required: false, // Optional for shop reviews
       index: true,
     },
 
@@ -27,7 +27,7 @@ const reviewSchema = new mongoose.Schema(
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "service",
-      required: true,
+      required: false, // Optional for shop reviews
       index: true,
     },
 
