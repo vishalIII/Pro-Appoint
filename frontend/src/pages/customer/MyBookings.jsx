@@ -1,32 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import api from "../../auth/api";
-import TimezoneSelectField from "../../components/TimezoneSelectField";
-import {
-  clearPreferredTimezone,
-  formatTimeWindowInTimezone,
-  getDetectedTimezone,
-  getSavedTimezone,
-  getSupportedTimezoneOptions,
-  persistPreferredTimezone,
-  resolvePreferredTimezone,
-} from "../../utils/timezone";
+import { formatTimeWindowInTimezone, getDetectedTimezone } from "../../utils/timezone";
 
 const PAGE_SIZE = 6;
-const BROWSER_TIMEZONE_OPTION = "__browser__";
 
 export default function MyBookings() {
   const { token } = useAuth();
   const navigate = useNavigate();
 
-  const detectedTimezone = useMemo(() => getDetectedTimezone(), []);
-  const timezoneOptions = useMemo(() => getSupportedTimezoneOptions(), []);
-
-  const [displayTimezone, setDisplayTimezone] = useState(() =>
-    resolvePreferredTimezone(),
-  );
-  const [useBrowserTimezone, setUseBrowserTimezone] = useState(() => !getSavedTimezone());
+  const detectedTimezone = getDetectedTimezone();
 
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,16 +32,16 @@ export default function MyBookings() {
       setError("");
 
       try {
-        const { data: payload } = await api.get("/customer/appointments", {
+        const { data } = await api.get("/customer/appointments", {
           params: { page: pageToLoad, limit: PAGE_SIZE },
         });
 
-        setBookings(Array.isArray(payload?.appointments) ? payload.appointments : []);
-        setPage(payload?.page || pageToLoad);
-        setTotalPages(payload?.totalPages || 1);
-        setTotalCount(payload?.total ?? (payload?.appointments?.length || 0));
-      } catch (loadError) {
-        setError(loadError.message || "Failed to load bookings");
+        setBookings(Array.isArray(data?.appointments) ? data.appointments : []);
+        setPage(data?.page || pageToLoad);
+        setTotalPages(data?.totalPages || 1);
+        setTotalCount(data?.total ?? (data?.appointments?.length || 0));
+      } catch (err) {
+        setError(err.message || "Failed to load bookings");
       } finally {
         setIsLoading(false);
       }
@@ -69,19 +53,6 @@ export default function MyBookings() {
     loadBookings();
   }, [loadBookings]);
 
-  const handleTimezoneChange = (value) => {
-    if (value === BROWSER_TIMEZONE_OPTION) {
-      clearPreferredTimezone();
-      setUseBrowserTimezone(true);
-      setDisplayTimezone(detectedTimezone);
-      return;
-    }
-
-    persistPreferredTimezone(value);
-    setUseBrowserTimezone(false);
-    setDisplayTimezone(value);
-  };
-
   const handleCancel = async (appointmentId) => {
     setCancelingId(appointmentId);
     setError("");
@@ -89,8 +60,8 @@ export default function MyBookings() {
     try {
       await api.delete(`/customer/appointments/${appointmentId}`);
       setBookings((prev) => prev.filter((item) => item._id !== appointmentId));
-    } catch (cancelError) {
-      setError(cancelError.message || "Failed to cancel booking");
+    } catch (err) {
+      setError(err.message || "Failed to cancel booking");
     } finally {
       setCancelingId("");
     }
@@ -107,13 +78,13 @@ export default function MyBookings() {
 
   const paginationItems = [];
   if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i += 1) paginationItems.push(i);
+    for (let i = 1; i <= totalPages; i++) paginationItems.push(i);
   } else {
     const start = Math.max(2, page - 1);
     const end = Math.min(totalPages - 1, page + 1);
     paginationItems.push(1);
     if (start > 2) paginationItems.push("ellipsis-start");
-    for (let i = start; i <= end; i += 1) paginationItems.push(i);
+    for (let i = start; i <= end; i++) paginationItems.push(i);
     if (end < totalPages - 1) paginationItems.push("ellipsis-end");
     paginationItems.push(totalPages);
   }
@@ -125,43 +96,20 @@ export default function MyBookings() {
           <h1>My Bookings</h1>
           <Link to="/menu">Book New Service</Link>
         </div>
-{/*         
-        <TimezoneSelectField
-          label="Display Timezone"
-          selectId="booking-history-display-timezone"
-          value={useBrowserTimezone ? BROWSER_TIMEZONE_OPTION : displayTimezone}
-          onChange={handleTimezoneChange}
-          options={timezoneOptions}
-          leadingOptions={[
-            {
-              value: BROWSER_TIMEZONE_OPTION,
-              label: `Browser default (${detectedTimezone})`,
-              triggerLabel: `Browser default (${detectedTimezone})`,
-              primaryText: "Browser default",
-              secondaryText: detectedTimezone,
-              tertiaryText: "Use the timezone detected from this browser",
-              searchText: `Browser default ${detectedTimezone}`,
-            },
-          ]}
-          helperText="Provider times stay anchored to the shop timezone. Your view can be overridden here."
-          style={{ maxWidth: 420 }}
-          searchPlaceholder="Search abbreviation, timezone, or UTC offset"
-        /> */}
 
         {isLoading ? <p>Loading bookings...</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
-
         {!isLoading && !error && bookings.length === 0 ? <p>No bookings yet.</p> : null}
 
         {!isLoading && !error && bookings.length > 0 ? (
           <div className="service-grid">
             {bookings.map((booking) => {
               const providerTimezone = booking.providerTimezone || "UTC";
-              const bookingTimezone = booking.userTimezone || displayTimezone;
 
               return (
                 <article key={booking._id} className="service-card">
                   <h3>Booking #{booking._id?.slice(-6)}</h3>
+
                   <p>
                     <strong>Status:</strong>{" "}
                     <span className="status-badge">{booking.status}</span>
@@ -191,13 +139,9 @@ export default function MyBookings() {
                     {formatTimeWindowInTimezone({
                       startTimeUTC: booking.startTimeUTC,
                       endTimeUTC: booking.endTimeUTC,
-                      timezone: displayTimezone,
+                      timezone: detectedTimezone,
                     })}{" "}
-                    ({displayTimezone})
-                  </p>
-
-                  <p>
-                    <strong>Booked with:</strong> {bookingTimezone}
+                    ({detectedTimezone})
                   </p>
 
                   <p>
@@ -250,6 +194,7 @@ export default function MyBookings() {
               Showing {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–
               {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
             </div>
+
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -259,6 +204,7 @@ export default function MyBookings() {
               >
                 &lt; Prev
               </button>
+
               {paginationItems.map((item, idx) =>
                 typeof item === "number" ? (
                   <button
@@ -276,6 +222,7 @@ export default function MyBookings() {
                   </span>
                 ),
               )}
+
               <button
                 type="button"
                 className="btn btn-ghost"
