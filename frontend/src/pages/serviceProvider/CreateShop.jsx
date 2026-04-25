@@ -5,6 +5,8 @@ import { useAuth } from "../../auth/useAuth";
 import { createTenantShop, fetchShopIndustries } from "./api/providerApi";
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import ImageUploader from "../../components/ImageUploader";
+import TimezoneSelectField from "../../components/TimezoneSelectField";
+import { getDetectedTimezone, getSupportedTimezoneOptions } from "../../utils/timezone";
 
 const DAYS = [
   "monday",
@@ -41,6 +43,7 @@ export default function ProviderCreateShopPage() {
   const { token } = useAuth();
   const { refreshShops, setSelectedShopId } = useProviderWorkspace();
   const navigate = useNavigate();
+  const timezoneOptions = useMemo(() => getSupportedTimezoneOptions(), []);
   const [form, setForm] = useState({
     shopName: "",
     industry: "",
@@ -52,6 +55,7 @@ export default function ProviderCreateShopPage() {
     addressState: "",
     addressPincode: "",
     addressLandMark: "",
+    timezone: getDetectedTimezone(),
     openingHours: defaultOpeningHours,
     images: [],
   });
@@ -127,6 +131,10 @@ export default function ProviderCreateShopPage() {
       nextErrors.images = "At least one shop image is required";
     }
 
+    if (!form.timezone) {
+      nextErrors.timezone = "Timezone is required";
+    }
+
     if (requiredOpenDays === 0) {
       nextErrors.openingHours = "At least one day must be open";
     }
@@ -183,6 +191,7 @@ export default function ProviderCreateShopPage() {
           description: form.description.trim(),
           contactEmail: form.contactEmail.trim(),
           contactPhone: form.contactPhone.trim(),
+          timezone: form.timezone,
           address: {
             street: form.addressStreet.trim(),
             city: form.addressCity.trim(),
@@ -311,6 +320,18 @@ export default function ProviderCreateShopPage() {
               onChange={handleChange}
             />
           </label>
+
+          <TimezoneSelectField
+            label="Provider Timezone"
+            selectId="shop-timezone"
+            value={form.timezone}
+            onChange={(value) => setForm((prev) => ({ ...prev, timezone: value }))}
+            options={timezoneOptions}
+            required
+            helperText="Weekly availability will be interpreted in this timezone."
+            error={errors.timezone}
+            searchPlaceholder="Search abbreviation, timezone, or UTC offset"
+          />
 
           <ImageUploader
             label="Shop Images"

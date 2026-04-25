@@ -197,6 +197,7 @@ export default function ShopDetails() {
       <div className="service-details-layout">
         <aside className="card service-availability-card">
           <h2>Opening times</h2>
+          <p className="muted-text">Times shown in {shop?.timezone || "UTC"}</p>
 
           {isLoading ? <p>Loading opening times...</p> : null}
           {error ? <p className="error-text">Opening times are unavailable right now.</p> : null}
@@ -253,6 +254,9 @@ export default function ShopDetails() {
                   <p>
                     <strong>Rating:</strong> {shop.rating ? shop.rating.toFixed(1) : "New"}
                     {shop.ratingCount > 0 ? ` (${shop.ratingCount})` : ""}
+                  </p>
+                  <p>
+                    <strong>Timezone:</strong> {shop.timezone || "UTC"}
                   </p>
                 </div>
               </>

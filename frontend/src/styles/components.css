@@ -40,6 +40,159 @@
   color: #21291a;
 }
 
+.timezone-select {
+  position: relative;
+}
+
+.timezone-select-trigger {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #21291a;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.timezone-select-trigger:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.timezone-select-trigger.is-open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(108, 141, 74, 0.12);
+}
+
+.timezone-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timezone-select-caret {
+  color: var(--muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.timezone-select-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 28px rgba(33, 46, 20, 0.14);
+  overflow: hidden;
+}
+
+.timezone-select-search-wrap {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  background: #f8faf5;
+}
+
+.timezone-select-search {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #21291a;
+}
+
+.timezone-select-options {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+}
+
+.timezone-select-header {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  background: #f3f7ee;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: #516043;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.timezone-select-option {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  color: #21291a;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+}
+
+.timezone-select-option:hover,
+.timezone-select-option.is-selected {
+  background: #edf4e5;
+}
+
+.timezone-select-option-topline {
+  display: grid;
+  grid-template-columns: minmax(56px, auto) 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.timezone-select-option-abbr {
+  font-size: 13px;
+  font-weight: 800;
+  color: #233117;
+}
+
+.timezone-select-option-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.timezone-select-option-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #516043;
+}
+
+.timezone-select-option-main {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.timezone-select-option-sub {
+  font-size: 12px;
+  color: #516043;
+}
+
+.timezone-select-option-tertiary {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.timezone-select-empty {
+  padding: 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

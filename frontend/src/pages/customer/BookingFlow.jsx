@@ -1,29 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../auth/useAuth";
 import AlertModal from "../../components/AlertModal";
 import FakePayCheckout from "../../components/FakePayCheckout";
+import TimezoneSelectField from "../../components/TimezoneSelectField";
 import api from "../../auth/api";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
-import customParseFormat from "dayjs/plugin/customParseFormat";
-
-dayjs.extend(utc);
-dayjs.extend(customParseFormat);
+import {
+  clearPreferredTimezone,
+  formatTimeWindowInTimezone,
+  getDetectedTimezone,
+  getSavedTimezone,
+  getSupportedTimezoneOptions,
+  getTodayInTimezone,
+  persistPreferredTimezone,
+  resolvePreferredTimezone,
+} from "../../utils/timezone";
+import dayjs from "../../utils/dayjs";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-
-
-const getTodayDate = () => dayjs().format("YYYY-MM-DD");
-
-// const toLocalDateTimeValue = (date) => {
-//   const year = date.getFullYear();
-//   const month = String(date.getMonth() + 1).padStart(2, "0");
-//   const day = String(date.getDate()).padStart(2, "0");
-//   const hours = String(date.getHours()).padStart(2, "0");
-//   const minutes = String(date.getMinutes()).padStart(2, "0");
-//   return `${year}-${month}-${day}T${hours}:${minutes}`;
-// };
+const DEFAULT_PROVIDER_TIMEZONE = "UTC";
+const BROWSER_TIMEZONE_OPTION = "__browser__";
 
 const parseJsonSafely = async (response) => {
   const contentType = response.headers.get("content-type") || "";
@@ -31,251 +26,118 @@ const parseJsonSafely = async (response) => {
   return response.json();
 };
 
-
-const parseTimeOnDateUTC = (date, timeText) => {
-  const match =
-    typeof timeText === "string"
-      ? timeText.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
-      : null;
-  if (!match) return null;
-
-  const candidate = dayjs
-    .utc(date)
-    .hour(Number(match[1]))
-    .minute(Number(match[2]))
-    .second(0)
-    .millisecond(0);
-
-  if (!candidate.isValid()) {
-    return null;
-  }
-
-  return candidate.toDate();
-};
-
-// const getMinStartTimeLocal = () => {
-//   const now = new Date();
-//   now.setSeconds(0, 0);
-//   return toLocalDateTimeValue(now);
-// };
-
-const getDayNameUTC = (date) => {
-  const dayNames = [
-    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
-  ];
-  const index = dayjs.utc(date).day();
-  return dayNames[index] || "sunday";
-};
-
-const normalizeShopSchedule = (payload) => ({
-  weeklyAvailability: Array.isArray(payload?.weeklyAvailability) ? payload.weeklyAvailability : [],
-  closedPeriods: Array.isArray(payload?.closedPeriods) ? payload.closedPeriods : []
-});
-
-const normalizeServiceSchedule = (payload) => ({
-  weeklyAvailability: Array.isArray(payload?.weeklyAvailability) ? payload.weeklyAvailability : [],
-  closedPeriods: Array.isArray(payload?.closedPeriods) ? payload.closedPeriods : []
-});
-
-const toUtcDateOrNull = (value) => {
-  if (!value) return null;
-  const parsed = dayjs.utc(value);
-  return parsed.isValid() ? parsed.toDate() : null;
-};
-
-const isClosedForDateRange = ({ bookingDate, closedPeriods }) => {
-  if (!Array.isArray(closedPeriods) || closedPeriods.length === 0) {
-    return false;
-  }
-
-  const dayStart = dayjs.utc(bookingDate).startOf("day").toDate();
-  const dayEnd = dayjs.utc(bookingDate).add(1, "day").toDate();
-
-  return closedPeriods.some((period) => {
-    const periodStart = toUtcDateOrNull(period?.startDate);
-    const periodEnd = toUtcDateOrNull(period?.endDate);
-    if (!periodStart || !periodEnd) {
-      return false;
-    }
-    return dayStart < periodEnd && dayEnd > periodStart;
+const buildSlotOptionLabel = ({
+  startTimeUTC,
+  endTimeUTC,
+  providerTimezone,
+  userTimezone,
+}) => {
+  const providerLabel = formatTimeWindowInTimezone({
+    startTimeUTC,
+    endTimeUTC,
+    timezone: providerTimezone,
   });
-};
-
-const getDayAvailability = (schedule, bookingDate) => {
-  if (!schedule) return null;
-  const dayName = getDayNameUTC(bookingDate);
-  return (
-    schedule.weeklyAvailability.find(
-      (entry) =>
-        typeof entry?.day === "string" &&
-        entry.day.toLowerCase() === dayName
-    ) || null
-  );
-};
-
-const isSameUtcDate = (left, right) =>
-  dayjs.utc(left).isSame(dayjs.utc(right), "day");
-
-const isDayOpen = (dayAvailability) => {
-  if (!dayAvailability) return false;
-  if (typeof dayAvailability.isOpen === "boolean") {
-    return dayAvailability.isOpen;
-  }
-  if (typeof dayAvailability.isAvailable === "boolean") {
-    return dayAvailability.isAvailable;
-  }
-  return false;
-};
-
-const getDayRangesOnDateUTC = ({ bookingDate, dayAvailability }) => {
-  if (!dayAvailability) return [];
-
-  const ranges = [];
-  const slotList = Array.isArray(dayAvailability.slots) ? dayAvailability.slots : [];
-
-  for (const slot of slotList) {
-    const startCandidate = slot?.startTime ?? slot?.start;
-    const endCandidate = slot?.endTime ?? slot?.end;
-    const windowStart = parseTimeOnDateUTC(bookingDate, startCandidate);
-    const windowEnd = parseTimeOnDateUTC(bookingDate, endCandidate);
-
-    if (!windowStart || !windowEnd || windowStart >= windowEnd) {
-      continue;
-    }
-
-    ranges.push({ start: windowStart, end: windowEnd });
-  }
-
-  if (ranges.length > 0) {
-    ranges.sort((left, right) => left.start.getTime() - right.start.getTime());
-    return ranges;
-  }
-
-  const rangeStartText =
-    typeof dayAvailability.openTime === "string" ? dayAvailability.openTime : dayAvailability.startTime;
-  const rangeEndText =
-    typeof dayAvailability.closeTime === "string" ? dayAvailability.closeTime : dayAvailability.endTime;
-
-  if (rangeStartText && rangeEndText) {
-    const rangeStart = parseTimeOnDateUTC(bookingDate, rangeStartText);
-    const rangeEnd = parseTimeOnDateUTC(bookingDate, rangeEndText);
-    if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
-      return [{ start: rangeStart, end: rangeEnd }];
-    }
-  }
-
-  return ranges;
-};
-
-const isWithinAnyRange = ({ bookingStart, bookingEnd, ranges }) =>
-  ranges.some((range) => bookingStart >= range.start && bookingEnd <= range.end);
-
-const isScheduleClosedByDateRange = ({ schedule, bookingDate }) =>
-  Boolean(schedule) &&
-  isClosedForDateRange({
-    bookingDate,
-    closedPeriods: schedule.closedPeriods
+  const userLabel = formatTimeWindowInTimezone({
+    startTimeUTC,
+    endTimeUTC,
+    timezone: userTimezone,
   });
 
-const getAvailabilityPopupMessage = ({ shopSchedule, serviceSchedule, bookingStart, bookingEnd }) => {
-  if (!shopSchedule || !serviceSchedule) {
-    return "";
-  }
-
-  if (!isSameUtcDate(bookingStart, bookingEnd)) {
-    return "Booking time is outside shop working hours.";
-  }
-
-  if (isScheduleClosedByDateRange({ schedule: shopSchedule, bookingDate: bookingStart })) {
-    return "Shop is closed on selected day.";
-  }
-
-  const shopDayAvailability = getDayAvailability(shopSchedule, bookingStart);
-  if (!isDayOpen(shopDayAvailability)) {
-    return "Shop is closed on selected day.";
-  }
-
-  const shopRanges = getDayRangesOnDateUTC({
-    bookingDate: bookingStart,
-    dayAvailability: shopDayAvailability
-  });
-
-  if (
-    shopRanges.length === 0 ||
-    !isWithinAnyRange({
-      bookingStart,
-      bookingEnd,
-      ranges: shopRanges
-    })
-  ) {
-    return "Booking time is outside shop working hours.";
-  }
-
-  if (isScheduleClosedByDateRange({ schedule: serviceSchedule, bookingDate: bookingStart })) {
-    return "Service is not available at selected time.";
-  }
-
-  const serviceDayAvailability = getDayAvailability(serviceSchedule, bookingStart);
-  if (!isDayOpen(serviceDayAvailability)) {
-    return "Service is not available at selected time.";
-  }
-
-  const serviceRanges = getDayRangesOnDateUTC({
-    bookingDate: bookingStart,
-    dayAvailability: serviceDayAvailability
-  });
-
-  if (
-    serviceRanges.length === 0 ||
-    !isWithinAnyRange({
-      bookingStart,
-      bookingEnd,
-      ranges: serviceRanges
-    })
-  ) {
-    return "Service is not available at selected time.";
-  }
-
-  return "";
+  return `${providerLabel} provider | ${userLabel} your time`;
 };
-
-
- 
 
 export default function BookingFlow() {
   const { shopId, serviceId } = useParams();
-  const { token: _token } = useAuth();
   const navigate = useNavigate();
 
-  // const defaultStartTime = useMemo(() => {
-  //   const now = new Date();
-  //   now.setMinutes(now.getMinutes() + 60);
-  //   now.setSeconds(0, 0);
-  //   return toLocalDateTimeValue(now); 
-  // }, []);
+  const detectedTimezone = useMemo(() => getDetectedTimezone(), []);
+  const timezoneOptions = useMemo(() => getSupportedTimezoneOptions(), []);
 
-//   const [form, setForm] = useState({
-//   startTimeLocal: defaultStartTime,
-//   durationMinutes: 30,
-// });
+  const [serviceDuration, setServiceDuration] = useState(30);
+  const [serviceInfo, setServiceInfo] = useState(null);
+  const [providerTimezone, setProviderTimezone] = useState(
+    DEFAULT_PROVIDER_TIMEZONE,
+  );
+  const [displayTimezone, setDisplayTimezone] = useState(() =>
+    resolvePreferredTimezone(),
+  );
+  const [useBrowserTimezone, setUseBrowserTimezone] = useState(() => !getSavedTimezone());
+
+  const [selectedDate, setSelectedDate] = useState(() =>
+    getTodayInTimezone(DEFAULT_PROVIDER_TIMEZONE),
+  );
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState("");
+
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [popupMessage, setPopupMessage] = useState("");
-  // const [minStartTimeLocal, setMinStartTimeLocal] = useState(() => getMinStartTimeLocal())
-  const [shopSchedule, setShopSchedule] = useState(null);
-  const [serviceSchedule, setServiceSchedule] = useState(null);
-  const [serviceDuration, setServiceDuration] = useState(30);
-
-  const [selectedDate, setSelectedDate] = useState(getTodayDate());
-  const [availableSlots, setAvailableSlots] = useState([]);
-const [selectedSlot, setSelectedSlot] = useState("");
-
-  const [serviceInfo, setServiceInfo] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [fakePayCheckout, setFakePayCheckout] = useState(null);
   const [isFakePayOpen, setIsFakePayOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchBookingDetails = async () => {
+      if (!shopId || !serviceId) return;
+
+      try {
+        const [shopResponse, serviceResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/shops/${shopId}`),
+          fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`),
+        ]);
+
+        const [shopPayload, servicePayload] = await Promise.all([
+          parseJsonSafely(shopResponse),
+          parseJsonSafely(serviceResponse),
+        ]);
+
+        if (!shopResponse.ok) {
+          throw new Error(shopPayload?.message || "Failed to load shop details");
+        }
+
+        if (!serviceResponse.ok) {
+          throw new Error(servicePayload?.message || "Failed to load service details");
+        }
+
+        if (cancelled) return;
+
+        const nextProviderTimezone =
+          shopPayload?.timezone ||
+          servicePayload?.providerTimezone ||
+          DEFAULT_PROVIDER_TIMEZONE;
+
+        setProviderTimezone(nextProviderTimezone);
+        setServiceInfo(servicePayload || null);
+        setServiceDuration(servicePayload?.durationMinutes || 30);
+      } catch (error) {
+        if (!cancelled) {
+          setSubmitError(error.message || "Failed to load booking details");
+          setServiceInfo(null);
+          setProviderTimezone(DEFAULT_PROVIDER_TIMEZONE);
+        }
+      }
+    };
+
+    fetchBookingDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shopId, serviceId]);
+
+  useEffect(() => {
+    const providerToday = getTodayInTimezone(providerTimezone);
+
+    setSelectedDate((current) => {
+      if (!current || current < providerToday) {
+        return providerToday;
+      }
+      return current;
+    });
+  }, [providerTimezone]);
 
   useEffect(() => {
     if (!shopId || !serviceId || !selectedDate || !serviceDuration) return;
@@ -283,7 +145,7 @@ const [selectedSlot, setSelectedSlot] = useState("");
     const controller = new AbortController();
 
     const fetchSlots = async () => {
-      setSubmitError("");   // reset previous error
+      setSubmitError("");
       setAvailableSlots([]);
       setSelectedSlot("");
 
@@ -291,7 +153,7 @@ const [selectedSlot, setSelectedSlot] = useState("");
         const queryParams = new URLSearchParams({
           date: selectedDate,
           slotIntervalMinutes: String(serviceDuration),
-          tzOffsetMinutes: String(dayjs().utcOffset()),
+          userTimezone: displayTimezone,
         });
 
         const response = await fetch(
@@ -304,28 +166,28 @@ const [selectedSlot, setSelectedSlot] = useState("");
         if (!response.ok || !payload) {
           throw new Error(payload?.message || "Failed to load available slots");
         }
-        const rawSlots = Array.isArray(payload.slots) ? payload.slots : [];
-        console.log("RAW SLOTS FROM API:", rawSlots);
-        const now = dayjs.utc();
-        const cutoff = now.add(60, "second");
-        const today = getTodayDate();
 
+        const rawSlots = Array.isArray(payload?.slots) ? payload.slots : [];
+        const now = dayjs.utc();
         const slots = rawSlots
-          .map((slot) => (slot?.startTimeUTC ? dayjs.utc(slot.startTimeUTC) : null))
-          .filter((slot) => slot && slot.isValid())
-          .filter((slot) => {
-            if (selectedDate !== today) return true;
-            return slot.isAfter(cutoff);
-          });
+          .map((slot) => ({
+            startTimeUTC: slot?.startTimeUTC,
+            endTimeUTC: slot?.endTimeUTC,
+          }))
+          .filter(
+            (slot) =>
+              dayjs.utc(slot.startTimeUTC).isValid() &&
+              dayjs.utc(slot.endTimeUTC).isValid(),
+          )
+          .filter((slot) => dayjs.utc(slot.startTimeUTC).isAfter(now));
 
         setAvailableSlots(slots);
-    
-        // do not auto-select slot
-        setSelectedSlot("");
 
+        if (payload?.providerTimezone) {
+          setProviderTimezone(payload.providerTimezone);
+        }
       } catch (error) {
         if (error?.name !== "AbortError") {
-          // setAvailableSlots([]);
           setSelectedSlot("");
           setSubmitError(error.message || "Failed to load available slots");
         }
@@ -337,192 +199,88 @@ const [selectedSlot, setSelectedSlot] = useState("");
     return () => {
       controller.abort();
     };
+  }, [shopId, serviceId, selectedDate, serviceDuration, displayTimezone]);
 
-  }, [shopId, serviceId, selectedDate, serviceDuration]);
+  const providerToday = useMemo(
+    () => getTodayInTimezone(providerTimezone),
+    [providerTimezone],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    setShopSchedule(null);
-    setServiceSchedule(null);
+  const selectedSlotDetails = useMemo(
+    () =>
+      availableSlots.find((slot) => slot.startTimeUTC === selectedSlot) || null,
+    [availableSlots, selectedSlot],
+  );
 
-    const fetchBookingSchedules = async () => {
-      if (!shopId || !serviceId) return;
-
-      try {
-        const [shopResponse, serviceResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/shops/${shopId}`),
-          fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
-        ]);
-
-        const [shopPayload, servicePayload] = await Promise.all([
-          parseJsonSafely(shopResponse),
-          parseJsonSafely(serviceResponse)
-        ]);
-
-        // Shop schedule
-        if (!shopResponse.ok || !shopPayload) {
-          if (!cancelled) setShopSchedule(null);
-        } else if (!cancelled) {
-          setShopSchedule(normalizeShopSchedule(shopPayload));
-        }
-
-        // Service schedule + duration
-        if (!serviceResponse.ok || !servicePayload) {
-          if (!cancelled) {
-            setServiceSchedule(null);
-          }
-        } else if (!cancelled) {
-          setServiceSchedule(normalizeServiceSchedule(servicePayload));
-setServiceDuration(servicePayload.durationMinutes || 30);
-          setServiceInfo(servicePayload);
-        }
-
-      } catch {
-        if (!cancelled) {
-          setShopSchedule(null);
-          setServiceSchedule(null);
-        }
-      }
-    };
-
-    fetchBookingSchedules();
-    return () => {
-      cancelled = true;
-    };
-
-  }, [shopId, serviceId]);
-
-
-  // useEffect(() => {
-  //   setMinStartTimeLocal(getMinStartTimeLocal());
-  //   const intervalId = window.setInterval(() => {
-  //     setMinStartTimeLocal(getMinStartTimeLocal());
-  //   }, 30000);
-
-  //   return () => {
-  //     window.clearInterval(intervalId);
-  //   };
-  // }, []);
-
- const showPopupError = (message) => {
-  const text = message || "Failed to create appointment";
-  setSubmitError(""); // clear inline error
-  setPopupMessage(text);
-};
-
-  const closePopup = () => {
-    setPopupMessage("");
+  const showPopupError = (message) => {
+    const text = message || "Failed to create appointment";
+    setSubmitError("");
+    setPopupMessage(text);
   };
 
-  // const handleChange = (event) => {
-  //   const { name, value } = event.target;
-  //   setForm((prev) => ({ ...prev, [name]: value }));
-  // };
+  const handleTimezoneChange = (value) => {
+    if (value === BROWSER_TIMEZONE_OPTION) {
+      clearPreferredTimezone();
+      setUseBrowserTimezone(true);
+      setDisplayTimezone(detectedTimezone);
+      return;
+    }
+
+    persistPreferredTimezone(value);
+    setUseBrowserTimezone(false);
+    setDisplayTimezone(value);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitError("");
     setSuccessMessage("");
     setPopupMessage("");
+
     if (isSubmitting) return;
-    if (!selectedSlot) {
+    if (!selectedSlotDetails) {
       setSubmitError("Please select a slot.");
       return;
     }
-    const startDate = dayjs.utc(selectedSlot);
 
-    if (!startDate.isValid()) {
+    const startDate = dayjs.utc(selectedSlotDetails.startTimeUTC);
+    const endDate = dayjs.utc(selectedSlotDetails.endTimeUTC);
+
+    if (!startDate.isValid() || !endDate.isValid()) {
       setSubmitError("Please select a valid start date and time.");
       return;
     }
 
-    const durationMinutes = Number(serviceDuration);
-    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-      setSubmitError("Duration must be greater than 0.");
+    if (startDate.isBefore(dayjs.utc())) {
+      showPopupError("Please select a future time slot.");
       return;
     }
 
-    const now = dayjs.utc();
-    if (startDate.valueOf() <= now.valueOf()) {
-      showPopupError("Please select current or future date and time.");
-      return;
-    }
+    const payload = {
+      startTimeUTC: startDate.toISOString(),
+      endTimeUTC: endDate.toISOString(),
+      userTimezone: displayTimezone,
+    };
 
-    const endDate = startDate.add(durationMinutes, "minute");
-
-    let selectedShopSchedule = shopSchedule;
-    let selectedServiceSchedule = serviceSchedule;
-
-    if ((!selectedShopSchedule || !selectedServiceSchedule) && shopId && serviceId) {
-      try {
-        const [shopResponse, serviceResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/shops/${shopId}`),
-          fetch(`${API_BASE_URL}/shops/${shopId}/services/${serviceId}`)
-        ]);
-        const [shopPayload, servicePayload] = await Promise.all([
-          parseJsonSafely(shopResponse),
-          parseJsonSafely(serviceResponse)
-        ]);
-
-        if (shopResponse.ok && shopPayload) {
-          selectedShopSchedule = normalizeShopSchedule(shopPayload);
-          setShopSchedule(selectedShopSchedule);
-        }
-
-        if (serviceResponse.ok && servicePayload) {
-          selectedServiceSchedule = normalizeServiceSchedule(servicePayload);
-          setServiceSchedule(selectedServiceSchedule);
-        }
-      } catch {
-        selectedShopSchedule = null;
-        selectedServiceSchedule = null;
+    if (serviceInfo?.mode === "offline") {
+      payload.paymentMethod = paymentMethod === "cash" ? "cash" : "card";
+      if (paymentMethod === "online") {
+        payload.paymentGateway = "fakepay";
       }
     }
-
-    const availabilityPopupMessage = getAvailabilityPopupMessage({
-      shopSchedule: selectedShopSchedule,
-      serviceSchedule: selectedServiceSchedule,
-      bookingStart: startDate.toDate(),
-      bookingEnd: endDate.toDate()
-    });
-
-    if (availabilityPopupMessage) {
-      showPopupError(availabilityPopupMessage);
-      return;
-    }
-
-const payload = {
-  startTimeUTC: startDate.toISOString(),
-  endTimeUTC: endDate.toISOString(),
-};
-if (serviceInfo?.mode === 'offline') {
-  payload.paymentMethod = paymentMethod === 'cash' ? 'cash' : 'card';
-  if (paymentMethod === 'online') {
-    payload.paymentGateway = 'fakepay';
-  }
-}
-
-    // if (form.mode === "online") {
-    //   payload.meeting = {
-    //     platform: "google_meet",
-    //     link: form.meetingLink.trim()
-    //   };
-    // }
 
     setIsSubmitting(true);
 
     try {
-      if (serviceInfo?.mode === 'online' || paymentMethod === 'online') {
-        // For online services or online payments, create order first, then payment modal
-        const orderResponse = await api.post('/payment/create-order', {
-          amount: serviceInfo.price,
-          paymentGateway: 'fakepay',
+      if (serviceInfo?.mode === "online" || paymentMethod === "online") {
+        const orderResponse = await api.post("/payment/create-order", {
+          amount: serviceInfo?.price,
+          paymentGateway: "fakepay",
         });
 
-        const orderPayload = orderResponse?.data;
         setFakePayCheckout({
           appointment: null,
-          orderPayload,
+          orderPayload: orderResponse?.data,
           serviceInfo,
           startDate: startDate.toDate(),
           endDate: endDate.toDate(),
@@ -533,12 +291,12 @@ if (serviceInfo?.mode === 'offline') {
         return;
       }
 
-      // For cash payments (offline only), create appointment immediately
+      await api.post(`/shops/${shopId}/services/${serviceId}/appointments`, payload);
 
-      setSuccessMessage('Appointment booked successfully.');
-      setTimeout(() => navigate('/bookings', { replace: true }), 700);
+      setSuccessMessage("Appointment booked successfully.");
+      setTimeout(() => navigate("/bookings", { replace: true }), 700);
     } catch (error) {
-      showPopupError(error.message || 'Failed to create appointment');
+      showPopupError(error.message || "Failed to create appointment");
     } finally {
       setIsSubmitting(false);
     }
@@ -552,103 +310,148 @@ if (serviceInfo?.mode === 'offline') {
           <Link to={`/shops/${shopId}/services/${serviceId}`}>Back to Service</Link>
         </div>
 
+        <p className="muted-text">
+          Provider availability is defined in <strong>{providerTimezone}</strong>.
+          {" "}
+          Your display timezone is <strong>{displayTimezone}</strong>.
+        </p>
+
         {submitError ? <p className="error-text">{submitError}</p> : null}
         {successMessage ? <p className="success-text">{successMessage}</p> : null}
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          <TimezoneSelectField
+            label="Display Timezone"
+            selectId="booking-display-timezone"
+            value={useBrowserTimezone ? BROWSER_TIMEZONE_OPTION : displayTimezone}
+            onChange={handleTimezoneChange}
+            options={timezoneOptions}
+            leadingOptions={[
+              {
+                value: BROWSER_TIMEZONE_OPTION,
+                label: `Browser default (${detectedTimezone})`,
+                triggerLabel: `Browser default (${detectedTimezone})`,
+                primaryText: "Browser default",
+                secondaryText: detectedTimezone,
+                tertiaryText: "Use the timezone detected from this browser",
+                searchText: `Browser default ${detectedTimezone}`,
+              },
+            ]}
+            helperText="Times are auto-detected from your browser, but you can override them here."
+            searchPlaceholder="Search abbreviation, timezone, or UTC offset"
+          />
+
           <label className="form-field">
             Select Date
             <input
               type="date"
               value={selectedDate}
-              min={getTodayDate()}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              min={providerToday}
+              onChange={(event) => setSelectedDate(event.target.value)}
               required
             />
+            <span className="muted-text">
+              This date uses the provider calendar in {providerTimezone}.
+            </span>
           </label>
 
           <label className="form-field">
             Available Slots
-
             {availableSlots.length === 0 ? (
-              <p className="muted-text">No available slots for this date.</p>
+              <p className="muted-text">No available slots for this provider date.</p>
             ) : (
               <select
                 value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.target.value)}
+                onChange={(event) => setSelectedSlot(event.target.value)}
                 required
               >
                 <option value="">Select slot</option>
-                
-                {availableSlots.map((slot) => {
-                  const value = slot.toISOString();
+                {availableSlots.map((slot) => (
+                  <option key={slot.startTimeUTC} value={slot.startTimeUTC}>
+                    {buildSlotOptionLabel({
+                      startTimeUTC: slot.startTimeUTC,
+                      endTimeUTC: slot.endTimeUTC,
+                      providerTimezone,
+                      userTimezone: displayTimezone,
+                    })}
+                  </option>
+                ))}
+              </select>
+            )}
+          </label>
 
-                  return (
-                    <option key={value} value={value}>
-                      {slot.local().format("h:mm A")}
-                    </option>
-                  );
-                })}
-                </select>
-              )}
-            </label>
+          {selectedSlotDetails ? (
+            <div className="form-field">
+              <div className="readonly-field">
+                <div>
+                  <strong>Provider time:</strong>{" "}
+                  {formatTimeWindowInTimezone({
+                    startTimeUTC: selectedSlotDetails.startTimeUTC,
+                    endTimeUTC: selectedSlotDetails.endTimeUTC,
+                    timezone: providerTimezone,
+                  })}{" "}
+                  ({providerTimezone})
+                </div>
+                <div>
+                  <strong>Your time:</strong>{" "}
+                  {formatTimeWindowInTimezone({
+                    startTimeUTC: selectedSlotDetails.startTimeUTC,
+                    endTimeUTC: selectedSlotDetails.endTimeUTC,
+                    timezone: displayTimezone,
+                  })}{" "}
+                  ({displayTimezone})
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-          {serviceInfo?.mode === 'offline' && (
+          {serviceInfo?.mode === "offline" ? (
             <label className="form-field">
               Payment Method
-              <div className="payment-toggle-group" style={{display: 'flex', gap: '1rem', marginTop: '0.5rem'}}>
-                <button 
-                  type="button" 
-                  className="btn" 
-                  style={{flex: 1, opacity: paymentMethod === 'cash' ? 1 : 0.6, backgroundColor: paymentMethod === 'cash' ? '#10b981' : '#6b7280'}}
-                  onClick={() => setPaymentMethod('cash')}
+              <div
+                className="payment-toggle-group"
+                style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}
+              >
+                <button
+                  type="button"
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    opacity: paymentMethod === "cash" ? 1 : 0.6,
+                    backgroundColor: paymentMethod === "cash" ? "#10b981" : "#6b7280",
+                  }}
+                  onClick={() => setPaymentMethod("cash")}
                 >
                   Pay Cash
                 </button>
-                <button 
-                  type="button" 
-                  className="btn" 
-                  style={{flex: 1, opacity: paymentMethod === 'online' ? 1 : 0.6, backgroundColor: paymentMethod === 'online' ? '#10b981' : '#6b7280'}}
-                  onClick={() => setPaymentMethod('online')}
+                <button
+                  type="button"
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    opacity: paymentMethod === "online" ? 1 : 0.6,
+                    backgroundColor:
+                      paymentMethod === "online" ? "#10b981" : "#6b7280",
+                  }}
+                  onClick={() => setPaymentMethod("online")}
                 >
                   Pay Online
                 </button>
               </div>
             </label>
-          )}
+          ) : null}
 
           <label className="form-field">
             Duration
-            <div className="readonly-field">
-              {serviceDuration} minutes
-            </div>
+            <div className="readonly-field">{serviceDuration} minutes</div>
           </label>
 
-          {/* <label className="form-field" htmlFor="mode">
-            Mode
-            <select id="mode" name="mode" value={form.mode} onChange={handleChange}>
-              <option value="offline">Offline</option>
-              <option value="online">Online</option>
-            </select>
-          </label> */}
-
-          {/* {form.mode === "online" ? (
-            <label className="form-field" htmlFor="meetingLink">
-              Meeting Link
-              <input
-                id="meetingLink"
-                name="meetingLink"
-                type="url"
-                value={form.meetingLink}
-                onChange={handleChange}
-                placeholder="https://meet.google.com/..."
-                required
-              />
-            </label>
-          ) : null} */}
-
           <button className="btn" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Processing..." : (serviceInfo?.mode === 'online' || paymentMethod === 'online') ? "Pay & Book Appointment" : "Confirm Booking"}
+            {isSubmitting
+              ? "Processing..."
+              : serviceInfo?.mode === "online" || paymentMethod === "online"
+                ? "Pay & Book Appointment"
+                : "Confirm Booking"}
           </button>
         </form>
       </div>
@@ -666,16 +469,20 @@ if (serviceInfo?.mode === 'offline') {
         onSuccess={() => {
           setIsFakePayOpen(false);
           setFakePayCheckout(null);
-          setSuccessMessage('Appointment booked and paid successfully.');
-          setTimeout(() => navigate('/bookings', { replace: true }), 700);
+          setSuccessMessage("Appointment booked and paid successfully.");
+          setTimeout(() => navigate("/bookings", { replace: true }), 700);
         }}
         onCancel={() => {
           setIsFakePayOpen(false);
           setFakePayCheckout(null);
-          // No appointment was created, so just close
         }}
       />
-      <AlertModal isOpen={Boolean(popupMessage)} message={popupMessage} onClose={closePopup} />
+
+      <AlertModal
+        isOpen={Boolean(popupMessage)}
+        message={popupMessage}
+        onClose={() => setPopupMessage("")}
+      />
     </section>
   );
 }

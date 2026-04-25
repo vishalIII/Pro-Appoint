@@ -8,6 +8,7 @@ const { getPlanLimits } = require("../../config/planLimits");
 const {
   validateShopWeeklyAvailability,
 } = require("../../utils/availability");
+const { normalizeTimezone } = require("../../utils/timezone");
 
 // get active industries ====================================================================================
 exports.getActiveIndustries = async () => {
@@ -70,6 +71,7 @@ exports.applyShop = async (userId, data) => {
       address,
       images,
       documents,
+      timezone,
     } = data;
 
     // 5. Validations
@@ -94,6 +96,10 @@ exports.applyShop = async (userId, data) => {
     const normalizedWeeklyAvailability = validateShopWeeklyAvailability(
       weeklyAvailability,
     );
+    const normalizedTimezone = normalizeTimezone(timezone, {
+      fieldLabel: "timezone",
+      required: true,
+    });
 
     const existingShop = await Shop.findOne({ ownerId: userId });
 
@@ -108,6 +114,7 @@ exports.applyShop = async (userId, data) => {
       ownerId: userId,
       industry,
       weeklyAvailability: normalizedWeeklyAvailability,
+      timezone: normalizedTimezone,
       contactEmail,
       contactPhone,
       description,

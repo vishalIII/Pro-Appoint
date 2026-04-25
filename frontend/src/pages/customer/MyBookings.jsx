@@ -1,68 +1,93 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
-import { useNavigate } from "react-router-dom";
 import api from "../../auth/api";
-
-const formatDateTime = (value) => {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
-};
+import TimezoneSelectField from "../../components/TimezoneSelectField";
+import {
+  clearPreferredTimezone,
+  formatTimeWindowInTimezone,
+  getDetectedTimezone,
+  getSavedTimezone,
+  getSupportedTimezoneOptions,
+  persistPreferredTimezone,
+  resolvePreferredTimezone,
+} from "../../utils/timezone";
 
 const PAGE_SIZE = 6;
+const BROWSER_TIMEZONE_OPTION = "__browser__";
 
 export default function MyBookings() {
   const { token } = useAuth();
+  const navigate = useNavigate();
+
+  const detectedTimezone = useMemo(() => getDetectedTimezone(), []);
+  const timezoneOptions = useMemo(() => getSupportedTimezoneOptions(), []);
+
+  const [displayTimezone, setDisplayTimezone] = useState(() =>
+    resolvePreferredTimezone(),
+  );
+  const [useBrowserTimezone, setUseBrowserTimezone] = useState(() => !getSavedTimezone());
+
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelingId, setCancelingId] = useState("");
-  // const [joiningId, setJoiningId] = useState("");
-  // const [joinInfo, setJoinInfo] = useState(null);
-  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  const loadBookings = useCallback(async (pageToLoad = 1) => {
-    if (!token) {
-      setBookings([]);
-      setIsLoading(false);
-      return;
-    }
+  const loadBookings = useCallback(
+    async (pageToLoad = 1) => {
+      if (!token) {
+        setBookings([]);
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(true);
-    setError("");
+      setIsLoading(true);
+      setError("");
 
-    try {
-      const { data: payload } = await api.get("/customer/appointments", {
-        params: { page: pageToLoad, limit: PAGE_SIZE },
-      });
+      try {
+        const { data: payload } = await api.get("/customer/appointments", {
+          params: { page: pageToLoad, limit: PAGE_SIZE },
+        });
 
-      setBookings(Array.isArray(payload?.appointments) ? payload.appointments : []);
-      setPage(payload?.page || pageToLoad);
-      setTotalPages(payload?.totalPages || 1);
-      setTotalCount(payload?.total ?? (payload?.appointments?.length || 0));
-    } catch (loadError) {
-      setError(loadError.message || "Failed to load bookings");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
+        setBookings(Array.isArray(payload?.appointments) ? payload.appointments : []);
+        setPage(payload?.page || pageToLoad);
+        setTotalPages(payload?.totalPages || 1);
+        setTotalCount(payload?.total ?? (payload?.appointments?.length || 0));
+      } catch (loadError) {
+        setError(loadError.message || "Failed to load bookings");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  const handleTimezoneChange = (value) => {
+    if (value === BROWSER_TIMEZONE_OPTION) {
+      clearPreferredTimezone();
+      setUseBrowserTimezone(true);
+      setDisplayTimezone(detectedTimezone);
+      return;
+    }
+
+    persistPreferredTimezone(value);
+    setUseBrowserTimezone(false);
+    setDisplayTimezone(value);
+  };
 
   const handleCancel = async (appointmentId) => {
     setCancelingId(appointmentId);
     setError("");
 
     try {
-      const { data: payload } = await api.delete(`/customer/appointments/${appointmentId}`);
-
+      await api.delete(`/customer/appointments/${appointmentId}`);
       setBookings((prev) => prev.filter((item) => item._id !== appointmentId));
     } catch (cancelError) {
       setError(cancelError.message || "Failed to cancel booking");
@@ -70,7 +95,8 @@ export default function MyBookings() {
       setCancelingId("");
     }
   };
-  const handleJoin = async (appointment) => {
+
+  const handleJoin = (appointment) => {
     navigate(`/meeting/${appointment._id}`);
   };
 
@@ -99,71 +125,117 @@ export default function MyBookings() {
           <h1>My Bookings</h1>
           <Link to="/menu">Book New Service</Link>
         </div>
+{/*         
+        <TimezoneSelectField
+          label="Display Timezone"
+          selectId="booking-history-display-timezone"
+          value={useBrowserTimezone ? BROWSER_TIMEZONE_OPTION : displayTimezone}
+          onChange={handleTimezoneChange}
+          options={timezoneOptions}
+          leadingOptions={[
+            {
+              value: BROWSER_TIMEZONE_OPTION,
+              label: `Browser default (${detectedTimezone})`,
+              triggerLabel: `Browser default (${detectedTimezone})`,
+              primaryText: "Browser default",
+              secondaryText: detectedTimezone,
+              tertiaryText: "Use the timezone detected from this browser",
+              searchText: `Browser default ${detectedTimezone}`,
+            },
+          ]}
+          helperText="Provider times stay anchored to the shop timezone. Your view can be overridden here."
+          style={{ maxWidth: 420 }}
+          searchPlaceholder="Search abbreviation, timezone, or UTC offset"
+        /> */}
 
         {isLoading ? <p>Loading bookings...</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
 
-        {!isLoading && !error && bookings.length === 0 ? (
-          <p>No bookings yet.</p>
-        ) : null}
+        {!isLoading && !error && bookings.length === 0 ? <p>No bookings yet.</p> : null}
 
         {!isLoading && !error && bookings.length > 0 ? (
           <div className="service-grid">
-            {bookings.map((booking) => (
-              <article key={booking._id} className="service-card">
-                <h3>Booking #{booking._id?.slice(-6)}</h3>
-                <p>
-                  <strong>Status:</strong> <span className="status-badge">{booking.status}</span>
-                </p>
-                {booking.mode === "online" ? (
+            {bookings.map((booking) => {
+              const providerTimezone = booking.providerTimezone || "UTC";
+              const bookingTimezone = booking.userTimezone || displayTimezone;
+
+              return (
+                <article key={booking._id} className="service-card">
+                  <h3>Booking #{booking._id?.slice(-6)}</h3>
                   <p>
-                    <strong>Meeting:</strong>{" "}
-
-                    <span className="status-badge">
-                      {booking.meeting?.status || "waiting"}
-                    </span>
+                    <strong>Status:</strong>{" "}
+                    <span className="status-badge">{booking.status}</span>
                   </p>
-                ) : null}
-                <p>
-                  <strong>Start:</strong> {formatDateTime(booking.startTimeUTC)}
-                </p>
-                <p>
-                  <strong>End:</strong> {formatDateTime(booking.endTimeUTC)}
-                </p>
-                <p>
-                  <strong>Mode:</strong> {booking.mode}
-                </p>
-                <p>
-                  <strong>Price:</strong> INR {booking.price ?? "N/A"}
-                </p>
 
-                {booking.status === "pending" || booking.status === "confirmed" ? (
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    onClick={() => handleCancel(booking._id)}
-                    disabled={cancelingId === booking._id}
-                  >
-                    {cancelingId === booking._id ? "Cancelling..." : "Cancel Booking"}
-                  </button>
-                ) : null}
+                  {booking.mode === "online" ? (
+                    <p>
+                      <strong>Meeting:</strong>{" "}
+                      <span className="status-badge">
+                        {booking.meeting?.status || "waiting"}
+                      </span>
+                    </p>
+                  ) : null}
 
-                {booking.mode === "online" && booking.status === "confirmed" ? (
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => handleJoin(booking)}
-                    style={{ marginTop: 8 }}
-                  >
-                    Join Meeting
-                  </button>
-                ) : null}
-              </article>
-            ))}
+                  <p>
+                    <strong>Provider time:</strong>{" "}
+                    {formatTimeWindowInTimezone({
+                      startTimeUTC: booking.startTimeUTC,
+                      endTimeUTC: booking.endTimeUTC,
+                      timezone: providerTimezone,
+                    })}{" "}
+                    ({providerTimezone})
+                  </p>
+
+                  <p>
+                    <strong>Your time:</strong>{" "}
+                    {formatTimeWindowInTimezone({
+                      startTimeUTC: booking.startTimeUTC,
+                      endTimeUTC: booking.endTimeUTC,
+                      timezone: displayTimezone,
+                    })}{" "}
+                    ({displayTimezone})
+                  </p>
+
+                  <p>
+                    <strong>Booked with:</strong> {bookingTimezone}
+                  </p>
+
+                  <p>
+                    <strong>Mode:</strong> {booking.mode}
+                  </p>
+
+                  <p>
+                    <strong>Price:</strong> INR {booking.price ?? "N/A"}
+                  </p>
+
+                  {booking.status === "pending" || booking.status === "confirmed" ? (
+                    <button
+                      className="btn btn-secondary"
+                      type="button"
+                      onClick={() => handleCancel(booking._id)}
+                      disabled={cancelingId === booking._id}
+                    >
+                      {cancelingId === booking._id ? "Cancelling..." : "Cancel Booking"}
+                    </button>
+                  ) : null}
+
+                  {booking.mode === "online" && booking.status === "confirmed" ? (
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => handleJoin(booking)}
+                      style={{ marginTop: 8 }}
+                    >
+                      Join Meeting
+                    </button>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         ) : null}
 
-        {!error && totalCount > 0 && (
+        {!error && totalCount > 0 ? (
           <div
             style={{
               display: "flex",
@@ -202,7 +274,7 @@ export default function MyBookings() {
                   <span key={item + idx} className="muted-text">
                     ...
                   </span>
-                )
+                ),
               )}
               <button
                 type="button"
@@ -214,9 +286,7 @@ export default function MyBookings() {
               </button>
             </div>
           </div>
-        )}
-
-
+        ) : null}
       </div>
     </section>
   );

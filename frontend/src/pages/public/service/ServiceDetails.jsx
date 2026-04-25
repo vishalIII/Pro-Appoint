@@ -90,6 +90,7 @@ export default function ServiceDetails() {
   }, [shopId, serviceId]);
 
   const canBook = isAuthenticated && user?.role === ROLES.CUSTOMER;
+  const providerTimezone = service?.providerTimezone || "UTC";
   const availabilityMap = new Map(
     Array.isArray(service?.weeklyAvailability)
       ? service.weeklyAvailability.map((entry) => [
@@ -132,6 +133,7 @@ export default function ServiceDetails() {
       <div className="service-details-layout">
         <aside className="card service-availability-card">
           <h2>Opening times</h2>
+          <p className="muted-text">Times shown in {providerTimezone}</p>
 
           {isLoading ? <p>Loading opening times...</p> : null}
           {error ? <p className="error-text">Opening times are unavailable right now.</p> : null}
@@ -179,6 +181,9 @@ export default function ServiceDetails() {
                   </p>
                   <p>
                     <strong>Capacity:</strong> {service.capacity ?? 1}
+                  </p>
+                  <p>
+                    <strong>Provider timezone:</strong> {providerTimezone}
                   </p>
                 </div>
               </>

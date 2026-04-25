@@ -14,6 +14,8 @@ import {
 import { useProviderWorkspace } from "./hooks/useProviderWorkspace";
 import { getDateLabel, getDateTimeLabel } from "./utils/dateRange";
 import ImageUploader from "../../components/ImageUploader";
+import TimezoneSelectField from "../../components/TimezoneSelectField";
+import { getDetectedTimezone, getSupportedTimezoneOptions } from "../../utils/timezone";
 
 const DAYS = [
   "monday",
@@ -117,6 +119,7 @@ const createEditForm = (shop) => ({
   description: shop?.description || "",
   contactEmail: shop?.contactEmail || "",
   contactPhone: shop?.contactPhone || "",
+  timezone: shop?.timezone || getDetectedTimezone(),
   addressStreet: shop?.address?.street || "",
   addressCity: shop?.address?.city || "",
   addressState: shop?.address?.state || "",
@@ -145,6 +148,10 @@ const validateEditForm = (form) => {
     nextErrors.contactPhone = "Contact phone is required";
   } else if (!phoneRegex.test(phone)) {
     nextErrors.contactPhone = "Enter valid phone in E.164 format";
+  }
+
+  if (!form.timezone) {
+    nextErrors.timezone = "Timezone is required";
   }
 
   const openDays = Object.values(form.openingHours || {}).filter(
@@ -194,6 +201,7 @@ export default function ProviderShopsPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const { refreshShops, setSelectedShopId } = useProviderWorkspace();
+  const timezoneOptions = useMemo(() => getSupportedTimezoneOptions(), []);
   const [shops, setShops] = useState([]);
   const [applicationStatus, setApplicationStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -357,6 +365,7 @@ export default function ProviderShopsPage() {
           description: editForm.description.trim(),
           contactEmail: editForm.contactEmail.trim(),
           contactPhone: editForm.contactPhone.trim(),
+          timezone: editForm.timezone,
           address: {
             street: editForm.addressStreet.trim(),
             city: editForm.addressCity.trim(),
@@ -476,6 +485,7 @@ export default function ProviderShopsPage() {
                   <p>Contact: {shop.contactEmail || "N/A"}</p>
                   <p>Phone: {shop.contactPhone || "N/A"}</p>
                   <p>City: {shop.address?.city || "N/A"}</p>
+                  <p>Timezone: {shop.timezone || "UTC"}</p>
 
                   <div className="provider-action-row">
                     <button
@@ -617,6 +627,18 @@ export default function ProviderShopsPage() {
                           <span className="error-text">{editErrors.contactPhone}</span>
                         ) : null}
                       </label>
+
+                      <TimezoneSelectField
+                        label="Provider Timezone"
+                        selectId={`shop-timezone-${shop._id}`}
+                        value={editForm.timezone}
+                        onChange={(value) => handleEditFieldChange("timezone", value)}
+                        options={timezoneOptions}
+                        required
+                        helperText="Weekly availability and slot generation use this timezone."
+                        error={editErrors.timezone}
+                        searchPlaceholder="Search abbreviation, timezone, or UTC offset"
+                      />
 
                       <label className="form-field" htmlFor={`shop-address-street-${shop._id}`}>
                         Address Street
@@ -775,6 +797,10 @@ export default function ProviderShopsPage() {
                           <div className="provider-two-col">
                             <div>
                               <h3>Shop Availability</h3>
+                              <p className="muted-text">
+                                Times shown in{" "}
+                                {cardViewData.shop?.timezone || activeShopForView?.timezone || "UTC"}
+                              </p>
                               <div className="provider-checklist">
                                 {getShopAvailabilityRows(
                                   cardViewData.shop?.weeklyAvailability || activeShopForView?.weeklyAvailability,

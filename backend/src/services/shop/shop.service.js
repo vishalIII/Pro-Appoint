@@ -8,6 +8,7 @@ const { getPlanLimits } = require("../../config/planLimits");
 const {
   validateShopWeeklyAvailability,
 } = require("../../utils/availability");
+const { normalizeTimezone } = require("../../utils/timezone");
 const {
   deactivateServicesForShop,
 } = require("../service/service.service");
@@ -169,6 +170,10 @@ exports.createShop = async ({ tenantId, userId, payload }) => {
     }
 
     const weeklyAvailability = validateShopWeeklyAvailability(payload.weeklyAvailability);
+    const timezone = normalizeTimezone(payload?.timezone, {
+      fieldLabel: "timezone",
+      required: true,
+    });
 
     const address =
       payload?.address && typeof payload.address === "object"
@@ -187,6 +192,7 @@ exports.createShop = async ({ tenantId, userId, payload }) => {
       ownerId: userId,
       industry: activeIndustry._id,
       weeklyAvailability,
+      timezone,
       description: payload?.description,
       address,
       contactEmail: payload.contactEmail.trim(),
@@ -229,6 +235,7 @@ exports.updateShop = async ({ shopId, tenantId, userId, updatePayload }) => {
       "contactPhone",
       "address",
       "weeklyAvailability",
+      "timezone",
     ];
 
     const setUpdates = {};
@@ -256,6 +263,13 @@ exports.updateShop = async ({ shopId, tenantId, userId, updatePayload }) => {
       setUpdates.weeklyAvailability = validateShopWeeklyAvailability(
         updatePayload.weeklyAvailability,
       );
+    }
+
+    if (updatePayload?.timezone !== undefined) {
+      setUpdates.timezone = normalizeTimezone(updatePayload.timezone, {
+        fieldLabel: "timezone",
+        required: true,
+      });
     }
 
     const nextStatus = resolveNextShopStatus({

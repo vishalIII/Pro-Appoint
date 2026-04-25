@@ -1,19 +1,15 @@
 const mongoose = require("mongoose");
-const dayjs = require("dayjs");
-const utc = require("dayjs/plugin/utc");
-const customParseFormat = require("dayjs/plugin/customParseFormat");
+const dayjs = require("../../utils/dayjs");
 const Appointment = require("../../models/appointment/appointment.model");
 const Service = require("../../models/service/service.model");
 const Shop = require("../../models/shop/shop.model");
 const Resource = require("../../models/resource/resource.model");
 const AppError = require("../../utils/appError");
+const { DEFAULT_TIMEZONE, normalizeTimezone } = require("../../utils/timezone");
 const generateRoomId = require("../../utils/meeting/generateRoomId");
 const {
   sendPaymentSuccessNotifications,
 } = require("../../utils/appointmentNotifications");
-
-dayjs.extend(utc);
-dayjs.extend(customParseFormat);
 
 const redisUtils = require("../../utils/redisClient")
 
@@ -58,7 +54,6 @@ const DEFAULT_PAYMENT_HOLD_MINUTES = 10;
 const DEFAULT_NO_SHOW_GRACE_MINUTES = 15;
 const DEFAULT_LATE_CANCELLATION_WINDOW_HOURS = 2;
 const DEFAULT_CUSTOMER_REFUND_WINDOW_HOURS = 24;
-const DEFAULT_SLOT_TZ_OFFSET_MINUTES = 0;
 
 // -------------------------------------------------------------------
 const validateAppointmentAction = ({ appointment, action, updates }) => {
@@ -165,23 +160,6 @@ const readIntFromEnvWithinRange = (key, fallback, min, max) => {
   return parsed;
 };
 
-const SLOT_TIMEZONE_OFFSET_MINUTES = readIntFromEnvWithinRange(
-  "SLOT_TIMEZONE_OFFSET_MINUTES",
-  DEFAULT_SLOT_TZ_OFFSET_MINUTES,
-  -12 * 60,
-  14 * 60,
-);
-
-const normalizeTimezoneOffsetMinutes = (value) => {
-  if (Number.isFinite(value)) {
-    const clamped = Math.trunc(value);
-    if (clamped < -12 * 60) return -12 * 60;
-    if (clamped > 14 * 60) return 14 * 60;
-    return clamped;
-  }
-  return SLOT_TIMEZONE_OFFSET_MINUTES;
-};
-
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const normalizeObjectId = (id) =>
   typeof id === "string" ? id.trim().replace(/^:/, "") : id;
@@ -197,22 +175,24 @@ const toDate = (value, fieldName) => {
   return parsed.toDate();
 };
 
-const parseDateOnlyUTC = (value) => {
-  if (!value || typeof value !== "string") {
+const parseDateOnlyInTimezone = (value, timezone) => {
+  const dateText = typeof value === "string" ? value.trim() : "";
+
+  if (!dateText || !/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
     throw new AppError("date query param is required (YYYY-MM-DD)", 400);
   }
 
-  const parsed = dayjs.utc(value, "YYYY-MM-DD", true);
-  if (!parsed.isValid()) {
+  const parsed = dayjs.tz(`${dateText} 00:00`, "YYYY-MM-DD HH:mm", timezone);
+  if (!parsed.isValid() || parsed.format("YYYY-MM-DD") !== dateText) {
     throw new AppError("Invalid date format. Use YYYY-MM-DD", 400);
   }
-  return parsed.toDate();
+  return parsed.utc().toDate();
 };
 
 const parseTimeOnDateUTC = (
   date,
   timeText,
-  offsetMinutes = SLOT_TIMEZONE_OFFSET_MINUTES,
+  timezone = DEFAULT_TIMEZONE,
 ) => {
   const match =
     typeof timeText === "string"
@@ -223,22 +203,18 @@ const parseTimeOnDateUTC = (
     return null;
   }
 
-  let base = dayjs
-    .utc(date)
-    .hour(Number(match[1]))
-    .minute(Number(match[2]))
-    .second(0)
-    .millisecond(0);
+  const dateText = dayjs.utc(date).tz(timezone).format("YYYY-MM-DD");
+  const base = dayjs.tz(
+    `${dateText} ${match[1]}:${match[2]}`,
+    "YYYY-MM-DD HH:mm",
+    timezone,
+  );
 
   if (!base.isValid()) {
     return null;
   }
 
-  if (Number.isFinite(offsetMinutes)) {
-    base = base.subtract(offsetMinutes, "minute");
-  }
-
-  return base.toDate();
+  return base.utc().toDate();
 };
 
 // const getOnlineCapacity = (service) => {
@@ -252,7 +228,7 @@ const parseTimeOnDateUTC = (
 //   return 1;
 // };
 
-const getDayNameUTC = (date) => {
+const getDayNameInTimezone = (date, timezone) => {
   const dayNames = [
     "sunday",
     "monday",
@@ -262,9 +238,12 @@ const getDayNameUTC = (date) => {
     "friday",
     "saturday",
   ];
-  const dayIndex = dayjs.utc(date).day();
+  const dayIndex = dayjs.utc(date).tz(timezone).day();
   return dayNames[dayIndex] || "sunday";
 };
+
+const isSameDayInTimezone = (left, right, timezone) =>
+  dayjs.utc(left).tz(timezone).isSame(dayjs.utc(right).tz(timezone), "day");
 
 const isOverlapping = ({ startA, endA, startB, endB }) =>
   startA < endB && endA > startB;
@@ -296,9 +275,6 @@ const isClosedForDateRange = ({ dayStart, dayEnd, closedPeriods }) => {
   });
 };
 
-const isSameUtcDate = (left, right) =>
-  dayjs.utc(left).isSame(dayjs.utc(right), "day");
-
 const getDayAvailability = (weeklyAvailability, dayName) =>
   (weeklyAvailability || []).find(
     (entry) =>
@@ -316,7 +292,7 @@ const isDayOpen = (dayAvailability) => {
   return false;
 };
 
-const getDayRangesOnDateUTC = ({ date, dayAvailability, offsetMinutes }) => {
+const getDayRangesOnDateUTC = ({ date, dayAvailability, timezone }) => {
   if (!dayAvailability) return [];
 
   const ranges = [];
@@ -328,8 +304,8 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability, offsetMinutes }) => {
   for (const slot of slotList) {
     const startCandidate = slot?.startTime ?? slot?.start;
     const endCandidate = slot?.endTime ?? slot?.end;
-    const slotStart = parseTimeOnDateUTC(date, startCandidate, offsetMinutes);
-    const slotEnd = parseTimeOnDateUTC(date, endCandidate, offsetMinutes);
+    const slotStart = parseTimeOnDateUTC(date, startCandidate, timezone);
+    const slotEnd = parseTimeOnDateUTC(date, endCandidate, timezone);
 
     if (!slotStart || !slotEnd || slotStart >= slotEnd) {
       continue;
@@ -357,8 +333,8 @@ const getDayRangesOnDateUTC = ({ date, dayAvailability, offsetMinutes }) => {
       : dayAvailability.endTime;
 
   if (rangeStartText && rangeEndText) {
-    const rangeStart = parseTimeOnDateUTC(date, rangeStartText, offsetMinutes);
-    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText, offsetMinutes);
+    const rangeStart = parseTimeOnDateUTC(date, rangeStartText, timezone);
+    const rangeEnd = parseTimeOnDateUTC(date, rangeEndText, timezone);
     if (rangeStart && rangeEnd && rangeStart < rangeEnd) {
       return [
         {
@@ -400,8 +376,22 @@ const getBookingAvailabilityError = ({
   startTimeUTC,
   endTimeUTC,
 }) => {
-  const dayStart = dayjs.utc(startTimeUTC).startOf("day").toDate();
-  const dayEnd = dayjs.utc(startTimeUTC).add(1, "day").toDate();
+  const providerTimezone = normalizeTimezone(shop?.timezone, {
+    fallback: DEFAULT_TIMEZONE,
+  });
+  const dayStart = dayjs
+    .utc(startTimeUTC)
+    .tz(providerTimezone)
+    .startOf("day")
+    .utc()
+    .toDate();
+  const dayEnd = dayjs
+    .utc(startTimeUTC)
+    .tz(providerTimezone)
+    .add(1, "day")
+    .startOf("day")
+    .utc()
+    .toDate();
   const isShopClosedByPeriod = isClosedForDateRange({
     dayStart,
     dayEnd,
@@ -412,11 +402,11 @@ const getBookingAvailabilityError = ({
     return "Shop is closed on selected day.";
   }
 
-  if (!isSameUtcDate(startTimeUTC, endTimeUTC)) {
+  if (!isSameDayInTimezone(startTimeUTC, endTimeUTC, providerTimezone)) {
     return "Booking time is outside shop working hours.";
   }
 
-  const dayName = getDayNameUTC(startTimeUTC);
+  const dayName = getDayNameInTimezone(startTimeUTC, providerTimezone);
   const shopDayAvailability = getDayAvailability(
     shop.weeklyAvailability,
     dayName,
@@ -429,6 +419,7 @@ const getBookingAvailabilityError = ({
   const shopRanges = getDayRangesOnDateUTC({
     date: startTimeUTC,
     dayAvailability: shopDayAvailability,
+    timezone: providerTimezone,
   });
 
   if (
@@ -464,6 +455,7 @@ const getBookingAvailabilityError = ({
   const serviceRanges = getDayRangesOnDateUTC({
     date: startTimeUTC,
     dayAvailability: serviceDayAvailability,
+    timezone: providerTimezone,
   });
 
   if (
@@ -646,27 +638,26 @@ const findBlockingAppointments = async ({
   resourceIds,
   startTimeUTC,
   endTimeUTC,
-  attendeeId,
   session,
   excludeAppointmentId,
   now = new Date(),
 }) => {
-  const orConditions = [{ status: "confirmed" }];
-
-  if (attendeeId) {
-    orConditions.push({
-      status: "pending",
-      attendeeId,
-      expiresAt: { $gt: now },
-    });
-  }
-
   const query = {
     shopId,
     "allocatedResources.resourceId": { $in: resourceIds },
     startTimeUTC: { $lt: endTimeUTC },
     endTimeUTC: { $gt: startTimeUTC },
-    $or: orConditions,
+    $or: [
+      { status: "confirmed" },
+      {
+        status: "pending",
+        $or: [
+          { expiresAt: { $exists: false } },
+          { expiresAt: null },
+          { expiresAt: { $gt: now } },
+        ],
+      },
+    ],
   };
 
   if (excludeAppointmentId) {
@@ -698,7 +689,14 @@ const findAttendeeOverlappingAppointments = async ({
       {
         $or: [
           { status: "confirmed" },
-          { status: "pending", expiresAt: { $gt: now } },
+          {
+            status: "pending",
+            $or: [
+              { expiresAt: { $exists: false } },
+              { expiresAt: null },
+              { expiresAt: { $gt: now } },
+            ],
+          },
         ],
       },
     ],
@@ -720,7 +718,6 @@ const getFreeResourcesForWindow = async ({
   resourceMap,
   startTimeUTC,
   endTimeUTC,
-  attendeeId,
   session,
   now,
   excludeAppointmentId,
@@ -732,7 +729,6 @@ const getFreeResourcesForWindow = async ({
     resourceIds,
     startTimeUTC,
     endTimeUTC,
-    attendeeId, // pass it here
     session,
     excludeAppointmentId,
     now,
@@ -828,15 +824,11 @@ exports.getAvailableSlots = async ({
   date,
   attendeeId,
   slotIntervalMinutes,
-  tzOffsetMinutes,
+  userTimezone,
 }) => {
   try {
     const shopId = normalizeObjectId(rawShopId);
     const serviceId = normalizeObjectId(rawServiceId);
-    const selectedDate = parseDateOnlyUTC(date);
-    const timezoneOffsetMinutes = normalizeTimezoneOffsetMinutes(
-      Number(tzOffsetMinutes),
-    );
 
     const intervalRaw =
       slotIntervalMinutes === undefined ? 15 : Number(slotIntervalMinutes);
@@ -853,6 +845,13 @@ exports.getAvailableSlots = async ({
         shopId,
         serviceId,
       });
+    const providerTimezone = normalizeTimezone(shop?.timezone, {
+      fallback: DEFAULT_TIMEZONE,
+    });
+    const selectedDate = parseDateOnlyInTimezone(date, providerTimezone);
+    const resolvedUserTimezone = normalizeTimezone(userTimezone, {
+      fallback: DEFAULT_TIMEZONE,
+    });
 
     const resourceMap = await loadRequiredResourceDetails({
       shopId: shop._id,
@@ -860,8 +859,14 @@ exports.getAvailableSlots = async ({
     });
 
     const dayStart = selectedDate;
-    const dayEnd = addMinutes(dayStart, 24 * 60);
-    const dayName = getDayNameUTC(selectedDate);
+    const dayEnd = dayjs
+      .utc(selectedDate)
+      .tz(providerTimezone)
+      .add(1, "day")
+      .startOf("day")
+      .utc()
+      .toDate();
+    const dayName = getDayNameInTimezone(selectedDate, providerTimezone);
 
     const shopDayAvailability = getDayAvailability(
       shop.weeklyAvailability,
@@ -889,6 +894,8 @@ exports.getAvailableSlots = async ({
       return {
         date,
         durationMinutes: service.durationMinutes,
+        providerTimezone,
+        userTimezone: resolvedUserTimezone,
         requiredResources,
         slots: [],
       };
@@ -897,12 +904,12 @@ exports.getAvailableSlots = async ({
     const shopRanges = getDayRangesOnDateUTC({
       date: selectedDate,
       dayAvailability: shopDayAvailability,
-      offsetMinutes: timezoneOffsetMinutes,
+      timezone: providerTimezone,
     });
     const serviceRanges = getDayRangesOnDateUTC({
       date: selectedDate,
       dayAvailability: serviceDayAvailability,
-      offsetMinutes: timezoneOffsetMinutes,
+      timezone: providerTimezone,
     });
     const effectiveRanges = getIntersectedRanges(shopRanges, serviceRanges);
 
@@ -914,6 +921,8 @@ exports.getAvailableSlots = async ({
       return {
         date,
         durationMinutes: service.durationMinutes,
+        providerTimezone,
+        userTimezone: resolvedUserTimezone,
         requiredResources,
         slots: [],
       };
@@ -943,6 +952,8 @@ exports.getAvailableSlots = async ({
       return {
         date,
         durationMinutes: service.durationMinutes,
+        providerTimezone,
+        userTimezone: resolvedUserTimezone,
         requiredResources,
         slots: [],
       };
@@ -955,6 +966,8 @@ exports.getAvailableSlots = async ({
         return {
           date,
           durationMinutes: service.durationMinutes,
+          providerTimezone,
+          userTimezone: resolvedUserTimezone,
           requiredResources,
           slots: [],
         };
@@ -966,6 +979,8 @@ exports.getAvailableSlots = async ({
         return {
           date,
           durationMinutes: service.durationMinutes,
+          providerTimezone,
+          userTimezone: resolvedUserTimezone,
           requiredResources,
           slots: [],
         };
@@ -983,15 +998,35 @@ exports.getAvailableSlots = async ({
       resourceIds,
       startTimeUTC: earliest,
       endTimeUTC: latest,
-      attendeeId, // ⭐ FIX
       now,
     });
+    const attendeeConflicts = attendeeId
+      ? await findAttendeeOverlappingAppointments({
+          attendeeId,
+          startTimeUTC: earliest,
+          endTimeUTC: latest,
+          now,
+        })
+      : [];
 
     const availableSlots = [];
     const nowForFiltering = dayjs.utc().toDate();
 
     for (const candidate of candidateSlots) {
       if (candidate.startTimeUTC <= nowForFiltering) {
+        continue;
+      }
+
+      if (
+        attendeeConflicts.some((conflict) =>
+          isOverlapping({
+            startA: conflict.startTimeUTC,
+            endA: conflict.endTimeUTC,
+            startB: candidate.startTimeUTC,
+            endB: candidate.endTimeUTC,
+          }),
+        )
+      ) {
         continue;
       }
 
@@ -1037,6 +1072,8 @@ exports.getAvailableSlots = async ({
     return {
       date,
       durationMinutes: service.durationMinutes,
+      providerTimezone,
+      userTimezone: resolvedUserTimezone,
       requiredResources,
       slots: availableSlots,
     };
@@ -1065,6 +1102,7 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       metadata,
       shopId: rawShopId,
       serviceId: rawServiceId,
+      userTimezone,
     } = payload || {};
 
     const shopId = normalizeObjectId(rawShopId);
@@ -1084,6 +1122,10 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
     // }
 
     const requestedStart = toDate(startTimeUTC, "startTimeUTC");
+    const normalizedUserTimezone = normalizeTimezone(userTimezone, {
+      fieldLabel: "userTimezone",
+      fallback: DEFAULT_TIMEZONE,
+    });
 
     let createdAppointment;
 
@@ -1106,6 +1148,9 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
       if (tenantId && String(shop.tenantId) !== String(tenantId)) {
         throw new AppError("Unauthorized tenant access for this shop", 403);
       }
+      const providerTimezone = normalizeTimezone(shop?.timezone, {
+        fallback: DEFAULT_TIMEZONE,
+      });
 
       const computedEnd = addMinutes(requestedStart, service.durationMinutes);
 
@@ -1161,7 +1206,6 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
         resourceMap,
         startTimeUTC: requestedStart,
         endTimeUTC: computedEnd,
-        attendeeId: finalAttendeeId, // add this
         session,
         now,
       });
@@ -1208,6 +1252,8 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             allocatedResources,
             startTimeUTC: requestedStart,
             endTimeUTC: computedEnd,
+            providerTimezone,
+            userTimezone: normalizedUserTimezone,
             mode,
             // meeting: undefined, // ✅ no meeting yet
             location: finalLocation,
@@ -1216,12 +1262,14 @@ exports.createAppointment = async ({ userId, tenantId, payload }) => {
             paymentMethod,
             paymentGateway,
             paymentReference,
-            paymentStatus: providedPaymentStatus || "pending",
+            paymentStatus:
+              providedPaymentStatus ||
+              (paymentMethod === "cash" ? "unpaid" : "pending"),
             status: providedPaymentStatus === "paid" ? "confirmed" : "pending",
             paidAt: providedPaymentStatus === "paid" ? now : undefined,
             metadata,
             expiresAt:
-              providedPaymentStatus === "paid"
+              providedPaymentStatus === "paid" || paymentMethod === "cash"
                 ? undefined
                 : addMinutes(now, PAYMENT_HOLD_MINUTES),
           },

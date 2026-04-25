@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { DEFAULT_TIMEZONE } = require("../../utils/timezone");
 
 const allocatedResourceSchema = new mongoose.Schema(
   {
@@ -119,6 +120,20 @@ const appointmentSchema = new mongoose.Schema(
     durationMinutes: {
       type: Number,
       min: 1,
+    },
+
+    providerTimezone: {
+      type: String,
+      required: true,
+      trim: true,
+      default: DEFAULT_TIMEZONE,
+    },
+
+    userTimezone: {
+      type: String,
+      required: true,
+      trim: true,
+      default: DEFAULT_TIMEZONE,
     },
 
     expiresAt: {

@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const {
   shopWeeklyAvailabilitySchema,
 } = require("../service/schemas/availability.schema");
+const { DEFAULT_TIMEZONE } = require("../../utils/timezone");
 
 const ShopSchema = new mongoose.Schema(
   {
@@ -42,6 +43,13 @@ const ShopSchema = new mongoose.Schema(
     weeklyAvailability: {
       type: [shopWeeklyAvailabilitySchema],
       required: true,
+    },
+
+    timezone: {
+      type: String,
+      required: true,
+      trim: true,
+      default: DEFAULT_TIMEZONE,
     },
 
     description: {
