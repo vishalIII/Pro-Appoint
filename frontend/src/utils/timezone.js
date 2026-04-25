@@ -96,6 +96,15 @@ const formatZoneIdentifier = (timeZone) => {
     .join(" / ");
 };
 
+const formatZonePath = (timeZone) => {
+  if (!timeZone) return DEFAULT_TIMEZONE;
+
+  return timeZone
+    .split("/")
+    .map((segment) => segment.replaceAll("_", " "))
+    .join("/");
+};
+
 const buildAbbreviationFromName = (timeZoneName) => {
   if (!timeZoneName) return "";
   if (timeZoneName === "Coordinated Universal Time") return "UTC";
@@ -146,20 +155,23 @@ const buildTimezoneOption = (timeZone) => {
   const utcOffset = formatOffsetLabel(offsetMinutes, "UTC");
   const gmtOffset = formatOffsetLabel(offsetMinutes, "GMT");
   const { abbreviation, longName } = deriveTimezoneLabels(timeZone);
+  const zonePath = formatZonePath(timeZone);
 
   return {
     value: timeZone,
-    label: `${abbreviation} | ${longName}`,
-    triggerLabel: `${abbreviation} | ${longName}`,
-    primaryText: `${abbreviation}  ${longName}`,
-    secondaryText: `${currentTime}  ${utcOffset}  ${gmtOffset}`,
-    tertiaryText: timeZone,
+    label: zonePath,
+    triggerLabel: zonePath,
+    primaryText: zonePath,
+    secondaryText: `${longName}  ${abbreviation}  ${utcOffset}  ${gmtOffset}  ${currentTime}`,
+    tertiaryText: "",
     abbreviation,
     longName,
     currentTime,
     utcOffset,
     gmtOffset,
+    zonePath,
     searchText: [
+      zonePath,
       abbreviation,
       longName,
       currentTime,

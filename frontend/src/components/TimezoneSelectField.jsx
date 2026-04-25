@@ -26,6 +26,7 @@ const normalizeOption = (option) => {
       currentTime: "",
       utcOffset: "",
       gmtOffset: "",
+      zonePath: option,
     };
   }
 
@@ -55,6 +56,7 @@ const normalizeOption = (option) => {
     currentTime: normalized.currentTime || "",
     utcOffset: normalized.utcOffset || "",
     gmtOffset: normalized.gmtOffset || "",
+    zonePath: normalized.zonePath || normalized.primaryText || normalized.value || "",
   };
 };
 
@@ -183,6 +185,9 @@ export default function TimezoneSelectField({
     if (hasTimezoneColumns) {
       return (
         <>
+          <span className="timezone-select-option-main">
+            {option.zonePath || option.primaryText}
+          </span>
           <div className="timezone-select-option-topline">
             <span className="timezone-select-option-abbr">
               {option.abbreviation}
@@ -267,7 +272,7 @@ export default function TimezoneSelectField({
 
             <div className="timezone-select-options" role="listbox">
               <div className="timezone-select-header">
-                <span>Abbreviation / Time Zone</span>
+                <span>Timezone / Name</span>
                 <span>Current Time / UTC / GMT</span>
               </div>
 
