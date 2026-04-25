@@ -16,6 +16,19 @@ const DAYS = [
   "sunday",
 ];
 
+const generateTimeOptions = () => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let min = 0; min < 60; min += 30) {
+      const time = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+      options.push(time);
+    }
+  }
+  return options;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
+
 const toTitleCase = (value) =>
   value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -376,25 +389,35 @@ export default function ProviderCreateShopPage() {
                   </label>
                   <label>
                     Open
-                    <input
-                      type="time"
+                    <select
                       value={value.open}
                       onChange={(event) =>
                         handleOpeningHoursChange(day, "open", event.target.value)
                       }
                       disabled={value.closed}
-                    />
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     Close
-                    <input
-                      type="time"
+                    <select
                       value={value.close}
                       onChange={(event) =>
                         handleOpeningHoursChange(day, "close", event.target.value)
                       }
                       disabled={value.closed}
-                    />
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
               );
