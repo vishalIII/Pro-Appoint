@@ -50,13 +50,13 @@ export default function HeroSection() {
             placeholder="What do you need?"
           />
 
-          <button
+          {/* <button
             type="button"
             className="btn btn-ogani"
             onClick={handleSearch}
           >
             Search
-          </button>
+          </button> */}
         </div>
       </div>
 
