@@ -256,7 +256,7 @@ export default function PlanUpgradePanel({
   }
 
   return (
-    <div>
+    <div className="plan-upgrade-panel">
       {showHeader ? (
         <>
           <h1>{title}</h1>
@@ -400,6 +400,18 @@ export default function PlanUpgradePanel({
         .btn.btn-secondary {
           background: #e0e0e0;
           color: #333;
+        }
+        .plan-upgrade-panel {
+          max-height: 80vh;
+          overflow-y: auto;
+          padding-right: 0.5rem;
+        }
+        .plan-upgrade-panel::-webkit-scrollbar {
+          width: 10px;
+        }
+        .plan-upgrade-panel::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 999px;
         }
       `}</style>
     </div>
