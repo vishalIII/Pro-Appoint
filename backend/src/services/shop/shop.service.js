@@ -198,7 +198,7 @@ exports.createShop = async ({ tenantId, userId, payload }) => {
       contactEmail: payload.contactEmail.trim(),
       contactPhone: payload.contactPhone.trim(),
       images: Array.isArray(payload?.images) ? payload.images : [],
-      status: "approved",
+      status: "pending",
     });
 
     return shop;
