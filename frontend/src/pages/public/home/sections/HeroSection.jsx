@@ -14,14 +14,15 @@ export default function HeroSection() {
   const [loading, setLoading] = useState(false);
   const[status,setStatus]=useState(false)
 
-  const handleSearch = async () => {
-    if (!input.trim()) return;
-    
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    // if (!input.trim()) return;
+    setInput(e.target.value);
     try {
       setLoading(true);
 
       const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
-        params: { search: input }
+        params: { search: e.target.value }
       });
       if(res.data.shops.length===0){
         setStatus(true)
