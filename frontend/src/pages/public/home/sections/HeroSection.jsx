@@ -5,18 +5,18 @@ export default function HeroSection() {
   const navigate = useNavigate();
 
   const handleSearch = ({ service, location }) => {
-  const cleanService = service?.trim() || "";
-  const cleanLocation = location?.trim() || "";
+    const cleanService = service?.trim() || "";
+    const cleanLocation = location?.trim() || "";
 
-  const query = `${cleanService} ${cleanLocation}`.trim();
+    const query = `${cleanService} ${cleanLocation}`.trim();
 
-  const params = new URLSearchParams();
-  if (cleanService) params.set("service", cleanService);
-  if (cleanLocation) params.set("location", cleanLocation);
-  if (query) params.set("q", query);
+    const params = new URLSearchParams();
+    if (cleanService) params.set("service", cleanService);
+    if (cleanLocation) params.set("location", cleanLocation);
+    if (query) params.set("q", query);
 
-  navigate(`/search?${params.toString()}`);
-};
+    navigate(`/search?${params.toString()}`);
+  };
 
   return (
     <div className="hero-column">
