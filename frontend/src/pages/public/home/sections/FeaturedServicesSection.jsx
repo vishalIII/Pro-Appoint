@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import SearchCard from "../../../../components/SearchCard";
 
 export default function FeaturedServicesSection({
   featuredServices,
@@ -19,19 +19,12 @@ export default function FeaturedServicesSection({
       ) : null}
 
       {featuredServices.length > 0 ? (
-        <div className="ogani-product-grid">
-          {featuredServices.map((service) => (
-            <article key={service.id} className="ogani-product-card">
-              <div className={`product-thumb ${service.tone}`}>
-                <span>{service.icon}</span>
-              </div>
-              <p className="product-category">{service.category}</p>
-              <h3>{service.name}</h3>
-              <p className="product-price">{service.price}</p>
-              <Link to={`/shops/${service.shopId}/services/${service.serviceId}`} className="product-link">
-                View details
-              </Link>
-            </article>
+        <div className="search-results-grid">
+          {featuredServices.map((result) => (
+            <SearchCard
+              key={`${result.shop._id}-${result.service._id}`}
+              result={result}
+            />
           ))}
         </div>
       ) : null}

@@ -136,17 +136,21 @@ export const useHomeData = () => {
               typeof shop?.shopName === "string" && shop.shopName.trim() ? shop.shopName.trim() : "Shop";
 
             return {
-              id: service?._id || `${service?.shopId || "shop"}-${index}`,
-              shopId: service?.shopId,
-              serviceId: service?._id,
-              name: title || "Unnamed Service",
-              category:
-                typeof service?.category === "string" && service.category.trim()
-                  ? service.category.trim()
-                  : shopName,
-              price: formatServicePrice(service?.price),
-              tone: SERVICE_CARD_TONES[index % SERVICE_CARD_TONES.length],
-              icon: getInitials(title)
+              shop: {
+                _id: shop?._id,
+                shopName: shop?.shopName || "Unnamed Shop",
+                images: shop?.images || [],
+                address: shop?.address || {},
+                ratingAvg: shop?.ratingAvg || 0,
+                ratingCount: shop?.ratingCount || 0
+              },
+              service: {
+                _id: service?._id,
+                name: title || "Unnamed Service",
+                category: service?.category || "",
+                price: service?.price,
+                images: service?.images || []
+              }
             };
           });
 
