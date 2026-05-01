@@ -1,135 +1,29 @@
-import { Link } from "react-router-dom";
-import { useState,useEffect } from "react";
-import axios from "axios";
-import LazyImage from "../../../../components/LazyImage";
-import {
-  API_BASE_URL,
-  FALLBACK_DEPARTMENTS,
-  FEATURED_SERVICE_LIMIT,
-  SERVICE_CARD_TONES
-} from "../constants";
+import { useNavigate } from "react-router-dom";
+import SearchBar from "../../../../components/SearchBar";
+
 export default function HeroSection() {
-  const [input, setInput] = useState("");
-  const [shops, setShops] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const[status,setStatus]=useState(false)
+  const navigate = useNavigate();
 
-  useEffect(() => {
-  if (!input.trim()) {
-    setShops([]);
-    return;
-  }
+  const handleSearch = ({ service, location }) => {
+  const cleanService = service?.trim() || "";
+  const cleanLocation = location?.trim() || "";
 
-  const delay = setTimeout(async () => {
-    try {
-      setLoading(true);
+  const query = `${cleanService} ${cleanLocation}`.trim();
 
-      const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
-        params: { search: input }
-      });
+  const params = new URLSearchParams();
+  if (cleanService) params.set("service", cleanService);
+  if (cleanLocation) params.set("location", cleanLocation);
+  if (query) params.set("q", query);
 
-       if(res.data.shops.length===0){
-        setStatus(true)
-      }
-      setShops(res.data.shops);
-
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, 300); 
-
-  return () => clearTimeout(delay);
-}, [input]);
-
-  // const handleSearch = async (e) => {
-  //   // e.preventDefault();
-  //   // if (!input.trim()) return;
-  //   setInput(e.target.value);
-  //   try {
-  //     setLoading(true);
-
-  //     const res = await axios.get(`${API_BASE_URL}/shops/getShops`, {
-  //       params: { search: e.target.value }
-  //     });
-  //     if(res.data.shops.length===0){
-  //       setStatus(true)
-  //     }
-  //     setShops(res.data.shops);
-  //   } catch (err) {
-  //     console.error(err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  navigate(`/search?${params.toString()}`);
+};
 
   return (
     <div className="hero-column">
       <div className="search-support-row">
-        <div className="hero-search">
-          <button type="button" className="search-category">
-            All Categories
-          </button>
-
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="What do you need?"
-          />
-
-          {/* <button
-            type="button"
-            className="btn btn-ogani"
-            onClick={handleSearch}
-          >
-            Search
-          </button> */}
-        </div>
+        <SearchBar onSearch={handleSearch} buttonLabel="Search" />
       </div>
 
-      {/* 🔍 Results BELOW (no CSS change needed above) */}
-      <div style={{ marginTop: "20px" }}>
-        {loading && <p>Loading...</p>}
-
-        
-
-       
-        {shops.length > 0 ? (
-                <div className="shop-highlight-grid">
-                  {status?<p>No Shops found</p>:shops.map((shop) => (
-                    <article key={shop._id} className="shop-highlight-card">
-                      <Link className="shop-highlight-media" to={`/shops/${shop._id}`}>
-                        <LazyImage
-                          src={shop.images?.[0] || SHOP_PLACEHOLDER_IMAGE}
-                          alt={`${shop.name || "Shop"} preview`}
-                          height={200}
-                          aspectRatio="4 / 3"
-                          fetchPriority="low"
-                        />
-                      </Link>
-                      <div className="shop-highlight-body">
-                        <div className="shop-highlight-head">
-                          <h3>{shop.shopName}</h3>
-                          {/* <p className="shop-highlight-rating">
-                            <span className="shop-star">★</span>
-                            <span>{shop.ratingCount > 0 ? shop.rating.toFixed(1) : "New"}</span>
-                            {shop.ratingCount > 0 ? (
-                              <span className="shop-rating-count">({shop.ratingCount})</span>
-                            ) : null}
-                          </p> */}
-                        </div>
-                        <p className="shop-highlight-location">{shop.address.city}</p>
-                        {/* <p className="shop-highlight-label">{shop.label}</p> */}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : null}
-      </div>
-
-      {/* existing banner unchanged */}
       <article className="hero-banner">
         <div className="hero-copy">
           <p className="hero-eyebrow">BOOK EASY</p>
@@ -141,12 +35,8 @@ export default function HeroSection() {
           <p>Instant Confirmation Available</p>
 
           <div className="hero-actions">
-            <Link className="btn btn-ogani" to="/menu">
-              Shop Now
-            </Link>
-            <Link className="btn btn-secondary" to="/reviews">
-              Read Reviews
-            </Link>
+            <button className="btn btn-ogani" type="button" onClick={() => navigate("/search")}>Search services</button>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate("/reviews")}>Read Reviews</button>
           </div>
         </div>
       </article>

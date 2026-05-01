@@ -11,6 +11,7 @@ const adminRoutes = require("./routes/admin/index.js")
 const paymentRoutes = require("./routes/payment/payment.routes.js")
 const appointmentRoutes = require("./routes/appointment/appointment.routes.js")
 const publicShopRoutes = require("./routes/public/public.shop.routes.js");
+const publicSearchRoutes = require("./routes/public/search.routes.js");
 const publicAppointmentRoutes = require('./routes/public/public.appointment.routes.js');
 const notificationRoutes = require("./routes/notification/notification.routes.js");
 const videoRoutes = require("./routes/video/video.routes.js");
@@ -63,6 +64,7 @@ app.use("/api/payment",paymentRoutes);
 
 // Public shop & service browsing routes (customers) NOT require authentication for browsing.
 app.use("/api/shops", publicShopRoutes);
+app.use("/api/search", publicSearchRoutes);
 
 // New public appointment endpoints (bookings independent from shop nested path) ===== for customer appointments
 // app.use('/api/customer', authMiddleware, publicAppointmentRoutes);
