@@ -1,0 +1,53 @@
+name: Deploy to EC2
+
+on:
+push:
+branches: [main]
+workflow_dispatch:
+
+jobs:
+  deploy:
+  runs-on: ubuntu-latest
+
+
+  steps:
+  - name: Deploy via SSH
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+    run: |
+      echo "$SSH_PRIVATE_KEY" > private_key.pem
+      chmod 600 private_key.pem
+
+      ssh -i private_key.pem -o StrictHostKeyChecking=no \
+      ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+
+        set -e   # 🚨 stop if any command fails
+
+        echo "🚀 Starting deployment..."
+
+        cd ~/Pro-Appoint/backend
+
+        echo "📥 Pulling latest code..."
+        git pull origin main
+
+        echo "📦 Installing dependencies..."
+        npm install --production
+
+        echo "♻️ Restarting PM2..."
+        pm2 describe backend > /dev/null \
+          && pm2 restart ecosystem.config.cjs --update-env \
+          || pm2 start ecosystem.config.cjs
+
+        pm2 save
+
+        echo "📊 PM2 Status:"
+        pm2 list
+
+        echo "✅ Deployment completed!"
+
+      EOF
+
+      rm private_key.pem
+
