@@ -6,11 +6,11 @@ branches: [main]
 workflow_dispatch:
 
 jobs:
-  deploy:
-  runs-on: ubuntu-latest
+deploy:
+runs-on: ubuntu-latest
 
 
-  steps:
+steps:
   - name: Deploy via SSH
     env:
       EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -23,7 +23,7 @@ jobs:
       ssh -i private_key.pem -o StrictHostKeyChecking=no \
       ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
 
-        set -e   # 🚨 stop if any command fails
+        set -e
 
         echo "🚀 Starting deployment..."
 
