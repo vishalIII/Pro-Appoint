@@ -28,7 +28,9 @@ jobs:
 
             cd ~/Pro-Appoint/backend
 
-            echo "📥 Pulling latest code..."
+            echo "📥 Fixing repo state..."
+            git reset --hard
+            git clean -fd
             git pull origin main
 
             echo "📦 Installing dependencies..."
