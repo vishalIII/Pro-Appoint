@@ -22,33 +22,51 @@ jobs:
           ssh -i private_key.pem -o StrictHostKeyChecking=no \
           ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
 
-            set -e
+          set -e
 
-            echo "🚀 Starting deployment..."
+          echo "🚀 Starting deployment..."
 
-            cd ~/Pro-Appoint/backend
+          # ---------------------------
+          # 1. Ensure project exists
+          # ---------------------------
+          if [ ! -d "~/Pro-Appoint" ]; then
+            echo "📥 Cloning repository..."
+            git clone https://github.com/vishalIII/Pro-Appoint.git ~/Pro-Appoint
+          fi
 
-            echo "📥 Fixing repo state..."
-            git reset --hard
-            git clean -fd
-            git pull origin main
+          cd ~/Pro-Appoint/backend
 
-            echo "📦 Installing dependencies..."
-            npm install --production
+          # ---------------------------
+          # 2. Fix repo state safely
+          # ---------------------------
+          echo "📥 Updating code..."
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd
 
-            echo "♻️ Restarting PM2..."
-            if pm2 describe backend > /dev/null; then
-              pm2 restart ecosystem.config.cjs --update-env
-            else
-              pm2 start ecosystem.config.cjs
-            fi
+          # ---------------------------
+          # 3. Install dependencies
+          # ---------------------------
+          echo "📦 Installing dependencies..."
+          npm install --production
 
-            pm2 save
+          # ---------------------------
+          # 4. PM2 deploy (safe)
+          # ---------------------------
+          echo "♻️ Restarting PM2..."
 
-            echo "📊 PM2 Status:"
-            pm2 list
+          if pm2 list | grep -q "backend"; then
+            pm2 restart backend --update-env
+          else
+            pm2 start ecosystem.config.cjs --name backend
+          fi
 
-            echo "✅ Deployment completed!"
+          pm2 save
+
+          echo "📊 PM2 Status:"
+          pm2 list
+
+          echo "✅ Deployment completed successfully!"
 
           EOF
 
