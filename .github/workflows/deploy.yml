@@ -51,15 +51,12 @@ jobs:
           npm install --production
 
           # ---------------------------
-          # 4. PM2 deployment (safe)
+          # 4. PM2 deployment (FIXED)
           # ---------------------------
           echo "♻️ Restarting PM2..."
 
-          if pm2 list | grep -q "backend"; then
-            pm2 restart backend --update-env
-          else
-            pm2 start ecosystem.config.cjs --name backend
-          fi
+          # Always use ecosystem file (no name mismatch issues)
+          pm2 start ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs
 
           pm2 save
 
