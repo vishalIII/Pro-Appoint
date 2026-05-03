@@ -27,7 +27,7 @@ app.use(cookieParser());
 
 /* -------- Middleware -------- */
 app.use(cors({
-  origin:['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin:['http://proappoint.s3-website.ap-south-1.amazonaws.com','http://localhost:5173', 'http://127.0.0.1:5173'],
   credentials: true
 }));
 app.use(express.json());
