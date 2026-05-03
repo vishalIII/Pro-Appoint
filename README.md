@@ -5,6 +5,5 @@ docker compose up	            -Code changes only (JS/TS), containers already bui
 docker compose build	        -Pre-build images (no containers started)
 docker compose down	            -Stop & remove containers
  
-
 backend - http://localhost:5000/
 frontend- http://127.0.0.1:5173/
