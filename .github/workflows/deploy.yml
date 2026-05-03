@@ -27,17 +27,17 @@ jobs:
           echo "🚀 Starting deployment..."
 
           # ---------------------------
-          # 1. Ensure project exists
+          # 1. Ensure repo exists safely
           # ---------------------------
-          if [ ! -d "~/Pro-Appoint" ]; then
+          if [ ! -d "$HOME/Pro-Appoint/.git" ]; then
             echo "📥 Cloning repository..."
-            git clone https://github.com/vishalIII/Pro-Appoint.git ~/Pro-Appoint
+            git clone https://github.com/vishalIII/Pro-Appoint.git $HOME/Pro-Appoint
           fi
 
-          cd ~/Pro-Appoint/backend
+          cd $HOME/Pro-Appoint/backend
 
           # ---------------------------
-          # 2. Fix repo state safely
+          # 2. Sync latest code safely
           # ---------------------------
           echo "📥 Updating code..."
           git fetch origin main
@@ -51,7 +51,7 @@ jobs:
           npm install --production
 
           # ---------------------------
-          # 4. PM2 deploy (safe)
+          # 4. PM2 deployment (safe)
           # ---------------------------
           echo "♻️ Restarting PM2..."
 
