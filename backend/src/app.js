@@ -18,16 +18,16 @@ const videoRoutes = require("./routes/video/video.routes.js");
 const meetingRoutes = require("./routes/meeting/meeting.routes.js");
 const uploadRoutes = require("./routes/upload/upload.routes.js");
 const reviewRoutes = require("./routes/review.routes.js");
+const { applyCorsHeaders, corsOriginResolver } = require("./config/cors.js");
 require("dotenv").config();
-
-
 
 const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
 /* -------- Middleware -------- */
+app.use(applyCorsHeaders);
 app.use(cors({
-  origin:['http://proappoint.s3-website.ap-south-1.amazonaws.com','http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: corsOriginResolver,
   credentials: true
 }));
 app.use(express.json());

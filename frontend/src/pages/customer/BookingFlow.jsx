@@ -4,6 +4,7 @@ import AlertModal from "../../components/AlertModal";
 import FakePayCheckout from "../../components/FakePayCheckout";
 import TimezoneSelectField from "../../components/TimezoneSelectField";
 import api from "../../auth/api";
+import { API_BASE_URL } from "../../config/runtime";
 import {
   clearPreferredTimezone,
   formatTimeWindowInTimezone,
@@ -15,8 +16,6 @@ import {
   resolvePreferredTimezone,
 } from "../../utils/timezone";
 import dayjs from "../../utils/dayjs";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 const DEFAULT_PROVIDER_TIMEZONE = "UTC";
 const BROWSER_TIMEZONE_OPTION = "__browser__";
 

@@ -1,3 +1,5 @@
+export { API_BASE_URL } from "../../../config/runtime";
+
 export const FALLBACK_DEPARTMENTS = [
   "Fresh Meat",
   "Vegetables",
@@ -10,8 +12,6 @@ export const FALLBACK_DEPARTMENTS = [
   "Oatmeal",
   "Fresh Bananas"
 ];
-
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export const SHOP_PLACEHOLDER_IMAGE =
   "https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg";

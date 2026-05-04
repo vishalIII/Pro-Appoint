@@ -1,6 +1,5 @@
 import { io } from "socket.io-client";
-
-const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_BASE_URL || "http://localhost:5000";
+import { SOCKET_BASE_URL } from "../config/runtime";
 
 let socketInstance = null;
 let connectedUserId = null;

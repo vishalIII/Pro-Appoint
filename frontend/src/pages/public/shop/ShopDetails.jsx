@@ -4,8 +4,7 @@ import ImageCarousel from "../../../components/ImageCarousel";
 import { useAuth } from "../../../auth/useAuth";
 import { getShopReviews, createReview } from "../../../api/reviewsApi";
 import { ROLES } from "../../../rbac/roles";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+import { API_BASE_URL } from "../../../config/runtime";
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const DAY_LABELS = {
   monday: "Monday",
