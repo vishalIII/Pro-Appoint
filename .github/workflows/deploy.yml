@@ -83,7 +83,11 @@ jobs:
           echo "♻️ Restarting PM2..."
           mkdir -p logs
 
-          # Replace the running app so we know the new code is what binds the port.
+          echo "📊 PM2 before cleanup:"
+          pm2 list || true
+
+          # Remove both the legacy app name and the current ecosystem app name.
+          pm2 delete backend || true
           pm2 delete mern-backend || true
           pm2 start ecosystem.config.cjs --update-env
 
