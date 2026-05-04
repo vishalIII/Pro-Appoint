@@ -13,13 +13,32 @@ jobs:
       - name: Deploy via SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
+          set -euo pipefail
+
+          if [ -z "${EC2_HOST:-}" ] || [ -z "${EC2_USERNAME:-}" ] || [ -z "${SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing one of the required secrets: EC2_HOST, EC2_USERNAME, EC2_SSH_KEY"
+            exit 1
+          fi
+
+          SSH_PORT="${EC2_PORT:-22}"
+
           echo "$SSH_PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
 
-          ssh -i private_key.pem -o StrictHostKeyChecking=no \
+          echo "Checking SSH connectivity to ${EC2_HOST}:${SSH_PORT}..."
+          if ! timeout 15 bash -c "cat < /dev/null > /dev/tcp/${EC2_HOST}/${SSH_PORT}"; then
+            echo "Cannot reach ${EC2_HOST}:${SSH_PORT} from the GitHub runner."
+            echo "Check the EC2 public IP/DNS, security group inbound rules, subnet routing, and server firewall."
+            exit 1
+          fi
+
+          ssh -T -p "${SSH_PORT}" -i private_key.pem \
+          -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=20 \
           ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
 
           set -e
