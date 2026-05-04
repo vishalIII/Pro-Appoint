@@ -25,11 +25,29 @@ const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
 /* -------- Middleware -------- */
-app.use(applyCorsHeaders);
+
+
+//-------------------------------------------------------------------
+// app.use(applyCorsHeaders);
+// app.use(cors({
+//   origin: corsOriginResolver,
+//   credentials: true
+// }));
+
 app.use(cors({
-  origin: corsOriginResolver,
+  origin: "http://proappoint.s3-website.ap-south-1.amazonaws.com",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+app.options("*", cors()); // handle preflight
+
+
+
+//------------------------------------------------------------------
+
+
 app.use(express.json());
 // Normalize multiple slashes in incoming URLs to prevent accidental '//' segments
 app.use((req, res, next) => {
