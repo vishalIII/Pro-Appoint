@@ -94,7 +94,22 @@ jobs:
           pm2 save
 
           echo "🩺 Health check:"
-          curl -fsS http://127.0.0.1:5000/health
+          HEALTH_OK=""
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:5000/health; then
+              HEALTH_OK="yes"
+              break
+            fi
+
+            echo "Health check attempt ${attempt}/20 failed, waiting..."
+            sleep 2
+          done
+
+          if [ -z "${HEALTH_OK}" ]; then
+            echo "Backend never became healthy on 127.0.0.1:5000"
+            pm2 logs mern-backend --lines 80 --nostream || true
+            exit 1
+          fi
 
           echo "🧪 CORS check:"
           CORS_RESPONSE=$(curl -si \
