@@ -15,6 +15,7 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_PORT: ${{ secrets.EC2_PORT }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          DEPLOY_REF: ${{ github.ref_name }}
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           set -euo pipefail
@@ -59,8 +60,8 @@ jobs:
           # 2. Sync latest code safely
           # ---------------------------
           echo "📥 Updating code..."
-          git fetch origin main
-          git reset --hard origin/main
+          git fetch origin "${DEPLOY_REF}"
+          git reset --hard "origin/${DEPLOY_REF}"
           git clean -fd
 
           # ---------------------------
@@ -78,6 +79,9 @@ jobs:
           pm2 start ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs
 
           pm2 save
+
+          echo "🩺 Health check:"
+          curl -fsS http://127.0.0.1:5000/health
 
           echo "📊 PM2 Status:"
           pm2 list
