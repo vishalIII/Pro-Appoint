@@ -65,6 +65,11 @@ jobs:
           git fetch origin "${DEPLOY_REF}"
           git reset --hard "origin/${DEPLOY_REF}"
           git clean -fd
+          git log -1 --oneline
+
+          echo "📄 Backend CORS source:"
+          sed -n '1,35p' src/app.js
+          sed -n '1,80p' src/config/cors.js
 
           # ---------------------------
           # 3. Install dependencies
@@ -76,9 +81,11 @@ jobs:
           # 4. PM2 deployment (FIXED)
           # ---------------------------
           echo "♻️ Restarting PM2..."
+          mkdir -p logs
 
-          # Reload if the app already exists, otherwise start it fresh.
-          pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs --update-env
+          # Replace the running app so we know the new code is what binds the port.
+          pm2 delete mern-backend || true
+          pm2 start ecosystem.config.cjs --update-env
 
           pm2 save
 
@@ -86,13 +93,16 @@ jobs:
           curl -fsS http://127.0.0.1:5000/health
 
           echo "🧪 CORS check:"
-          CORS_HEADER=$(curl -sSI \
+          CORS_RESPONSE=$(curl -si \
             -H "Origin: http://proappoint.s3-website.ap-south-1.amazonaws.com" \
-            http://127.0.0.1:5000/api/shops | tr -d '\r' | grep -i '^Access-Control-Allow-Origin:' || true)
-          echo "${CORS_HEADER}"
+            http://127.0.0.1:5000/api/shops | tr -d '\r')
+          echo "${CORS_RESPONSE}" | sed -n '1,20p'
+
+          CORS_HEADER=$(echo "${CORS_RESPONSE}" | grep -i '^Access-Control-Allow-Origin:' || true)
 
           if ! echo "${CORS_HEADER}" | grep -q "http://proappoint.s3-website.ap-south-1.amazonaws.com"; then
             echo "CORS verification failed on the backend."
+            pm2 logs mern-backend --lines 40 --nostream || true
             exit 1
           fi
 
