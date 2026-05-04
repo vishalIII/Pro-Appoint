@@ -26,6 +26,7 @@ jobs:
           fi
 
           SSH_PORT="${EC2_PORT:-22}"
+          REMOTE_DEPLOY_REF="${DEPLOY_REF:-main}"
 
           echo "$SSH_PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
@@ -40,11 +41,12 @@ jobs:
           ssh -T -p "${SSH_PORT}" -i private_key.pem \
           -o StrictHostKeyChecking=no \
           -o ConnectTimeout=20 \
-          ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+          ${EC2_USERNAME}@${EC2_HOST} "DEPLOY_REF='${REMOTE_DEPLOY_REF}' bash -s" << 'EOF'
 
           set -e
 
           echo "🚀 Starting deployment..."
+          echo "📌 Deploy ref: ${DEPLOY_REF}"
 
           # ---------------------------
           # 1. Ensure repo exists safely
