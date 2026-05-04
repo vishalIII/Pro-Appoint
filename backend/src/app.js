@@ -25,13 +25,20 @@ const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
 /* -------- Middleware -------- */
-app.use(applyCorsHeaders);
+// app.use(applyCorsHeaders);
+// app.use(cors({
+//   origin: corsOriginResolver,
+//   credentials: true
+// }));
+// app.options("/*", cors({
+//   origin: corsOriginResolver,
+//   credentials: true
+// }));
+
+const cors = require("cors");
+
 app.use(cors({
-  origin: corsOriginResolver,
-  credentials: true
-}));
-app.options("*", cors({
-  origin: corsOriginResolver,
+  origin: true,        //  auto-allow your frontend origin
   credentials: true
 }));
 

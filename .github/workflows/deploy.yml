@@ -64,8 +64,15 @@ jobs:
           echo "📥 Updating code..."
           git fetch origin "${DEPLOY_REF}"
           git reset --hard "origin/${DEPLOY_REF}"
-          git clean -fd
+          git clean -fd -e .env -e logs
           git log -1 --oneline
+
+          if [ ! -s .env ]; then
+            echo "Missing or empty backend/.env on the server."
+            echo "Restore backend/.env with the production environment variables before deploying."
+            ls -la
+            exit 1
+          fi
 
           echo "📄 Backend CORS source:"
           sed -n '1,35p' src/app.js
