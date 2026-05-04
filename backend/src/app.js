@@ -36,6 +36,10 @@ app.use(cookieParser());
 // }));
 
 // const cors = require("cors");
+app.use((req, res, next) => {
+  console.log("Origin:", req.headers.origin);
+  next();
+});
 
 app.use(cors({
   origin: true,        //  auto-allow your frontend origin
