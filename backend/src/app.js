@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+require("dotenv").config();
 const User = require("./models/user/user.model.js")
 const Tenant = require("./models/tenant/tenant.model.js")
 const errorHandler = require("./middlewares/errorHandler.middleware.js")
@@ -19,7 +20,6 @@ const meetingRoutes = require("./routes/meeting/meeting.routes.js");
 const uploadRoutes = require("./routes/upload/upload.routes.js");
 const reviewRoutes = require("./routes/review.routes.js");
 const { applyCorsHeaders, corsOriginResolver } = require("./config/cors.js");
-require("dotenv").config();
 
 const cookieParser = require("cookie-parser");
 app.use(cookieParser());
