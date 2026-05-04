@@ -77,13 +77,24 @@ jobs:
           # ---------------------------
           echo "♻️ Restarting PM2..."
 
-          # Always use ecosystem file (no name mismatch issues)
-          pm2 start ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs
+          # Reload if the app already exists, otherwise start it fresh.
+          pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs --update-env
 
           pm2 save
 
           echo "🩺 Health check:"
           curl -fsS http://127.0.0.1:5000/health
+
+          echo "🧪 CORS check:"
+          CORS_HEADER=$(curl -sSI \
+            -H "Origin: http://proappoint.s3-website.ap-south-1.amazonaws.com" \
+            http://127.0.0.1:5000/api/shops | tr -d '\r' | grep -i '^Access-Control-Allow-Origin:' || true)
+          echo "${CORS_HEADER}"
+
+          if ! echo "${CORS_HEADER}" | grep -q "http://proappoint.s3-website.ap-south-1.amazonaws.com"; then
+            echo "CORS verification failed on the backend."
+            exit 1
+          fi
 
           echo "📊 PM2 Status:"
           pm2 list
