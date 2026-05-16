@@ -11,3 +11,5 @@ Redis notes:
         
 backend - http://localhost:5000/
 frontend- http://127.0.0.1:5173/
+
+live frontend - http://proappoint.s3-website.ap-south-1.amazonaws.com/
